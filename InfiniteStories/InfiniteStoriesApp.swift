@@ -22,7 +22,31 @@ struct InfiniteStoriesApp: App {
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+            print("❌ Failed to create ModelContainer: \(error)")
+            
+            // Clean up and try with fresh database
+            print("⚠️ Cleaning up corrupted database...")
+            let fileManager = FileManager.default
+            let documentsPath = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
+            
+            // Remove SwiftData files
+            let storeURL = documentsPath.appendingPathComponent("default.store")
+            try? fileManager.removeItem(at: storeURL)
+            
+            let shmURL = documentsPath.appendingPathComponent("default.store-shm")
+            try? fileManager.removeItem(at: shmURL)
+            
+            let walURL = documentsPath.appendingPathComponent("default.store-wal")
+            try? fileManager.removeItem(at: walURL)
+            
+            print("✅ Database cleaned. Creating fresh container...")
+            
+            // Try again with fresh database
+            do {
+                return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            } catch {
+                fatalError("Could not create ModelContainer even after cleanup: \(error)")
+            }
         }
     }()
 

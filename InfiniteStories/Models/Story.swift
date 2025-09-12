@@ -19,8 +19,8 @@ final class Story {
     var isFavorite: Bool
     var playCount: Int
     var estimatedDuration: TimeInterval
-    var audioNeedsRegeneration: Bool
-    var lastModified: Date
+    var audioNeedsRegeneration: Bool = false
+    var lastModified: Date = Date()
     
     @Relationship(inverse: \Hero.stories) var hero: Hero?
     
