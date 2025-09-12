@@ -32,7 +32,7 @@ protocol AudioServiceProtocol {
 }
 
 class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPlayerDelegate, AVSpeechSynthesizerDelegate {
-    private let synthesizer = AVSpeechSynthesizer()
+    nonisolated(unsafe) private let synthesizer = AVSpeechSynthesizer()
     private var audioPlayer: AVAudioPlayer?
     private var currentAudioURL: URL?
     private var currentUtterance: AVSpeechUtterance?

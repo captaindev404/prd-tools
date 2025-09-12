@@ -167,13 +167,13 @@ struct AccessibleTypography {
 }
 
 // MARK: - Motion Aware Modifier
-struct MotionAwareModifier: ViewModifier {
+struct MotionAwareModifier<V: Equatable>: ViewModifier {
     @Environment(\.accessibilityReduceMotion) var reduceMotion
-    let value: Any
+    let value: V
     
     func body(content: Content) -> some View {
         content
-            .animation(reduceMotion ? .linear(duration: 0.1) : .spring(response: 0.3, dampingFraction: 0.7))
+            .animation(reduceMotion ? .linear(duration: 0.1) : .spring(response: 0.3, dampingFraction: 0.7), value: value)
     }
 }
 
@@ -250,7 +250,7 @@ extension View {
         modifier(AccessibleInteractionModifier(action: action))
     }
     
-    func motionAware(value: Any) -> some View {
+    func motionAware<V: Equatable>(value: V) -> some View {
         modifier(MotionAwareModifier(value: value))
     }
 }

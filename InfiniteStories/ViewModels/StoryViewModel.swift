@@ -410,9 +410,9 @@ class AppSettings: ObservableObject {
     @Published var openAIAPIKey: String {
         didSet {
             if openAIAPIKey.isEmpty {
-                keychainHelper.delete(key: apiKeyIdentifier)
+                _ = keychainHelper.delete(key: apiKeyIdentifier)
             } else {
-                keychainHelper.saveString(openAIAPIKey, for: apiKeyIdentifier)
+                _ = keychainHelper.saveString(openAIAPIKey, for: apiKeyIdentifier)
             }
         }
     }
