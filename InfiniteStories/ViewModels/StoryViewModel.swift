@@ -149,6 +149,24 @@ class StoryViewModel: ObservableObject {
         print("📱 🎵 === Audio Playback Started ===")
         print("📱 🎵 Story: \(story.title)")
         
+        // Check if audio needs regeneration first
+        if story.audioNeedsRegeneration {
+            print("📱 🎵 Audio needs regeneration after text edit...")
+            Task {
+                await regenerateAudioForStory(story)
+                if let updatedFileName = story.audioFileName {
+                    print("📱 🎵 Audio regenerated, starting playback...")
+                    playAudioFile(fileName: updatedFileName)
+                    story.incrementPlayCount()
+                    try? modelContext?.save()
+                    startAudioUpdateTimer()
+                } else {
+                    print("📱 🎵 ❌ Failed to regenerate audio file")
+                }
+            }
+            return
+        }
+        
         guard let audioFileName = story.audioFileName else {
             print("📱 🎵 No audio file found, generating audio...")
             // Generate audio if it doesn't exist
@@ -328,6 +346,59 @@ class StoryViewModel: ObservableObject {
     
     func clearError() {
         generationError = nil
+    }
+    
+    // MARK: - Story Management
+    
+    func deleteStoryWithCleanup(_ story: Story) {
+        // Delete audio file if it exists
+        if let audioFileName = story.audioFileName {
+            deleteAudioFile(fileName: audioFileName)
+        }
+        
+        // Delete the story from database
+        modelContext?.delete(story)
+        try? modelContext?.save()
+        
+        print("📱 🗑 Story deleted: \(story.title)")
+    }
+    
+    private func deleteAudioFile(fileName: String) {
+        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let audioURL = documentsPath.appendingPathComponent(fileName)
+        
+        do {
+            if FileManager.default.fileExists(atPath: audioURL.path) {
+                try FileManager.default.removeItem(at: audioURL)
+                print("📱 🗑 Deleted audio file: \(fileName)")
+            }
+        } catch {
+            print("📱 ❌ Failed to delete audio file: \(error)")
+        }
+    }
+    
+    func regenerateAudioForStory(_ story: Story) async {
+        print("📱 🔄 Regenerating audio for story: \(story.title)")
+        
+        // Delete old audio file if it exists
+        if let oldAudioFileName = story.audioFileName {
+            deleteAudioFile(fileName: oldAudioFileName)
+            story.audioFileName = nil
+        }
+        
+        // Mark as needing regeneration
+        story.audioNeedsRegeneration = false
+        
+        // Generate new audio
+        await generateAudioForStory(story)
+    }
+    
+    func checkAndRegenerateAudioIfNeeded(_ story: Story) {
+        if story.audioNeedsRegeneration {
+            Task {
+                await regenerateAudioForStory(story)
+            }
+        }
     }
 }
 

@@ -85,6 +85,7 @@ struct ImprovedStoryLibraryView: View {
     @State private var storyToDelete: Story?
     @State private var visibleStoryCount = 20 // Initial load
     @State private var isLoadingMore = false
+    @StateObject private var viewModel = StoryViewModel()
     
     // Group stories by status
     private var newStories: [Story] {
@@ -157,6 +158,9 @@ struct ImprovedStoryLibraryView: View {
             NavigationStack {
                 AudioPlayerView(story: story)
             }
+        }
+        .onAppear {
+            viewModel.setModelContext(modelContext)
         }
         .alert("Delete Story?", isPresented: $showDeleteConfirmation) {
             Button("Cancel", role: .cancel) { }
@@ -280,6 +284,15 @@ struct ImprovedStoryLibraryView: View {
                     onDelete: {
                         storyToDelete = story
                         showDeleteConfirmation = true
+                    },
+                    onEdit: {
+                        // Show edit view
+                        selectedStory = story
+                    },
+                    onRegenerateAudio: {
+                        Task {
+                            await viewModel.regenerateAudioForStory(story)
+                        }
                     }
                 )
                 .transition(.asymmetric(
@@ -326,8 +339,7 @@ struct ImprovedStoryLibraryView: View {
     // MARK: - Helper Functions
     private func deleteStory(_ story: Story) {
         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-            modelContext.delete(story)
-            try? modelContext.save()
+            viewModel.deleteStoryWithCleanup(story)
         }
     }
     
@@ -381,6 +393,8 @@ struct ImprovedStoryCard: View {
     var onToggleFavorite: (() -> Void)? = nil
     var onShare: (() -> Void)? = nil
     var onDelete: (() -> Void)? = nil
+    var onEdit: (() -> Void)? = nil
+    var onRegenerateAudio: (() -> Void)? = nil
     
     @State private var isPressed = false
     @State private var showingActions = false
@@ -635,6 +649,16 @@ struct ImprovedStoryCard: View {
                 Button(action: { /* Download functionality can be added later */ }) {
                     Label("Download Audio", systemImage: "arrow.down.circle")
                 }
+            }
+            
+            if story.audioNeedsRegeneration {
+                Button(action: { onRegenerateAudio?() }) {
+                    Label("Regenerate Audio", systemImage: "arrow.clockwise")
+                }
+            }
+            
+            Button(action: { onEdit?() }) {
+                Label("Edit Story", systemImage: "pencil")
             }
             
             Button(role: .destructive, action: { onDelete?() }) {

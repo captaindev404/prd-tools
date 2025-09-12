@@ -15,6 +15,7 @@ struct AudioPlayerView: View {
     
     @StateObject private var viewModel = StoryViewModel()
     @State private var showingFullText = false
+    @State private var showingEditView = false
     
     // Animation states
     @State private var playButtonPressed = false
@@ -286,6 +287,21 @@ struct AudioPlayerView: View {
                     
                     // Secondary Controls
                     HStack(spacing: 30) {
+                        // Audio regeneration indicator
+                        if story.audioNeedsRegeneration {
+                            HStack(spacing: 4) {
+                                Image(systemName: "exclamationmark.circle.fill")
+                                    .font(.caption)
+                                Text("Audio outdated")
+                                    .font(.caption2)
+                            }
+                            .foregroundColor(.orange)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.orange.opacity(0.1))
+                            .cornerRadius(6)
+                        }
+                        
                         // Speed Control
                         Menu {
                             Button("0.5x") { viewModel.setPlaybackSpeed(0.5) }
@@ -364,14 +380,26 @@ struct AudioPlayerView: View {
                 }
                 
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: {
-                        story.isFavorite.toggle()
-                        try? modelContext.save()
-                    }) {
-                        Image(systemName: story.isFavorite ? "heart.fill" : "heart")
-                            .foregroundColor(story.isFavorite ? .red : .secondary)
+                    HStack(spacing: 16) {
+                        Button(action: {
+                            story.isFavorite.toggle()
+                            try? modelContext.save()
+                        }) {
+                            Image(systemName: story.isFavorite ? "heart.fill" : "heart")
+                                .foregroundColor(story.isFavorite ? .red : .secondary)
+                        }
+                        
+                        Button(action: {
+                            showingEditView = true
+                        }) {
+                            Image(systemName: "pencil")
+                                .foregroundColor(.purple)
+                        }
                     }
                 }
+            }
+            .sheet(isPresented: $showingEditView) {
+                StoryEditView(story: story)
             }
             .onAppear {
                 print("🎵 === AudioPlayerView appeared ===")

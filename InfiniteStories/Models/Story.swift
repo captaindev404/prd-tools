@@ -19,6 +19,8 @@ final class Story {
     var isFavorite: Bool
     var playCount: Int
     var estimatedDuration: TimeInterval
+    var audioNeedsRegeneration: Bool
+    var lastModified: Date
     
     @Relationship(inverse: \Hero.stories) var hero: Hero?
     
@@ -33,6 +35,8 @@ final class Story {
         self.isFavorite = false
         self.playCount = 0
         self.estimatedDuration = 0
+        self.audioNeedsRegeneration = false
+        self.lastModified = Date()
     }
     
     var formattedDate: String {
