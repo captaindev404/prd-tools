@@ -1,0 +1,927 @@
+//
+//  ContentView_Enhanced.swift
+//  InfiniteStories
+//
+//  Enhanced magical home screen for children's bedtime stories
+//
+
+import SwiftUI
+import SwiftData
+
+// MARK: - Main Enhanced Content View
+struct ContentView_Enhanced: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
+    @Query private var heroes: [Hero]
+    @Query(sort: \Story.createdAt, order: .reverse) private var stories: [Story]
+    
+    @State private var showingHeroCreation = false
+    @State private var showingStoryGeneration = false
+    @State private var showingSettings = false
+    @State private var selectedStory: Story?
+    @State private var animateHero = false
+    @State private var sparkleAnimation = false
+    @State private var cloudOffset: CGFloat = -100
+    @State private var starRotation: Double = 0
+    
+    // Computed properties for stats
+    private var totalStoriesRead: Int {
+        stories.reduce(0) { $0 + $1.playCount }
+    }
+    
+    private var currentStreak: Int {
+        calculateReadingStreak()
+    }
+    
+    private var recentStories: [Story] {
+        Array(stories.prefix(3))
+    }
+    
+    private var favoriteStories: [Story] {
+        stories.filter { $0.isFavorite }
+    }
+    
+    var body: some View {
+        NavigationView {
+            ZStack {
+                // Magical Background
+                MagicalBackgroundView()
+                
+                ScrollView {
+                    VStack(spacing: 0) {
+                        // Hero Section
+                        HeroSectionView(
+                            heroes: heroes,
+                            animateHero: $animateHero,
+                            sparkleAnimation: $sparkleAnimation,
+                            showingHeroCreation: $showingHeroCreation
+                        )
+                        .padding(.top, 20)
+                        
+                        // Quick Actions
+                        QuickActionsView(
+                            hasHeroes: !heroes.isEmpty,
+                            storiesCount: stories.count,
+                            showingStoryGeneration: $showingStoryGeneration
+                        )
+                        .padding(.top, 30)
+                        
+                        // Stats Dashboard
+                        if !stories.isEmpty {
+                            StatsDashboardView(
+                                totalStories: stories.count,
+                                totalReads: totalStoriesRead,
+                                streak: currentStreak,
+                                favoriteCount: favoriteStories.count
+                            )
+                            .padding(.top, 25)
+                        }
+                        
+                        // Recent Stories
+                        if !recentStories.isEmpty {
+                            RecentStoriesView(
+                                stories: recentStories,
+                                selectedStory: $selectedStory
+                            )
+                            .padding(.top, 25)
+                        }
+                        
+                        // Empty State
+                        if heroes.isEmpty {
+                            EmptyStateView(showingHeroCreation: $showingHeroCreation)
+                                .padding(.top, 40)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 30)
+                }
+                
+                // Floating Elements
+                FloatingElementsView(
+                    cloudOffset: $cloudOffset,
+                    starRotation: $starRotation
+                )
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    MagicalLogoView()
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    HStack(spacing: 15) {
+                        if !stories.isEmpty {
+                            NavigationLink(destination: ImprovedStoryLibraryView()) {
+                                Image(systemName: "books.vertical.fill")
+                                    .foregroundColor(MagicalColors.primary)
+                                    .font(.system(size: 20))
+                            }
+                        }
+                        
+                        Button(action: { showingSettings = true }) {
+                            Image(systemName: "gearshape.fill")
+                                .foregroundColor(MagicalColors.primary)
+                                .font(.system(size: 20))
+                        }
+                    }
+                }
+            }
+            .sheet(isPresented: $showingHeroCreation) {
+                HeroCreationView()
+            }
+            .sheet(isPresented: $showingStoryGeneration) {
+                if let hero = heroes.first {
+                    StoryGenerationView(hero: hero)
+                }
+            }
+            .sheet(isPresented: $showingSettings) {
+                SettingsView()
+            }
+            .sheet(item: $selectedStory) { story in
+                NavigationStack {
+                    AudioPlayerView(story: story)
+                }
+            }
+            .onAppear {
+                startAnimations()
+            }
+        }
+    }
+    
+    private func startAnimations() {
+        withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
+            animateHero = true
+        }
+        
+        withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+            sparkleAnimation = true
+        }
+        
+        withAnimation(.linear(duration: 20).repeatForever(autoreverses: false)) {
+            cloudOffset = UIScreen.main.bounds.width + 100
+        }
+        
+        withAnimation(.linear(duration: 30).repeatForever(autoreverses: false)) {
+            starRotation = 360
+        }
+    }
+    
+    private func calculateReadingStreak() -> Int {
+        // Simple streak calculation based on consecutive days with stories
+        let calendar = Calendar.current
+        var streak = 0
+        var currentDate = Date()
+        
+        for _ in 0..<30 {
+            let dayStories = stories.filter {
+                calendar.isDate($0.createdAt, inSameDayAs: currentDate)
+            }
+            
+            if !dayStories.isEmpty {
+                streak += 1
+                currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate) ?? currentDate
+            } else {
+                break
+            }
+        }
+        
+        return streak
+    }
+}
+
+// MARK: - Magical Background View
+struct MagicalBackgroundView: View {
+    @Environment(\.colorScheme) private var colorScheme
+    
+    var body: some View {
+        ZStack {
+            // Gradient Background
+            LinearGradient(
+                colors: colorScheme == .dark ? 
+                    [Color(hex: "1a1b3a"), Color(hex: "2d2e5f")] :
+                    [Color(hex: "e8d5f2"), Color(hex: "f5e6ff")],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+            
+            // Subtle Pattern Overlay
+            GeometryReader { geometry in
+                ForEach(0..<20, id: \.self) { index in
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color.white.opacity(0.1),
+                                    Color.clear
+                                ],
+                                center: .center,
+                                startRadius: 5,
+                                endRadius: 50
+                            )
+                        )
+                        .frame(width: 100, height: 100)
+                        .position(
+                            x: CGFloat.random(in: 0...geometry.size.width),
+                            y: CGFloat.random(in: 0...geometry.size.height)
+                        )
+                        .blur(radius: 3)
+                }
+            }
+            .opacity(0.3)
+        }
+    }
+}
+
+// MARK: - Hero Section View
+struct HeroSectionView: View {
+    let heroes: [Hero]
+    @Binding var animateHero: Bool
+    @Binding var sparkleAnimation: Bool
+    @Binding var showingHeroCreation: Bool
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            // Title with Animation
+            HStack {
+                SparkleView(animate: $sparkleAnimation)
+                    .frame(width: 30, height: 30)
+                
+                Text("Infinite Stories")
+                    .font(.custom("Noteworthy-Bold", size: 36))
+                    .foregroundColor(MagicalColors.primary)
+                    .shadow(color: MagicalColors.primary.opacity(0.3), radius: 5)
+                
+                SparkleView(animate: $sparkleAnimation)
+                    .frame(width: 30, height: 30)
+            }
+            
+            Text("Where Magic Comes to Life")
+                .font(.custom("Noteworthy-Light", size: 16))
+                .foregroundColor(MagicalColors.secondary)
+            
+            // Hero Card
+            if let currentHero = heroes.first {
+                HeroCardView(
+                    hero: currentHero,
+                    animateHero: $animateHero,
+                    onEdit: { showingHeroCreation = true }
+                )
+            }
+        }
+    }
+}
+
+// MARK: - Hero Card View
+struct HeroCardView: View {
+    let hero: Hero
+    @Binding var animateHero: Bool
+    let onEdit: () -> Void
+    @State private var isPressed = false
+    
+    var body: some View {
+        ZStack {
+            // Card Background with Gradient
+            RoundedRectangle(cornerRadius: 20)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            MagicalColors.heroCardStart,
+                            MagicalColors.heroCardEnd
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .shadow(color: MagicalColors.primary.opacity(0.3), radius: 10, x: 0, y: 5)
+            
+            // Card Content
+            HStack(spacing: 15) {
+                // Hero Avatar
+                ZStack {
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color.white,
+                                    MagicalColors.accent.opacity(0.3)
+                                ],
+                                center: .center,
+                                startRadius: 5,
+                                endRadius: 40
+                            )
+                        )
+                        .frame(width: 80, height: 80)
+                    
+                    Image(systemName: "person.fill")
+                        .font(.system(size: 40))
+                        .foregroundColor(MagicalColors.primary)
+                        .scaleEffect(animateHero ? 1.1 : 1.0)
+                }
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(hero.name)
+                        .font(.custom("Noteworthy-Bold", size: 24))
+                        .foregroundColor(.white)
+                    
+                    HStack {
+                        TraitBadge(trait: hero.primaryTrait.rawValue, color: .orange)
+                        TraitBadge(trait: hero.secondaryTrait.rawValue, color: .pink)
+                    }
+                    
+                    if !hero.specialAbility.isEmpty {
+                        HStack {
+                            Image(systemName: "sparkles")
+                                .font(.caption)
+                            Text(hero.specialAbility)
+                                .font(.custom("Noteworthy-Light", size: 12))
+                        }
+                        .foregroundColor(.white.opacity(0.9))
+                    }
+                }
+                
+                Spacer()
+                
+                // Edit Button
+                Button(action: onEdit) {
+                    Image(systemName: "pencil.circle.fill")
+                        .font(.title2)
+                        .foregroundColor(.white)
+                        .background(
+                            Circle()
+                                .fill(Color.white.opacity(0.2))
+                                .frame(width: 40, height: 40)
+                        )
+                }
+            }
+            .padding(20)
+        }
+        .frame(height: 140)
+        .scaleEffect(isPressed ? 0.98 : 1.0)
+        .onTapGesture {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                isPressed = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    isPressed = false
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Trait Badge
+struct TraitBadge: View {
+    let trait: String
+    let color: Color
+    
+    var body: some View {
+        Text(trait)
+            .font(.custom("Noteworthy-Light", size: 11))
+            .foregroundColor(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(
+                Capsule()
+                    .fill(color.opacity(0.8))
+            )
+    }
+}
+
+// MARK: - Quick Actions View
+struct QuickActionsView: View {
+    let hasHeroes: Bool
+    let storiesCount: Int
+    @Binding var showingStoryGeneration: Bool
+    @State private var generateButtonPressed = false
+    @State private var libraryButtonPressed = false
+    
+    var body: some View {
+        VStack(spacing: 15) {
+            // Generate Story Button
+            Button(action: {
+                withAnimation(.spring()) {
+                    generateButtonPressed = true
+                }
+                showingStoryGeneration = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    generateButtonPressed = false
+                }
+            }) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.orange,
+                                    Color.orange.opacity(0.8)
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .shadow(color: Color.orange.opacity(0.4), radius: 8, x: 0, y: 4)
+                    
+                    HStack(spacing: 12) {
+                        Image(systemName: "sparkles")
+                            .font(.title2)
+                            .rotationEffect(.degrees(generateButtonPressed ? 360 : 0))
+                        
+                        Text("Create New Story")
+                            .font(.custom("Noteworthy-Bold", size: 20))
+                        
+                        Spacer()
+                        
+                        Image(systemName: "arrow.right.circle.fill")
+                            .font(.title2)
+                            .opacity(0.8)
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 20)
+                }
+            }
+            .frame(height: 65)
+            .disabled(!hasHeroes)
+            .opacity(hasHeroes ? 1.0 : 0.6)
+            .scaleEffect(generateButtonPressed ? 0.95 : 1.0)
+            
+            // Library Button
+            if storiesCount > 0 {
+                NavigationLink(destination: ImprovedStoryLibraryView()) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        MagicalColors.primary,
+                                        MagicalColors.primary.opacity(0.8)
+                                    ],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .shadow(color: MagicalColors.primary.opacity(0.3), radius: 8, x: 0, y: 4)
+                        
+                        HStack(spacing: 12) {
+                            Image(systemName: "books.vertical.fill")
+                                .font(.title2)
+                            
+                            Text("Story Library")
+                                .font(.custom("Noteworthy-Bold", size: 20))
+                            
+                            Spacer()
+                            
+                            ZStack {
+                                Circle()
+                                    .fill(Color.white.opacity(0.3))
+                                    .frame(width: 35, height: 35)
+                                
+                                Text("\(storiesCount)")
+                                    .font(.custom("Noteworthy-Bold", size: 16))
+                                    .foregroundColor(.white)
+                            }
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 20)
+                    }
+                }
+                .frame(height: 65)
+                .scaleEffect(libraryButtonPressed ? 0.95 : 1.0)
+                .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
+                    withAnimation(.spring()) {
+                        libraryButtonPressed = pressing
+                    }
+                }, perform: {})
+            }
+        }
+    }
+}
+
+// MARK: - Stats Dashboard View
+struct StatsDashboardView: View {
+    let totalStories: Int
+    let totalReads: Int
+    let streak: Int
+    let favoriteCount: Int
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Your Reading Journey")
+                .font(.custom("Noteworthy-Bold", size: 18))
+                .foregroundColor(MagicalColors.primary)
+            
+            HStack(spacing: 15) {
+                StatCard(
+                    icon: "book.closed.fill",
+                    value: "\(totalStories)",
+                    label: "Stories",
+                    color: .blue
+                )
+                
+                StatCard(
+                    icon: "play.circle.fill",
+                    value: "\(totalReads)",
+                    label: "Reads",
+                    color: .green
+                )
+                
+                StatCard(
+                    icon: "flame.fill",
+                    value: "\(streak)",
+                    label: "Streak",
+                    color: .orange
+                )
+                
+                StatCard(
+                    icon: "heart.fill",
+                    value: "\(favoriteCount)",
+                    label: "Favorites",
+                    color: .red
+                )
+            }
+        }
+    }
+}
+
+// MARK: - Stat Card
+struct StatCard: View {
+    let icon: String
+    let value: String
+    let label: String
+    let color: Color
+    @State private var isAnimated = false
+    
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 15)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            color.opacity(0.2),
+                            color.opacity(0.1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 15)
+                        .stroke(color.opacity(0.3), lineWidth: 1)
+                )
+            
+            VStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.title2)
+                    .foregroundColor(color)
+                    .scaleEffect(isAnimated ? 1.2 : 1.0)
+                
+                Text(value)
+                    .font(.custom("Noteworthy-Bold", size: 20))
+                    .foregroundColor(MagicalColors.text)
+                
+                Text(label)
+                    .font(.custom("Noteworthy-Light", size: 11))
+                    .foregroundColor(MagicalColors.secondary)
+            }
+            .padding(.vertical, 12)
+        }
+        .frame(maxWidth: .infinity)
+        .onAppear {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.5).delay(0.2)) {
+                isAnimated = true
+            }
+        }
+    }
+}
+
+// MARK: - Recent Stories View
+struct RecentStoriesView: View {
+    let stories: [Story]
+    @Binding var selectedStory: Story?
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Recent Adventures")
+                    .font(.custom("Noteworthy-Bold", size: 18))
+                    .foregroundColor(MagicalColors.primary)
+                
+                Spacer()
+                
+                NavigationLink(destination: ImprovedStoryLibraryView()) {
+                    Text("View All")
+                        .font(.custom("Noteworthy-Light", size: 14))
+                        .foregroundColor(MagicalColors.accent)
+                }
+            }
+            
+            VStack(spacing: 10) {
+                ForEach(stories) { story in
+                    MiniStoryCard(story: story) {
+                        selectedStory = story
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Mini Story Card
+struct MiniStoryCard: View {
+    let story: Story
+    let onTap: () -> Void
+    @State private var isPressed = false
+    
+    var body: some View {
+        Button(action: onTap) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 15)
+                    .fill(Color.white)
+                    .shadow(color: Color.black.opacity(0.08), radius: 5, x: 0, y: 2)
+                
+                HStack(spacing: 12) {
+                    // Story Icon
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        MagicalColors.accent.opacity(0.3),
+                                        MagicalColors.accent.opacity(0.1)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 45, height: 45)
+                        
+                        Image(systemName: "book.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(MagicalColors.accent)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(story.title)
+                                .font(.custom("Noteworthy-Bold", size: 14))
+                                .foregroundColor(MagicalColors.text)
+                                .lineLimit(1)
+                            
+                            if story.isFavorite {
+                                Image(systemName: "heart.fill")
+                                    .font(.caption)
+                                    .foregroundColor(.red)
+                            }
+                        }
+                        
+                        Text(story.shortContent)
+                            .font(.custom("Noteworthy-Light", size: 12))
+                            .foregroundColor(MagicalColors.secondary)
+                            .lineLimit(2)
+                        
+                        HStack {
+                            if story.hasAudio {
+                                Label("\(Int(story.estimatedDuration / 60))m", systemImage: "speaker.wave.2.fill")
+                                    .font(.caption2)
+                                    .foregroundColor(.orange)
+                            }
+                            
+                            Spacer()
+                            
+                            Text(story.formattedDate)
+                                .font(.caption2)
+                                .foregroundColor(MagicalColors.secondary)
+                        }
+                    }
+                    
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(MagicalColors.secondary)
+                }
+                .padding(15)
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+        .scaleEffect(isPressed ? 0.98 : 1.0)
+        .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
+            withAnimation(.spring()) {
+                isPressed = pressing
+            }
+        }, perform: {})
+    }
+}
+
+// MARK: - Empty State View
+struct EmptyStateView: View {
+    @Binding var showingHeroCreation: Bool
+    @State private var bounce = false
+    
+    var body: some View {
+        VStack(spacing: 25) {
+            // Animated Illustration
+            ZStack {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                MagicalColors.accent.opacity(0.2),
+                                Color.clear
+                            ],
+                            center: .center,
+                            startRadius: 20,
+                            endRadius: 100
+                        )
+                    )
+                    .frame(width: 200, height: 200)
+                    .blur(radius: 10)
+                
+                Image(systemName: "sparkles")
+                    .font(.system(size: 80))
+                    .foregroundColor(MagicalColors.accent)
+                    .rotationEffect(.degrees(bounce ? 10 : -10))
+                    .scaleEffect(bounce ? 1.1 : 0.9)
+            }
+            
+            VStack(spacing: 12) {
+                Text("Begin Your Magical Journey")
+                    .font(.custom("Noteworthy-Bold", size: 24))
+                    .foregroundColor(MagicalColors.primary)
+                
+                Text("Create your first hero and start\nexploring wonderful stories!")
+                    .font(.custom("Noteworthy-Light", size: 16))
+                    .foregroundColor(MagicalColors.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            
+            Button(action: { showingHeroCreation = true }) {
+                HStack(spacing: 10) {
+                    Image(systemName: "person.crop.circle.badge.plus")
+                        .font(.title3)
+                    Text("Create Your Hero")
+                        .font(.custom("Noteworthy-Bold", size: 18))
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 30)
+                .padding(.vertical, 15)
+                .background(
+                    LinearGradient(
+                        colors: [MagicalColors.primary, MagicalColors.accent],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .cornerRadius(25)
+                .shadow(color: MagicalColors.primary.opacity(0.4), radius: 10, x: 0, y: 5)
+            }
+            .scaleEffect(bounce ? 1.05 : 1.0)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
+                bounce = true
+            }
+        }
+    }
+}
+
+// MARK: - Floating Elements View
+struct FloatingElementsView: View {
+    @Binding var cloudOffset: CGFloat
+    @Binding var starRotation: Double
+    
+    var body: some View {
+        ZStack {
+            // Floating Clouds
+            Cloud()
+                .fill(Color.white.opacity(0.15))
+                .frame(width: 80, height: 40)
+                .offset(x: cloudOffset, y: 100)
+                .allowsHitTesting(false)
+            
+            Cloud()
+                .fill(Color.white.opacity(0.1))
+                .frame(width: 60, height: 30)
+                .offset(x: cloudOffset - 150, y: 200)
+                .allowsHitTesting(false)
+            
+            // Rotating Stars
+            ForEach(0..<3, id: \.self) { index in
+                Image(systemName: "star.fill")
+                    .font(.system(size: CGFloat.random(in: 10...20)))
+                    .foregroundColor(Color.yellow.opacity(0.3))
+                    .position(
+                        x: CGFloat.random(in: 50...350),
+                        y: CGFloat.random(in: 100...300)
+                    )
+                    .rotationEffect(.degrees(starRotation))
+                    .allowsHitTesting(false)
+            }
+        }
+    }
+}
+
+// MARK: - Cloud Shape
+struct Cloud: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        
+        // Create cloud shape with circles
+        path.addEllipse(in: CGRect(x: rect.minX, y: rect.midY - rect.height/4, 
+                                   width: rect.width * 0.5, height: rect.height * 0.6))
+        path.addEllipse(in: CGRect(x: rect.midX - rect.width * 0.25, y: rect.minY, 
+                                   width: rect.width * 0.5, height: rect.height * 0.7))
+        path.addEllipse(in: CGRect(x: rect.midX, y: rect.midY - rect.height/4, 
+                                   width: rect.width * 0.5, height: rect.height * 0.6))
+        
+        return path
+    }
+}
+
+// MARK: - Sparkle View
+struct SparkleView: View {
+    @Binding var animate: Bool
+    
+    var body: some View {
+        ZStack {
+            ForEach(0..<4, id: \.self) { index in
+                Image(systemName: "sparkle")
+                    .foregroundColor(Color.yellow)
+                    .scaleEffect(animate ? 1.0 : 0.3)
+                    .opacity(animate ? 0.8 : 0.3)
+                    .rotationEffect(.degrees(Double(index) * 90))
+                    .animation(
+                        Animation.easeInOut(duration: 1.5)
+                            .repeatForever(autoreverses: true)
+                            .delay(Double(index) * 0.2),
+                        value: animate
+                    )
+            }
+        }
+    }
+}
+
+// MARK: - Magical Logo View
+struct MagicalLogoView: View {
+    @State private var isAnimating = false
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "book.pages.fill")
+                .font(.title2)
+                .foregroundColor(MagicalColors.primary)
+                .rotationEffect(.degrees(isAnimating ? 5 : -5))
+            
+            Text("Infinite")
+                .font(.custom("Noteworthy-Bold", size: 20))
+                .foregroundColor(MagicalColors.primary)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
+                isAnimating = true
+            }
+        }
+    }
+}
+
+// MARK: - Magical Colors
+struct MagicalColors {
+    static let primary = Color(hex: "8B5CF6")
+    static let secondary = Color(hex: "6B7280")
+    static let accent = Color(hex: "F59E0B")
+    static let text = Color(hex: "1F2937")
+    static let heroCardStart = Color(hex: "A78BFA")
+    static let heroCardEnd = Color(hex: "7C3AED")
+}
+
+// MARK: - Color Extension
+extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (1, 1, 1, 0)
+        }
+        
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue:  Double(b) / 255,
+            opacity: Double(a) / 255
+        )
+    }
+}
+
+#Preview {
+    ContentView_Enhanced()
+        .modelContainer(for: Hero.self, inMemory: true)
+}

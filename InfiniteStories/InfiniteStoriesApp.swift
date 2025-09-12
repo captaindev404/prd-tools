@@ -10,9 +10,12 @@ import SwiftData
 
 @main
 struct InfiniteStoriesApp: App {
+    @StateObject private var themeSettings = ThemeSettings.shared
+    
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            Hero.self,
+            Story.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -25,7 +28,16 @@ struct InfiniteStoriesApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            // Easy switching between original and improved UI
+            Group {
+                if AppConfiguration.useImprovedUI {
+                    ImprovedContentView()
+                } else {
+                    ContentView()
+                }
+            }
+            .preferredColorScheme(themeSettings.themePreference.colorScheme)
+            .environmentObject(themeSettings)
         }
         .modelContainer(sharedModelContainer)
     }
