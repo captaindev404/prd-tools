@@ -415,6 +415,8 @@ struct AudioPlayerView: View {
             }
             .onDisappear {
                 viewModel.stopAudio()
+                // Ensure idle timer is re-enabled when leaving the player
+                UIApplication.shared.isIdleTimerDisabled = false
             }
         }
     }

@@ -8,6 +8,7 @@
 import Foundation
 import AVFoundation
 import Combine
+import UIKit
 
 enum AudioServiceError: Error {
     case speechUnavailable
@@ -51,6 +52,13 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPla
         super.init()
         synthesizer.delegate = self
         setupAudioSession()
+        setupNotificationObservers()
+    }
+    
+    deinit {
+        // Clean up and ensure idle timer is re-enabled
+        enableIdleTimer()
+        NotificationCenter.default.removeObserver(self)
     }
     
     func setAIService(_ service: AIServiceProtocol) {
@@ -63,6 +71,92 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPla
             try AVAudioSession.sharedInstance().setActive(true)
         } catch {
             print("Failed to setup audio session: \(error)")
+        }
+    }
+    
+    private func setupNotificationObservers() {
+        // Listen for app lifecycle events
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appWillResignActive),
+            name: UIApplication.willResignActiveNotification,
+            object: nil
+        )
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appDidBecomeActive),
+            name: UIApplication.didBecomeActiveNotification,
+            object: nil
+        )
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAudioSessionInterruption),
+            name: AVAudioSession.interruptionNotification,
+            object: nil
+        )
+    }
+    
+    // MARK: - Idle Timer Management
+    
+    private func disableIdleTimer() {
+        DispatchQueue.main.async {
+            UIApplication.shared.isIdleTimerDisabled = true
+            print("📱 ✅ Idle timer disabled - phone will not sleep during playback")
+        }
+    }
+    
+    private func enableIdleTimer() {
+        DispatchQueue.main.async {
+            UIApplication.shared.isIdleTimerDisabled = false
+            print("📱 ✅ Idle timer enabled - phone can sleep normally")
+        }
+    }
+    
+    // MARK: - App Lifecycle Handlers
+    
+    @objc private func appWillResignActive() {
+        // App is going to background or being interrupted
+        // The audio session will continue playing in background due to .playback category
+        // But we should re-enable idle timer for safety
+        if !isPlaying {
+            enableIdleTimer()
+        }
+    }
+    
+    @objc private func appDidBecomeActive() {
+        // App became active again
+        // If audio is playing, ensure idle timer is disabled
+        if isPlaying {
+            disableIdleTimer()
+        }
+    }
+    
+    @objc private func handleAudioSessionInterruption(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else {
+            return
+        }
+        
+        switch type {
+        case .began:
+            // Interruption began (phone call, etc.)
+            if isPlaying {
+                pauseAudio()
+            }
+        case .ended:
+            // Interruption ended
+            if let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt {
+                let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
+                if options.contains(.shouldResume) {
+                    // Resume playback if appropriate
+                    resumeAudio()
+                }
+            }
+        @unknown default:
+            break
         }
     }
     
@@ -142,6 +236,7 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPla
                 if player.play() {
                     isPlaying = true
                     startPlaybackTimer()
+                    disableIdleTimer()  // Prevent phone from sleeping during playback
                     print("🎵 ✅ MP3 playback started successfully")
                 } else {
                     throw AudioServiceError.playbackFailed
@@ -174,6 +269,7 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPla
                 if player.play() {
                     isPlaying = true
                     startPlaybackTimer()
+                    disableIdleTimer()  // Prevent phone from sleeping during playback
                 } else {
                     throw AudioServiceError.playbackFailed
                 }
@@ -233,6 +329,7 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPla
         synthesizer.speak(utterance)
         isPlaying = true
         startSpeechTimer()
+        disableIdleTimer()  // Prevent phone from sleeping during TTS playback
         
         print("🎵 TTS playback started, estimated duration: \(duration) seconds")
     }
@@ -248,6 +345,7 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPla
         isPlaying = false
         currentTime = 0
         isUsingSpeechSynthesis = false
+        enableIdleTimer()  // Re-enable idle timer when stopping
     }
     
     func pauseAudio() {
@@ -259,6 +357,7 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPla
             stopPlaybackTimer()
         }
         isPlaying = false
+        enableIdleTimer()  // Re-enable idle timer when pausing
     }
     
     func resumeAudio() {
@@ -266,11 +365,13 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPla
             synthesizer.continueSpeaking()
             startSpeechTimer()
             isPlaying = true
+            disableIdleTimer()  // Disable idle timer when resuming
         } else {
             guard let player = audioPlayer else { return }
             if player.play() {
                 isPlaying = true
                 startPlaybackTimer()
+                disableIdleTimer()  // Disable idle timer when resuming
             }
         }
     }
@@ -340,11 +441,14 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPla
         isPlaying = false
         currentTime = 0
         stopPlaybackTimer()
+        enableIdleTimer()  // Re-enable idle timer when playback finishes
+        print("🎵 Audio playback finished")
     }
     
     func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
         isPlaying = false
         stopPlaybackTimer()
+        enableIdleTimer()  // Re-enable idle timer on error
         print("Audio decode error: \(error?.localizedDescription ?? "Unknown error")")
     }
     
@@ -354,6 +458,7 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPla
         print("🎵 Speech synthesis started")
         isPlaying = true
         startSpeechTimer()
+        disableIdleTimer()  // Ensure idle timer is disabled when TTS starts
     }
     
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
@@ -362,6 +467,7 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPla
         currentTime = 0
         stopSpeechTimer()
         isUsingSpeechSynthesis = false
+        enableIdleTimer()  // Re-enable idle timer when TTS finishes
     }
     
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
@@ -370,18 +476,21 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPla
         currentTime = 0
         stopSpeechTimer()
         isUsingSpeechSynthesis = false
+        enableIdleTimer()  // Re-enable idle timer when TTS is cancelled
     }
     
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didPause utterance: AVSpeechUtterance) {
         print("🎵 Speech synthesis paused")
         isPlaying = false
         stopSpeechTimer()
+        enableIdleTimer()  // Re-enable idle timer when TTS is paused
     }
     
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didContinue utterance: AVSpeechUtterance) {
         print("🎵 Speech synthesis continued")
         isPlaying = true
         startSpeechTimer()
+        disableIdleTimer()  // Disable idle timer when TTS continues
     }
 }
 
