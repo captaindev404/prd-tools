@@ -15,9 +15,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **StoryEvent**: Enum for story contexts (bedtime, school day, birthday, etc.)
 
 ### Services Layer
-- **AIService**: Handles story generation via OpenAI/Anthropic APIs with mock implementation
-- **AudioService**: Text-to-speech conversion and audio playback management
-- **AppSettings**: User preferences and API configuration
+- **AIService**: Handles story generation via OpenAI GPT-4o and audio via gpt-4o-mini-tts model
+- **AudioService**: OpenAI-exclusive audio generation and playback (no local TTS fallback)
+- **AppSettings**: User preferences and API configuration with secure keychain storage
 
 ### View Architecture (MVVM)
 - **ContentView**: Main dashboard showing hero and story library
@@ -32,10 +32,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Key Features
 
 1. **Hero Creation**: Step-by-step character building with trait selection
-2. **Story Generation**: AI-powered stories based on hero traits and selected events
-3. **Audio Generation**: Text-to-speech with iOS AVSpeechSynthesizer
+2. **Story Generation**: AI-powered stories using OpenAI GPT-4o based on hero traits and selected events
+3. **Audio Generation**: High-quality voice synthesis using OpenAI's gpt-4o-mini-tts model (no fallback)
 4. **Story Library**: Persistent storage with favorites, play counts, and filtering
-5. **Audio Playback**: Full-featured player with speed control and progress tracking
+5. **Audio Playback**: Full-featured MP3 player with speed control and progress tracking
+6. **Auto-Regeneration**: Audio automatically regenerates when stories are edited
 
 ## Development Commands
 
@@ -49,15 +50,16 @@ xcodebuild -project InfiniteStories.xcodeproj -scheme InfiniteStories test
 ```
 
 ### API Configuration
-The app uses mock services by default. To enable real AI generation:
-1. Configure OpenAI API key in `AppSettings`
-2. Replace `MockAIService` with `OpenAIService` in `StoryViewModel`
+The app requires OpenAI API configuration:
+1. Configure OpenAI API key in Settings view (stored securely in Keychain)
+2. The app uses OpenAI exclusively - no mock services or fallbacks
+3. Audio generation uses gpt-4o-mini-tts model with voice-specific instructions
 
 ## Key Technologies
 
 - **SwiftUI**: Declarative UI with navigation and sheets
 - **SwiftData**: Model persistence with relationships
-- **AVFoundation**: Audio playback and text-to-speech
+- **AVFoundation**: MP3 audio playback only (no local TTS)
 - **Combine**: Reactive programming for ViewModels
 - **URLSession**: HTTP requests for AI APIs
 
@@ -88,7 +90,10 @@ InfiniteStories/
 ## Development Notes
 
 - Models use SwiftData `@Model` and `@Relationship` for persistence
+- Story model includes automatic audio regeneration triggers on content changes
 - Views follow SwiftUI patterns with `@State`, `@Query`, and `@Environment`
-- Services implement protocols for easy mocking and testing
-- Audio files are stored in Documents directory with UUID-based names
-- Error handling includes user-friendly messages for API failures
+- Services implement protocols for clean architecture
+- MP3 audio files are stored in Documents directory with timestamp-based names
+- Error handling includes user-friendly messages for API failures (no silent fallbacks)
+- API keys are stored securely in iOS Keychain
+- Audio playback requires OpenAI API - no local TTS fallback

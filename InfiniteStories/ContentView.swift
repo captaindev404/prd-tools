@@ -18,26 +18,35 @@ struct ContentView: View {
     @State private var showingHeroCreation = false
     @State private var showingStoryGeneration = false
     @State private var showingSettings = false
+    @State private var showingHeroManagement = false
+    @State private var selectedHeroForStory: Hero?
     
     var body: some View {
         NavigationView {
             VStack(spacing: 30) {
-                // Header
-                VStack(spacing: 10) {
-                    Image(systemName: "book.pages.fill")
-                        .font(.system(size: 60))
-                        .foregroundColor(.purple)
-                    
-                    Text("Infinite Stories")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                    
-                    Text("Magical bedtime stories for children")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
+                
+                // Compact Header - only show when heroes exist
+                if !heroes.isEmpty {
+                    HStack {
+                        Image(systemName: "book.pages.fill")
+                            .font(.system(size: 30))
+                            .foregroundColor(.purple)
+                        
+                        Text("Your Heroes")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                        
+                        Spacer()
+                        
+                        Button(action: { showingHeroManagement = true }) {
+                            Text("Manage heroes")
+                                .font(.subheadline)
+                                .foregroundColor(.purple)
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.top)
                 }
-                .padding()
                 
                 // Main Content
                 if heroes.isEmpty {
@@ -56,88 +65,51 @@ struct ContentView: View {
                                 .cornerRadius(12)
                         }
                     }
+                    .padding()
                 } else {
-                    // Show existing heroes and stories
-                    VStack(spacing: 20) {
-                        if let currentHero = heroes.first {
-                            VStack(alignment: .leading, spacing: 10) {
+                    // Quick Actions Section
+                    VStack(spacing: 15) {
+                        Button(action: { showingStoryGeneration = true }) {
+                            Label("Generate New Story", systemImage: "sparkles")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .padding()
+                                .frame(maxWidth: .infinity)
+                                .background(
+                                    LinearGradient(
+                                        colors: [Color.orange, Color.orange.opacity(0.8)],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .cornerRadius(12)
+                                .shadow(color: Color.orange.opacity(0.3), radius: 5, x: 0, y: 3)
+                        }
+                        
+                        if !stories.isEmpty {
+                            NavigationLink(destination: ImprovedStoryLibraryView()) {
                                 HStack {
-                                    Text("Your Hero")
-                                        .font(.headline)
-                                        .foregroundColor(.secondary)
-                                    
+                                    Image(systemName: "books.vertical.fill")
+                                        .font(.system(size: 20))
+                                    Text("View Story Library")
                                     Spacer()
-                                    
-                                    Button("Edit") {
-                                        showingHeroCreation = true
-                                    }
-                                    .font(.subheadline)
-                                    .foregroundColor(.purple)
+                                    Text("\(stories.count)")
+                                        .font(.caption)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(Color.purple.opacity(0.2))
+                                        .cornerRadius(8)
                                 }
-                                
-                                HStack {
-                                    Image(systemName: "person.circle.fill")
-                                        .font(.largeTitle)
-                                        .foregroundColor(.purple)
-                                    
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(currentHero.name)
-                                            .font(.title2)
-                                            .fontWeight(.semibold)
-                                        Text(currentHero.traitsDescription)
-                                            .font(.subheadline)
-                                            .foregroundColor(.secondary)
-                                        
-                                        if !currentHero.specialAbility.isEmpty {
-                                            Text("Special: \(currentHero.specialAbility)")
-                                                .font(.caption)
-                                                .foregroundColor(.purple)
-                                        }
-                                    }
-                                    
-                                    Spacer()
-                                }
+                                .font(.headline)
+                                .foregroundColor(.purple)
                                 .padding()
                                 .background(Color(.systemGray6).opacity(colorScheme == .dark ? 0.5 : 1.0))
                                 .cornerRadius(12)
                             }
                         }
-                        
-                        VStack(spacing: 15) {
-                            Button(action: { showingStoryGeneration = true }) {
-                                Label("Generate New Story", systemImage: "sparkles")
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                                    .padding()
-                                    .frame(maxWidth: .infinity)
-                                    .background(Color.orange)
-                                    .cornerRadius(12)
-                            }
-                            .disabled(heroes.isEmpty)
-                            
-                            if !stories.isEmpty {
-                                NavigationLink(destination: ImprovedStoryLibraryView()) {
-                                    HStack {
-                                        Image(systemName: "books.vertical.fill")
-                                            .font(.system(size: 20))
-                                        Text("View Story Library")
-                                        Spacer()
-                                        Text("\(stories.count)")
-                                            .font(.caption)
-                                            .padding(.horizontal, 8)
-                                            .padding(.vertical, 4)
-                                            .background(Color.purple.opacity(0.2))
-                                            .cornerRadius(8)
-                                    }
-                                    .font(.headline)
-                                    .foregroundColor(.purple)
-                                    .padding()
-                                    .background(Color(.systemGray6).opacity(colorScheme == .dark ? 0.5 : 1.0))
-                                    .cornerRadius(12)
-                                }
-                            }
-                        }
                     }
+                    .padding(.horizontal)
+                    .padding(.top, 10)
                 }
                 
                 Spacer()
@@ -154,10 +126,13 @@ struct ContentView: View {
                 }
             }
             .sheet(isPresented: $showingHeroCreation) {
-                HeroCreationView()
+                HeroCreationView(heroToEdit: nil)
+            }
+            .sheet(isPresented: $showingHeroManagement) {
+                HeroListView()
             }
             .sheet(isPresented: $showingStoryGeneration) {
-                if let hero = heroes.first {
+                if let hero = selectedHeroForStory ?? heroes.first {
                     StoryGenerationView(hero: hero)
                 }
             }

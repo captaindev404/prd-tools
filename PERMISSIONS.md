@@ -5,10 +5,10 @@
 The InfiniteStories app currently works without requiring any user permissions because it only uses:
 
 - **SwiftData**: App's private database
-- **AVSpeechSynthesizer**: System text-to-speech (no mic access)
-- **AVAudioPlayer**: Audio playback
-- **FileManager**: App's Documents directory
-- **URLSession**: Network requests (automatically granted)
+- **AVAudioPlayer**: MP3 audio playback (OpenAI-generated)
+- **FileManager**: App's Documents directory for audio storage
+- **URLSession**: Network requests to OpenAI API (automatically granted)
+- **Keychain**: Secure storage for API keys (no permission needed)
 
 ## Future Permissions (if you add these features)
 
@@ -44,20 +44,23 @@ The InfiniteStories app currently works without requiring any user permissions b
 ## Implementation Notes
 
 ### Current Audio Setup
-The app uses `AVAudioSession` with `.playback` category, which doesn't require user permission:
+The app uses `AVAudioSession` with `.playback` category for MP3 playback, which doesn't require user permission:
 
 ```swift
-try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
+try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
 ```
+
+Audio is generated via OpenAI's gpt-4o-mini-tts model and stored as MP3 files.
 
 ### Network Requests
 URLSession requests to AI APIs work automatically without user permission. iOS handles network connectivity transparently.
 
 ### File Storage
 All app data is stored in the app's sandbox:
-- **SwiftData**: Automatic app database
-- **Audio files**: App's Documents directory
-- **Settings**: UserDefaults
+- **SwiftData**: Automatic app database for heroes and stories
+- **Audio files**: MP3 files in app's Documents directory
+- **Settings**: UserDefaults for preferences
+- **API Keys**: Secure storage in iOS Keychain
 
 ## Testing Permissions
 

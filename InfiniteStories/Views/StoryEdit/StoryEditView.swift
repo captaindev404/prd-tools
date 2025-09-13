@@ -191,7 +191,7 @@ struct StoryEditView: View {
                     dismiss()
                 }
             } message: {
-                Text("Your story has been updated. The audio will be regenerated when you play it next time.")
+                Text("Your story has been updated successfully. The audio will be regenerated using OpenAI when you play the story.")
             }
             .onAppear {
                 editedTitle = story.title
@@ -244,9 +244,21 @@ struct StoryEditView: View {
         isSaving = true
         
         // Update story properties
-        story.title = editedTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        story.content = editedContent.trimmingCharacters(in: .whitespacesAndNewlines)
-        story.audioNeedsRegeneration = true
+        // The Story model will automatically mark audio for regeneration and delete old audio
+        // when content or title changes (via didSet observers)
+        let trimmedTitle = editedTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedContent = editedContent.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Only update if there are actual changes to trigger audio regeneration
+        if story.title != trimmedTitle {
+            story.title = trimmedTitle
+        }
+        if story.content != trimmedContent {
+            story.content = trimmedContent
+        }
+        
+        // Update last modified date
+        story.lastModified = Date()
         
         // Save to database
         do {

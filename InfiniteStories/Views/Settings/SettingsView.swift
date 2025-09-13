@@ -6,16 +6,21 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.modelContext) private var modelContext
     @StateObject private var settings = AppSettings()
     @EnvironmentObject private var themeSettings: ThemeSettings
     
     @State private var showingAPIKeyInfo = false
     @State private var tempAPIKey: String = ""
     @State private var showingSuccess = false
+    @State private var showingEraseConfirmation = false
+    @State private var showingEraseComplete = false
+    @State private var showingRemoveAPIKeyConfirmation = false
     
     var body: some View {
         NavigationStack {
@@ -140,8 +145,6 @@ struct SettingsView: View {
                 if settings.hasValidAPIKey {
                     Section {
                         HStack {
-                            Text("Story Length")
-                            Spacer()
                             Picker("Story Length", selection: $settings.defaultStoryLength) {
                                 Text("5 minutes").tag(5)
                                 Text("7 minutes").tag(7)
@@ -152,8 +155,6 @@ struct SettingsView: View {
                         
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Text("Voice")
-                                Spacer()
                                 Picker("Voice", selection: $settings.preferredVoice) {
                                     ForEach(AppSettings.availableVoices, id: \.id) { voice in
                                         Text(voice.name).tag(voice.id)
@@ -176,17 +177,25 @@ struct SettingsView: View {
                     }
                     
                     Section {
-                        Button(action: clearAPIKey) {
+                        Button(action: { showingRemoveAPIKeyConfirmation = true }) {
                             HStack {
                                 Image(systemName: "trash")
                                 Text("Remove API Key")
                             }
                             .foregroundColor(.red)
                         }
+                        
+                        Button(action: { showingEraseConfirmation = true }) {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                Text("Erase All Data")
+                            }
+                            .foregroundColor(.red)
+                        }
                     } header: {
                         Text("Advanced")
                     } footer: {
-                        Text("Removing the API key will disable AI story generation. You can add it back anytime.")
+                        Text("Removing the API key will disable AI story generation. Erasing all data will permanently delete all heroes and stories.")
                             .font(.caption)
                     }
                 }
@@ -230,6 +239,29 @@ struct SettingsView: View {
             } message: {
                 Text("Your OpenAI API key has been saved securely. You can now generate AI-powered stories!")
             }
+            .confirmationDialog("Remove API Key?", isPresented: $showingRemoveAPIKeyConfirmation, titleVisibility: .visible) {
+                Button("Remove", role: .destructive) {
+                    clearAPIKey()
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("This will disable AI story generation. You can add a new API key anytime.")
+            }
+            .confirmationDialog("Erase All Data?", isPresented: $showingEraseConfirmation, titleVisibility: .visible) {
+                Button("Erase Everything", role: .destructive) {
+                    eraseAllData()
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("This will permanently delete all heroes, stories, and audio files. This action cannot be undone.")
+            }
+            .alert("Data Erased", isPresented: $showingEraseComplete) {
+                Button("OK") {
+                    dismiss()
+                }
+            } message: {
+                Text("All heroes, stories, and audio files have been permanently deleted.")
+            }
         }
         .onAppear {
             tempAPIKey = settings.openAIAPIKey
@@ -245,6 +277,49 @@ struct SettingsView: View {
     private func clearAPIKey() {
         settings.openAIAPIKey = ""
         tempAPIKey = ""
+    }
+    
+    private func eraseAllData() {
+        do {
+            // Delete all Hero objects
+            try modelContext.delete(model: Hero.self)
+            
+            // Delete all Story objects
+            try modelContext.delete(model: Story.self)
+            
+            // Save the deletion
+            try modelContext.save()
+            
+            // Delete all audio files from Documents directory
+            let fileManager = FileManager.default
+            if let documentsPath = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first {
+                let audioPath = documentsPath.appendingPathComponent("AudioStories")
+                if fileManager.fileExists(atPath: audioPath.path) {
+                    try fileManager.removeItem(at: audioPath)
+                }
+                
+                // Also check for any MP3 files in the root documents directory
+                let contents = try fileManager.contentsOfDirectory(at: documentsPath, includingPropertiesForKeys: nil)
+                for file in contents {
+                    if file.pathExtension == "mp3" {
+                        try fileManager.removeItem(at: file)
+                    }
+                }
+            }
+            
+            // Clear API key and settings
+            settings.openAIAPIKey = ""
+            tempAPIKey = ""
+            
+            // Reset theme to system default
+            themeSettings.themePreferenceString = "system"
+            
+            // Show completion
+            showingEraseComplete = true
+            
+        } catch {
+            print("Failed to erase all data: \(error)")
+        }
     }
     
     private func themeIcon(for theme: String) -> String {

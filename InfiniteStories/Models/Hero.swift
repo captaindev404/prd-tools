@@ -18,7 +18,7 @@ final class Hero {
     var createdAt: Date
     var isActive: Bool
     
-    @Relationship(deleteRule: .cascade) var stories: [Story] = []
+    @Relationship(deleteRule: .nullify) var stories: [Story] = []
     
     init(name: String, primaryTrait: CharacterTrait, secondaryTrait: CharacterTrait, appearance: String = "", specialAbility: String = "") {
         self.name = name

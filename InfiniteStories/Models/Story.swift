@@ -10,8 +10,28 @@ import SwiftData
 
 @Model
 final class Story {
-    var title: String
-    var content: String
+    var title: String {
+        didSet {
+            // Only mark for regeneration if we already have an audio file
+            // This prevents triggering on initial creation
+            if audioFileName != nil {
+                audioNeedsRegeneration = true
+                lastModified = Date()
+            }
+        }
+    }
+    
+    var content: String {
+        didSet {
+            // Only mark for regeneration if we already have an audio file
+            // This prevents triggering on initial creation
+            if audioFileName != nil {
+                audioNeedsRegeneration = true
+                lastModified = Date()
+            }
+        }
+    }
+    
     var event: StoryEvent
     var createdAt: Date
     var audioFileName: String?
@@ -19,8 +39,8 @@ final class Story {
     var isFavorite: Bool
     var playCount: Int
     var estimatedDuration: TimeInterval
-    var audioNeedsRegeneration: Bool = false
-    var lastModified: Date = Date()
+    var audioNeedsRegeneration: Bool
+    var lastModified: Date
     
     @Relationship(inverse: \Hero.stories) var hero: Hero?
     
@@ -56,10 +76,14 @@ final class Story {
     }
     
     var hasAudio: Bool {
-        return audioFileName != nil
+        return audioFileName != nil && !audioNeedsRegeneration
     }
     
     func incrementPlayCount() {
         playCount += 1
+    }
+    
+    func clearAudioRegenerationFlag() {
+        audioNeedsRegeneration = false
     }
 }

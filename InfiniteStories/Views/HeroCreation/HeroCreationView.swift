@@ -13,6 +13,8 @@ struct HeroCreationView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     
+    let heroToEdit: Hero?
+    
     @State private var heroName: String = ""
     @State private var primaryTrait: CharacterTrait = .brave
     @State private var secondaryTrait: CharacterTrait = .kind
@@ -51,10 +53,10 @@ struct HeroCreationView: View {
                     
                     Spacer()
                     
-                    Button(currentStep == totalSteps - 1 ? "Create Hero" : "Next") {
+                    Button(currentStep == totalSteps - 1 ? (heroToEdit != nil ? "Update Hero" : "Create Hero") : "Next") {
                         withAnimation {
                             if currentStep == totalSteps - 1 {
-                                createHero()
+                                saveHero()
                             } else {
                                 currentStep += 1
                             }
@@ -65,7 +67,7 @@ struct HeroCreationView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Create Your Hero")
+            .navigationTitle(heroToEdit != nil ? "Edit Hero" : "Create Your Hero")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -73,6 +75,15 @@ struct HeroCreationView: View {
                         dismiss()
                     }
                 }
+            }
+        }
+        .onAppear {
+            if let hero = heroToEdit {
+                heroName = hero.name
+                primaryTrait = hero.primaryTrait
+                secondaryTrait = hero.secondaryTrait
+                appearance = hero.appearance
+                specialAbility = hero.specialAbility
             }
         }
     }
@@ -230,16 +241,25 @@ struct HeroCreationView: View {
         }
     }
     
-    private func createHero() {
-        let hero = Hero(
-            name: heroName.trimmingCharacters(in: .whitespacesAndNewlines),
-            primaryTrait: primaryTrait,
-            secondaryTrait: secondaryTrait,
-            appearance: appearance.trimmingCharacters(in: .whitespacesAndNewlines),
-            specialAbility: specialAbility.trimmingCharacters(in: .whitespacesAndNewlines)
-        )
-        
-        modelContext.insert(hero)
+    private func saveHero() {
+        if let heroToEdit = heroToEdit {
+            // Update existing hero
+            heroToEdit.name = heroName.trimmingCharacters(in: .whitespacesAndNewlines)
+            heroToEdit.primaryTrait = primaryTrait
+            heroToEdit.secondaryTrait = secondaryTrait
+            heroToEdit.appearance = appearance.trimmingCharacters(in: .whitespacesAndNewlines)
+            heroToEdit.specialAbility = specialAbility.trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            // Create new hero
+            let hero = Hero(
+                name: heroName.trimmingCharacters(in: .whitespacesAndNewlines),
+                primaryTrait: primaryTrait,
+                secondaryTrait: secondaryTrait,
+                appearance: appearance.trimmingCharacters(in: .whitespacesAndNewlines),
+                specialAbility: specialAbility.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+            modelContext.insert(hero)
+        }
         
         do {
             try modelContext.save()
@@ -336,6 +356,6 @@ struct HeroPreviewCard: View {
 
 
 #Preview {
-    HeroCreationView()
+    HeroCreationView(heroToEdit: nil)
         .modelContainer(for: Hero.self, inMemory: true)
 }

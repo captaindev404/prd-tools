@@ -208,39 +208,10 @@ class StoryViewModel: ObservableObject {
             print("📱 🎵 ✅ Audio playback started successfully")
         } catch {
             print("📱 🎵 ❌ Audio playback failed: \(error.localizedDescription)")
-            print("📱 🎵 Attempting to fall back to TTS for invalid audio file")
-            fallbackToTTS(for: fileName, audioURL: audioURL)
+            generationError = "Failed to play audio file. Please regenerate the audio."
         }
     }
     
-    private func fallbackToTTS(for fileName: String, audioURL: URL) {
-        // Try to find the story that corresponds to this audio file
-        guard let story = findStoryByAudioFileName(fileName) else {
-            print("📱 🎵 ❌ Could not find story for audio file: \(fileName)")
-            generationError = "Could not find story content for playback"
-            return
-        }
-        
-        print("📱 🎵 Creating TTS for story: \(story.title)")
-        
-        // Play directly with TTS without creating files
-        audioService.playTextToSpeechDirectly(text: story.content)
-        updateAudioState()
-        startAudioUpdateTimer()
-        print("📱 🎵 ✅ TTS fallback successful")
-    }
-    
-    private func findStoryByAudioFileName(_ fileName: String) -> Story? {
-        // Extract the timestamp from the filename to match with story
-        guard let context = modelContext else { return nil }
-        
-        let request = FetchDescriptor<Story>()
-        let stories = try? context.fetch(request)
-        
-        return stories?.first { story in
-            story.audioFileName == fileName
-        }
-    }
     
     func stopAudio() {
         audioService.stopAudio()
@@ -289,9 +260,6 @@ class StoryViewModel: ObservableObject {
         audioService.setPlaybackSpeed(speed)
     }
     
-    var isUsingSpeechSynthesis: Bool {
-        return audioService.isUsingSpeechSynthesis
-    }
     
     private func updateAudioState() {
         isPlaying = audioService.isPlaying
@@ -386,8 +354,8 @@ class StoryViewModel: ObservableObject {
             story.audioFileName = nil
         }
         
-        // Mark as needing regeneration
-        story.audioNeedsRegeneration = false
+        // Clear the regeneration flag
+        story.clearAudioRegenerationFlag()
         
         // Generate new audio
         await generateAudioForStory(story)

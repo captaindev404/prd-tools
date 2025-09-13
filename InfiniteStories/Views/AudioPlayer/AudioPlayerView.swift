@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct AudioPlayerView: View {
     let story: Story
@@ -16,6 +17,10 @@ struct AudioPlayerView: View {
     @StateObject private var viewModel = StoryViewModel()
     @State private var showingFullText = false
     @State private var showingEditView = false
+    @State private var showingShareSheet = false
+    @State private var audioFileURL: URL?
+    @State private var showingExportError = false
+    @State private var exportErrorMessage = ""
     
     // Animation states
     @State private var playButtonPressed = false
@@ -154,59 +159,26 @@ struct AudioPlayerView: View {
                 
                 // Audio controls
                 VStack(spacing: 20) {
-                    // Interactive Progress Slider or Non-interactive Progress Bar
+                    // Interactive Progress Slider
                     if viewModel.duration > 0 {
                         VStack(spacing: 8) {
-                            if viewModel.isUsingSpeechSynthesis {
-                                // Non-interactive progress bar for TTS
-                                GeometryReader { geometry in
-                                    ZStack(alignment: .leading) {
-                                        // Background track
-                                        Rectangle()
-                                            .fill(Color.gray.opacity(0.3))
-                                            .frame(height: 4)
-                                            .cornerRadius(2)
-                                        
-                                        // Progress fill
-                                        Rectangle()
-                                            .fill(Color.gray)
-                                            .frame(width: geometry.size.width * (viewModel.currentTime / viewModel.duration), height: 4)
-                                            .cornerRadius(2)
+                            // Interactive slider for audio playback
+                            Slider(
+                                value: Binding(
+                                    get: { viewModel.currentTime },
+                                    set: { newTime in
+                                        viewModel.seek(to: newTime)
                                     }
-                                }
-                                .frame(height: 4)
-                                .padding(.vertical, 8)
-                            } else {
-                                // Interactive slider for MP3 playback
-                                Slider(
-                                    value: Binding(
-                                        get: { viewModel.currentTime },
-                                        set: { newTime in
-                                            viewModel.seek(to: newTime)
-                                        }
-                                    ),
-                                    in: 0...viewModel.duration
-                                )
-                                .accentColor(.orange)
-                            }
+                                ),
+                                in: 0...viewModel.duration
+                            )
+                            .accentColor(.orange)
                             
                             HStack {
                                 Text(formatTime(viewModel.currentTime))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                     .monospacedDigit()
-                                
-                                Spacer()
-                                
-                                if viewModel.isUsingSpeechSynthesis {
-                                    Text("TTS Mode")
-                                        .font(.caption2)
-                                        .foregroundColor(.gray)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(Color.gray.opacity(0.2))
-                                        .cornerRadius(4)
-                                }
                                 
                                 Spacer()
                                 
@@ -395,11 +367,31 @@ struct AudioPlayerView: View {
                             Image(systemName: "pencil")
                                 .foregroundColor(.purple)
                         }
+                        
+                        // Export Audio Button
+                        Button(action: {
+                            exportAudioFile()
+                        }) {
+                            Image(systemName: "square.and.arrow.up")
+                                .foregroundColor(story.hasAudio ? .blue : .gray)
+                        }
+                        .disabled(!story.hasAudio && story.audioFileName == nil)
+                        .opacity(story.hasAudio || story.audioFileName != nil ? 1.0 : 0.6)
                     }
                 }
             }
             .sheet(isPresented: $showingEditView) {
                 StoryEditView(story: story)
+            }
+            .sheet(isPresented: $showingShareSheet) {
+                if let audioFileURL = audioFileURL {
+                    ShareSheet(activityItems: [audioFileURL])
+                }
+            }
+            .alert("Export Error", isPresented: $showingExportError) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(exportErrorMessage)
             }
             .onAppear {
                 print("🎵 === AudioPlayerView appeared ===")
@@ -447,6 +439,108 @@ struct AudioPlayerView: View {
         // Average reading speed is about 200 words per minute
         max(1, (wordCount + 199) / 200)
     }
+    
+    private func exportAudioFile() {
+        guard let audioFileName = story.audioFileName else {
+            exportErrorMessage = "This story doesn't have an audio file yet. Please play the story first to generate audio."
+            showingExportError = true
+            return
+        }
+        
+        let fileManager = FileManager.default
+        guard let documentsPath = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            exportErrorMessage = "Unable to access the documents directory. Please try again."
+            showingExportError = true
+            return
+        }
+        
+        // Audio files are stored directly in the documents directory, not in a subdirectory
+        let audioPath = documentsPath.appendingPathComponent(audioFileName)
+        
+        print("🎵 Export: Looking for audio file at: \(audioPath.path)")
+        print("🎵 Export: File exists: \(fileManager.fileExists(atPath: audioPath.path))")
+        
+        // Check if file exists at the expected path
+        if fileManager.fileExists(atPath: audioPath.path) {
+            // Create a temporary copy with a user-friendly name
+            let tempDirectory = fileManager.temporaryDirectory
+            // Clean the title for filename (remove special characters)
+            let cleanedTitle = story.title
+                .replacingOccurrences(of: "/", with: "-")
+                .replacingOccurrences(of: "\\", with: "-")
+                .replacingOccurrences(of: ":", with: "-")
+                .replacingOccurrences(of: "*", with: "-")
+                .replacingOccurrences(of: "?", with: "-")
+                .replacingOccurrences(of: "\"", with: "-")
+                .replacingOccurrences(of: "<", with: "-")
+                .replacingOccurrences(of: ">", with: "-")
+                .replacingOccurrences(of: "|", with: "-")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            let exportFileName = "\(cleanedTitle).mp3"
+            let tempFileURL = tempDirectory.appendingPathComponent(exportFileName)
+            
+            do {
+                // Remove any existing temp file
+                if fileManager.fileExists(atPath: tempFileURL.path) {
+                    try fileManager.removeItem(at: tempFileURL)
+                }
+                
+                // Copy the audio file to temp location with friendly name
+                try fileManager.copyItem(at: audioPath, to: tempFileURL)
+                
+                print("🎵 Export: Successfully prepared audio file for sharing")
+                print("🎵 Export: Temp file: \(tempFileURL.path)")
+                
+                // Set the URL for sharing
+                audioFileURL = tempFileURL
+                showingShareSheet = true
+            } catch {
+                print("🎵 Export: Error preparing audio for export: \(error)")
+                exportErrorMessage = "Unable to prepare the audio file for sharing. Error: \(error.localizedDescription)"
+                showingExportError = true
+            }
+        } else {
+            print("🎵 Export: Audio file not found at: \(audioPath.path)")
+            print("🎵 Export: Available files in documents directory:")
+            if let contents = try? fileManager.contentsOfDirectory(at: documentsPath, includingPropertiesForKeys: nil) {
+                for file in contents {
+                    print("🎵 Export:   - \(file.lastPathComponent)")
+                }
+            }
+            
+            // Check if audio needs regeneration
+            if story.audioNeedsRegeneration {
+                exportErrorMessage = "The audio file needs to be regenerated. Please play the story to generate a new audio file."
+            } else {
+                exportErrorMessage = "Audio file not found. Please play the story first to generate the audio file."
+            }
+            showingExportError = true
+        }
+    }
+}
+
+// MARK: - ShareSheet for iOS
+struct ShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+    
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(
+            activityItems: activityItems,
+            applicationActivities: nil
+        )
+        
+        // Exclude some activities that don't make sense for audio files
+        controller.excludedActivityTypes = [
+            .assignToContact,
+            .addToReadingList,
+            .openInIBooks
+        ]
+        
+        return controller
+    }
+    
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 #Preview {

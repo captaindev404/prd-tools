@@ -20,6 +20,7 @@ struct ImprovedContentView: View {
     @State private var showingStoryGeneration = false
     @State private var showingSettings = false
     @State private var selectedStory: Story?
+    @State private var selectedHeroForStory: Hero?
     @State private var animateHero = false
     @State private var sparkleAnimation = false
     @State private var cloudOffset: CGFloat = -100
@@ -64,7 +65,9 @@ struct ImprovedContentView: View {
                             heroes: heroes,
                             animateHero: $animateHero,
                             sparkleAnimation: $sparkleAnimation,
-                            showingHeroCreation: $showingHeroCreation
+                            showingHeroCreation: $showingHeroCreation,
+                            selectedHeroForStory: $selectedHeroForStory,
+                            showingStoryGeneration: $showingStoryGeneration
                         )
                         .padding(.top, 20)
                         
@@ -72,7 +75,8 @@ struct ImprovedContentView: View {
                         QuickActionsView(
                             hasHeroes: !heroes.isEmpty,
                             storiesCount: stories.count,
-                            showingStoryGeneration: $showingStoryGeneration
+                            showingStoryGeneration: $showingStoryGeneration,
+                            selectedHeroForStory: $selectedHeroForStory
                         )
                         .padding(.top, 30)
                         
@@ -147,10 +151,12 @@ struct ImprovedContentView: View {
                 }
             }
             .sheet(isPresented: $showingHeroCreation) {
-                HeroCreationView()
+                HeroCreationView(heroToEdit: nil)
             }
             .sheet(isPresented: $showingStoryGeneration) {
-                if let hero = heroes.first {
+                if heroes.count > 1 {
+                    HeroSelectionForStoryView(selectedHero: $selectedHeroForStory, showingStoryGeneration: $showingStoryGeneration)
+                } else if let hero = selectedHeroForStory ?? heroes.first {
                     StoryGenerationView(hero: hero)
                 }
             }
@@ -305,173 +311,54 @@ struct HeroSectionView: View {
     @Binding var animateHero: Bool
     @Binding var sparkleAnimation: Bool
     @Binding var showingHeroCreation: Bool
-    
-    // Use SF Rounded for better iOS integration
-    private let titleFont = Font.system(size: 36, weight: .bold, design: .rounded)
-    private let subtitleFont = Font.system(size: 16, weight: .light, design: .rounded)
+    @Binding var selectedHeroForStory: Hero?
+    @Binding var showingStoryGeneration: Bool
     
     var body: some View {
-        VStack(spacing: 20) {
-            // Title with Animation
+        VStack(spacing: 15) {
+            // Heroes Title Bar
             HStack {
-                SparkleView(animate: $sparkleAnimation)
-                    .frame(width: 30, height: 30)
-                
-                Text("Infinite Stories")
-                    .font(titleFont)
+                Text("Your Heroes")
+                    .font(.title2)
+                    .fontWeight(.bold)
                     .foregroundColor(MagicalColors.primary)
-                    .shadow(color: MagicalColors.primary.opacity(0.3), radius: 5)
-                
-                SparkleView(animate: $sparkleAnimation)
-                    .frame(width: 30, height: 30)
-            }
-            
-            Text("Where Magic Comes to Life")
-                .font(subtitleFont)
-                .foregroundColor(MagicalColors.secondary)
-            
-            // Hero Card
-            if let currentHero = heroes.first {
-                HeroCardView(
-                    hero: currentHero,
-                    animateHero: $animateHero,
-                    onEdit: { showingHeroCreation = true }
-                )
-            }
-        }
-    }
-}
-
-// MARK: - Hero Card View
-struct HeroCardView: View {
-    let hero: Hero
-    @Binding var animateHero: Bool
-    let onEdit: () -> Void
-    @State private var isPressed = false
-    
-    private let cardFont = Font.system(size: 24, weight: .bold, design: .rounded)
-    private let detailFont = Font.system(size: 12, weight: .light, design: .rounded)
-    
-    var body: some View {
-        ZStack {
-            // Card Background with Gradient
-            RoundedRectangle(cornerRadius: 20)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            MagicalColors.heroCardStart,
-                            MagicalColors.heroCardEnd
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .shadow(color: MagicalColors.primary.opacity(0.3), radius: 10, x: 0, y: 5)
-            
-            // Card Content
-            HStack(spacing: 15) {
-                // Hero Avatar
-                ZStack {
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [
-                                    Color.white,
-                                    MagicalColors.accent.opacity(0.3)
-                                ],
-                                center: .center,
-                                startRadius: 5,
-                                endRadius: 40
-                            )
-                        )
-                        .frame(width: 80, height: 80)
-                    
-                    Image(systemName: "person.fill")
-                        .font(.system(size: 40))
-                        .foregroundColor(MagicalColors.primary)
-                        .scaleEffect(animateHero ? 1.1 : 1.0)
-                }
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(hero.name)
-                        .font(cardFont)
-                        .foregroundColor(.white)
-                    
-                    HStack {
-                        TraitBadge(trait: hero.primaryTrait.rawValue, color: .orange)
-                        TraitBadge(trait: hero.secondaryTrait.rawValue, color: .pink)
-                    }
-                    
-                    if !hero.specialAbility.isEmpty {
-                        HStack {
-                            Image(systemName: "sparkles")
-                                .font(.caption)
-                            Text(hero.specialAbility)
-                                .font(detailFont)
-                                .lineLimit(1)
-                        }
-                        .foregroundColor(.white.opacity(0.9))
-                    }
-                }
                 
                 Spacer()
                 
-                // Edit Button
-                Button(action: onEdit) {
-                    Image(systemName: "pencil.circle.fill")
-                        .font(.title2)
-                        .foregroundColor(.white)
-                        .background(
-                            Circle()
-                                .fill(Color.white.opacity(0.2))
-                                .frame(width: 40, height: 40)
-                        )
+                if !heroes.isEmpty {
+                    NavigationLink(destination: HeroListView()) {
+                        Text("Manage heroes")
+                            .font(.subheadline)
+                            .foregroundColor(MagicalColors.primary)
+                    }
                 }
-                .accessibilityLabel("Edit hero")
-                .accessibilityHint("Tap to edit your hero's details")
             }
-            .padding(20)
-        }
-        .frame(height: 140)
-        .scaleEffect(isPressed ? 0.98 : 1.0)
-        .onTapGesture {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                isPressed = true
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                    isPressed = false
+            
+            // Empty State or Hero Count
+            if !heroes.isEmpty {
+                // Simple hero count display
+                HStack {
+                    Image(systemName: "person.2.fill")
+                        .font(.title3)
+                        .foregroundColor(MagicalColors.secondary)
+                    Text("\(heroes.count) \(heroes.count == 1 ? "Hero" : "Heroes") Created")
+                        .font(.subheadline)
+                        .foregroundColor(MagicalColors.secondary)
+                    Spacer()
                 }
+                .padding(.horizontal, 5)
             }
         }
     }
 }
 
-// MARK: - Trait Badge
-struct TraitBadge: View {
-    let trait: String
-    let color: Color
-    
-    private let badgeFont = Font.system(size: 11, weight: .medium, design: .rounded)
-    
-    var body: some View {
-        Text(trait)
-            .font(badgeFont)
-            .foregroundColor(.white)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(
-                Capsule()
-                    .fill(color.opacity(0.8))
-            )
-    }
-}
 
 // MARK: - Quick Actions View
 struct QuickActionsView: View {
     let hasHeroes: Bool
     let storiesCount: Int
     @Binding var showingStoryGeneration: Bool
+    @Binding var selectedHeroForStory: Hero?
     @State private var generateButtonPressed = false
     @State private var libraryButtonPressed = false
     

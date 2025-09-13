@@ -210,7 +210,7 @@ class OpenAIService: AIServiceProtocol {
     }
     
     func generateSpeech(text: String, voice: String) async throws -> Data {
-        print("🎙️ === OpenAI TTS Generation Started (Enhanced Model) ===")
+        print("🎙️ === OpenAI TTS Generation Started ===")
         print("🎙️ Voice: \(voice)")
         print("🎙️ Text length: \(text.count) characters")
         print("🎙️ Text preview: \(text.prefix(50))...")
@@ -220,18 +220,18 @@ class OpenAIService: AIServiceProtocol {
             throw AIServiceError.invalidAPIKey
         }
         
-        // Use the new enhanced TTS model with instructions
-        return try await generateSpeechWithInstructions(text: text, voice: voice)
+        // Use the gpt-4o-mini-tts model with voice instructions
+        return try await generateSpeechWithModel(text: text, voice: voice)
     }
     
-    /// Enhanced TTS generation using the new gpt-4o-mini-tts model with voice instructions
-    private func generateSpeechWithInstructions(text: String, voice: String) async throws -> Data {
-        print("🎙️ 🆕 Using enhanced TTS model with voice instructions")
+    /// TTS generation using the gpt-4o-mini-tts model with voice instructions
+    private func generateSpeechWithModel(text: String, voice: String) async throws -> Data {
+        print("🎙️ Using gpt-4o-mini-tts model with voice instructions")
         
         // Craft child-friendly storytelling instructions based on the voice
         let instructions = getStorytellingInstructions(for: voice)
         
-        // Prepare request body with the new model and instructions
+        // Prepare request body with the model and instructions
         let requestBody: [String: Any] = [
             "model": "gpt-4o-mini-tts",
             "input": text,
@@ -254,7 +254,7 @@ class OpenAIService: AIServiceProtocol {
         urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         urlRequest.httpBody = jsonData
         
-        print("🎙️ 📤 Making request to OpenAI Enhanced TTS API...")
+        print("🎙️ 📤 Making request to OpenAI TTS API...")
         
         do {
             let (data, response) = try await URLSession.shared.data(for: urlRequest)
@@ -263,80 +263,8 @@ class OpenAIService: AIServiceProtocol {
                 print("🎙️ 📥 Response status: \(httpResponse.statusCode)")
                 
                 if httpResponse.statusCode == 200 {
-                    print("🎙️ ✅ Enhanced audio data received: \(data.count) bytes")
-                    print("🎙️ === Enhanced TTS Generation Completed ===")
-                    return data
-                } else if httpResponse.statusCode == 400 || httpResponse.statusCode == 404 {
-                    // Fallback to legacy model if new model is not available
-                    print("🎙️ ⚠️ New model not available, falling back to legacy TTS...")
-                    return try await generateSpeechLegacy(text: text, voice: voice)
-                } else {
-                    // Try to parse error message
-                    if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let error = errorJson["error"] as? [String: Any],
-                       let message = error["message"] as? String {
-                        print("🎙️ ❌ API Error: \(message)")
-                        
-                        // If the error is about the model, fallback to legacy
-                        if message.contains("model") || message.contains("not found") {
-                            print("🎙️ ⚠️ Model error detected, falling back to legacy TTS...")
-                            return try await generateSpeechLegacy(text: text, voice: voice)
-                        }
-                        
-                        throw AIServiceError.apiError(message)
-                    } else {
-                        print("🎙️ ❌ HTTP Error: \(httpResponse.statusCode)")
-                        throw AIServiceError.invalidResponse
-                    }
-                }
-            } else {
-                print("🎙️ ❌ Invalid response type")
-                throw AIServiceError.invalidResponse
-            }
-        } catch let error as AIServiceError {
-            print("🎙️ ❌ AI Service Error: \(error)")
-            throw error
-        } catch {
-            print("🎙️ ❌ Network Error: \(error.localizedDescription)")
-            throw AIServiceError.networkError(error)
-        }
-    }
-    
-    /// Legacy TTS generation fallback using the older tts-1-hd model
-    private func generateSpeechLegacy(text: String, voice: String) async throws -> Data {
-        print("🎙️ 📼 Using legacy TTS model (tts-1-hd)")
-        
-        // Prepare request body with legacy model
-        let requestBody: [String: Any] = [
-            "model": "tts-1-hd",
-            "input": text,
-            "voice": voice,
-            "response_format": "mp3"
-        ]
-        
-        guard let jsonData = try? JSONSerialization.data(withJSONObject: requestBody) else {
-            print("🎙️ ❌ Error: Failed to encode JSON")
-            throw AIServiceError.invalidResponse
-        }
-        
-        // Create URL request
-        var urlRequest = URLRequest(url: URL(string: ttsURL)!)
-        urlRequest.httpMethod = "POST"
-        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        urlRequest.httpBody = jsonData
-        
-        print("🎙️ 📤 Making request to OpenAI Legacy TTS API...")
-        
-        do {
-            let (data, response) = try await URLSession.shared.data(for: urlRequest)
-            
-            if let httpResponse = response as? HTTPURLResponse {
-                print("🎙️ 📥 Response status: \(httpResponse.statusCode)")
-                
-                if httpResponse.statusCode == 200 {
-                    print("🎙️ ✅ Legacy audio data received: \(data.count) bytes")
-                    print("🎙️ === Legacy TTS Generation Completed ===")
+                    print("🎙️ ✅ Audio data received: \(data.count) bytes")
+                    print("🎙️ === TTS Generation Completed ===")
                     return data
                 } else {
                     // Try to parse error message
@@ -394,4 +322,3 @@ class OpenAIService: AIServiceProtocol {
         }
     }
 }
-
