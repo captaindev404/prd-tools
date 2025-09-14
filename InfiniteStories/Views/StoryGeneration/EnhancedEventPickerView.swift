@@ -99,28 +99,6 @@ struct EnhancedEventPickerView: View {
                         .padding(.horizontal)
                     }
                     
-                    // Built-in Events Section
-                    if !filteredBuiltInEvents.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Suggested Events")
-                                .font(.headline)
-                                .padding(.horizontal)
-                            
-                            ForEach(filteredBuiltInEvents, id: \.self) { event in
-                                BuiltInEventCard(
-                                    event: event,
-                                    isSelected: selectedBuiltInEvent == event,
-                                    action: {
-                                        selectedBuiltInEvent = event
-                                        selectedCustomEvent = nil
-                                        dismiss()
-                                    }
-                                )
-                                .padding(.horizontal)
-                            }
-                        }
-                    }
-                    
                     // Custom Events Section
                     if !filteredCustomEvents.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
@@ -158,6 +136,30 @@ struct EnhancedEventPickerView: View {
                             }
                         }
                     }
+                    
+                    // Built-in Events Section
+                    if !filteredBuiltInEvents.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Suggested Events")
+                                .font(.headline)
+                                .padding(.horizontal)
+                            
+                            ForEach(filteredBuiltInEvents, id: \.self) { event in
+                                BuiltInEventCard(
+                                    event: event,
+                                    isSelected: selectedBuiltInEvent == event,
+                                    action: {
+                                        selectedBuiltInEvent = event
+                                        selectedCustomEvent = nil
+                                        dismiss()
+                                    }
+                                )
+                                .padding(.horizontal)
+                            }
+                        }
+                    }
+                    
+                    
                     
                     // Empty state
                     if filteredBuiltInEvents.isEmpty && filteredCustomEvents.isEmpty {

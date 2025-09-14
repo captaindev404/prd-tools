@@ -199,7 +199,13 @@ struct ImprovedStoryLibraryView: View {
         }
         .sheet(item: $selectedStory) { story in
             NavigationStack {
-                AudioPlayerView(story: story)
+                // Find the index of the selected story in the filtered list
+                let storyIndex = filteredStories.firstIndex(where: { $0.id == story.id }) ?? 0
+                AudioPlayerView(
+                    story: story,
+                    allStories: filteredStories,
+                    storyIndex: storyIndex
+                )
             }
         }
         .sheet(item: $storyToRegenerate) { story in

@@ -159,9 +159,16 @@ struct StoryLibraryView: View {
         .navigationTitle("Story Library")
         .sheet(item: $selectedStory) { story in
             NavigationStack {
-                AudioPlayerView(story: story)
+                // Find the index of the selected story in the stories list
+                let storyIndex = stories.firstIndex(where: { $0.id == story.id }) ?? 0
+                AudioPlayerView(
+                    story: story,
+                    allStories: stories,
+                    storyIndex: storyIndex
+                )
                     .onAppear {
                         print("📚 Opening AudioPlayerView for story: \(story.title)")
+                        print("📚 Story queue has \(stories.count) stories, starting at index \(storyIndex)")
                     }
             }
         }

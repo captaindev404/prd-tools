@@ -23,9 +23,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **AIService**: Handles story generation via OpenAI GPT-4o and audio via gpt-4o-mini-tts model
   - Multi-language support (English, Spanish, French, German, Italian)
   - Custom prompt localization and optimization
-- **AudioService**: OpenAI-exclusive audio generation and playback with background processing
+- **AudioService**: OpenAI-exclusive audio generation and playback with advanced media controls
+  - Lock screen integration via MPNowPlayingInfoCenter and MPRemoteCommandCenter
+  - Background audio session management with interruption handling
   - Automatic idle timer management during playback
   - MP3 file management with timestamp-based naming
+  - Playback speed control and seeking capabilities
+  - Audio route change detection (headphones disconnection)
+  - Navigation delegate for story queue management
 - **CustomEventAIAssistant**: AI-powered helper for creating and enhancing custom events
   - Title generation from descriptions
   - Prompt seed enhancement based on context
@@ -48,7 +53,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **StoryEditView**: In-app story editor with auto-formatting
   - Character/word count tracking
   - Automatic audio regeneration on save
-- **AudioPlayerView**: Story playback with controls and progress tracking
+- **AudioPlayerView**: Advanced story playback with comprehensive controls
+  - Lock screen integration with MPNowPlayingInfoCenter
+  - Previous/Next story navigation with queue management
+  - Dynamic UI updates when switching stories
+  - Enhanced audio export with metadata
+  - Playback speed control (0.5x to 2.0x)
+  - Skip forward/backward 15 seconds
 - **ImprovedStoryLibraryView**: Enhanced story list with filtering and sorting
 - **AdaptiveHeroGridView**: Responsive hero display grid
 - **EnhancedEventPickerView**: Improved event selection with custom events
@@ -58,6 +69,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### ViewModels
 - **StoryViewModel**: Manages story generation, audio playback, and error handling
   - Integrates with custom events and AI enhancement
+  - Story queue management for sequential playback
+  - Lock screen Now Playing info updates
+  - Audio navigation delegate implementation
 
 ### Utilities
 - **KeychainHelper**: Secure storage for API keys and sensitive data
@@ -88,7 +102,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 5. **Audio Generation**: High-quality voice synthesis using OpenAI's gpt-4o-mini-tts model
 6. **Story Editing**: In-app content editing with automatic audio regeneration
 7. **Story Library**: Persistent storage with favorites, play counts, and filtering
-8. **Audio Playback**: Full-featured MP3 player with speed control and progress tracking
+8. **Advanced Audio Playback**:
+   - Full-featured MP3 player with speed control (0.5x-2.0x)
+   - Lock screen controls with Now Playing info
+   - Previous/Next story navigation in queue mode
+   - Skip forward/backward 15 seconds
+   - Audio export with metadata
+   - Background playback with interruption handling
 9. **Theme Support**: Light, dark, and system theme preferences
 10. **Accessibility**: VoiceOver support, dynamic type, and motion preferences
 11. **Hero Management**: Create, edit, and delete multiple heroes
@@ -214,18 +234,22 @@ InfiniteStories/
 - Enhanced views (ImprovedContentView, ImprovedStoryLibraryView) offer magical UI
 - Multi-step wizards for complex workflows (hero/event creation)
 - Adaptive layouts for different screen sizes
+- AudioPlayerView uses computed properties for reactive UI updates during navigation
 
 ### Service Layer
 - Services implement protocols for clean architecture
 - OpenAI integration centralized in AIService and CustomEventAIAssistant
 - MP3 audio files stored in Documents directory with timestamp-based names
 - Background processing enabled for audio playback and story generation
+- AudioService implements MPNowPlayingInfoCenter and MPRemoteCommandCenter for media controls
+- Navigation delegate pattern for story queue management
 
 ### Error Handling
 - User-friendly error messages for API failures
 - No silent fallbacks - explicit error reporting
 - Network connectivity monitoring for optimal UX
 - Graceful degradation for missing features
+- Enhanced audio export error handling with typed errors
 
 ### Security
 - API keys stored securely in iOS Keychain
@@ -237,6 +261,7 @@ InfiniteStories/
 - Reference counting for idle timer management
 - Background task registration for long operations
 - Adaptive performance based on device capabilities
+- Efficient story queue management with lazy loading
 
 ### Accessibility
 - Full VoiceOver support with semantic labels
@@ -261,6 +286,12 @@ InfiniteStories/
 - **Enhanced UI**: Optional magical interface with animations
 - **Accessibility**: Comprehensive VoiceOver and Dynamic Type support
 - **Background Processing**: Continued operation when app is in background
+- **Advanced Audio Player**:
+  - Lock screen controls with artwork and metadata
+  - Story queue navigation (previous/next)
+  - Dynamic UI updates when switching stories
+  - Enhanced export with proper file handling
+  - Media session management for interruptions
 
 ### App Info.plist Configuration
 - Background modes: audio, processing, fetch

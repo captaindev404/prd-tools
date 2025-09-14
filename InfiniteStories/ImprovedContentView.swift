@@ -166,7 +166,13 @@ struct ImprovedContentView: View {
             }
             .sheet(item: $selectedStory) { story in
                 NavigationStack {
-                    AudioPlayerView(story: story)
+                    // Find the index of the selected story in the stories list
+                    let storyIndex = stories.firstIndex(where: { $0.id == story.id }) ?? 0
+                    AudioPlayerView(
+                        story: story,
+                        allStories: stories,
+                        storyIndex: storyIndex
+                    )
                         .onDisappear {
                             // Update play count when audio player closes
                             handleStoryPlayed(story)

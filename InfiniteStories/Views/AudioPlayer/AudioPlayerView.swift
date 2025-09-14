@@ -10,10 +10,13 @@ import SwiftData
 import UIKit
 
 struct AudioPlayerView: View {
-    let story: Story
+    let initialStory: Story
+    let allStories: [Story]?
+    let storyIndex: Int?
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    
+
     @StateObject private var viewModel = StoryViewModel()
     @State private var showingFullText = false
     @State private var showingEditView = false
@@ -21,14 +24,30 @@ struct AudioPlayerView: View {
     @State private var audioFileURL: URL?
     @State private var showingExportError = false
     @State private var exportErrorMessage = ""
-    
+    @State private var exportMetadata: [String: Any] = [:]
+
     // Animation states
     @State private var playButtonPressed = false
     @State private var skipForwardPressed = false
     @State private var skipBackwardPressed = false
+    @State private var previousButtonPressed = false
+    @State private var nextButtonPressed = false
+
+    init(story: Story, allStories: [Story]? = nil, storyIndex: Int? = nil) {
+        self.initialStory = story
+        self.allStories = allStories
+        self.storyIndex = storyIndex
+    }
+
+    // Computed property to get the current story being played
+    private var currentStory: Story {
+        // If we're in queue mode and have a current story, use it
+        // Otherwise fall back to the initial story
+        viewModel.currentStory ?? initialStory
+    }
     
     var body: some View {
-        if story.title.isEmpty && story.content.isEmpty {
+        if currentStory.title.isEmpty && currentStory.content.isEmpty {
             VStack(spacing: 20) {
                 Image(systemName: "exclamationmark.triangle")
                     .font(.system(size: 50))
@@ -55,12 +74,12 @@ struct AudioPlayerView: View {
                         .font(.system(size: 60))
                         .foregroundColor(.orange)
                     
-                    Text(story.title)
+                    Text(currentStory.title)
                         .font(.title2)
                         .fontWeight(.bold)
                         .multilineTextAlignment(.center)
                     
-                    if let hero = story.hero {
+                    if let hero = currentStory.hero {
                         Text("Featuring \(hero.name)")
                             .font(.headline)
                             .foregroundColor(.secondary)
@@ -72,7 +91,7 @@ struct AudioPlayerView: View {
                 ZStack(alignment: .bottom) {
                     VStack(spacing: 8) {
                         // Reading time estimate
-                        if !story.content.isEmpty {
+                        if !currentStory.content.isEmpty {
                             HStack {
                                 Image(systemName: "book.fill")
                                     .font(.caption)
@@ -90,7 +109,7 @@ struct AudioPlayerView: View {
                         
                         // Story content
                         ScrollView {
-                            if story.content.isEmpty {
+                            if currentStory.content.isEmpty {
                                 Text("No story content available")
                                     .font(.body)
                                     .italic()
@@ -98,7 +117,7 @@ struct AudioPlayerView: View {
                                     .padding()
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             } else {
-                                Text(story.content)
+                                Text(currentStory.content)
                                     .font(.system(.body, design: .serif))
                                     .lineSpacing(4)
                                     .padding()
@@ -115,7 +134,7 @@ struct AudioPlayerView: View {
                     }
                     
                     // Gradient overlay when collapsed
-                    if !showingFullText && !story.content.isEmpty {
+                    if !showingFullText && !currentStory.content.isEmpty {
                         LinearGradient(
                             gradient: Gradient(colors: [
                                 Color(.systemGray6).opacity(0),
@@ -133,7 +152,7 @@ struct AudioPlayerView: View {
                 }
                 
                 // Expand/Collapse button
-                if !story.content.isEmpty {
+                if !currentStory.content.isEmpty {
                     Button(action: {
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                             showingFullText.toggle()
@@ -192,7 +211,30 @@ struct AudioPlayerView: View {
                     }
                     
                     // Main Playback Controls
-                    HStack(spacing: 25) {
+                    HStack(spacing: 20) {
+                        // Previous Story Button
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.1)) {
+                                if viewModel.isQueueMode {
+                                    viewModel.playPreviousStory()
+                                } else {
+                                    // Restart current story
+                                    viewModel.seek(to: 0)
+                                }
+                            }
+                        }) {
+                            Image(systemName: "backward.fill")
+                                .font(.system(size: 24))
+                                .foregroundColor(canGoToPrevious ? .orange : .gray)
+                        }
+                        .scaleEffect(previousButtonPressed ? 0.9 : 1.0)
+                        .disabled(!canGoToPrevious && viewModel.duration == 0)
+                        .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
+                            withAnimation(.easeInOut(duration: 0.1)) {
+                                previousButtonPressed = pressing
+                            }
+                        }, perform: {})
+
                         // Skip Backward 15s
                         Button(action: {
                             withAnimation(.easeInOut(duration: 0.1)) {
@@ -200,7 +242,7 @@ struct AudioPlayerView: View {
                             }
                         }) {
                             Image(systemName: "gobackward.15")
-                                .font(.system(size: 28))
+                                .font(.system(size: 24))
                                 .foregroundColor(.orange)
                         }
                         .scaleEffect(skipBackwardPressed ? 0.9 : 1.0)
@@ -210,21 +252,21 @@ struct AudioPlayerView: View {
                                 skipBackwardPressed = pressing
                             }
                         }, perform: {})
-                        
+
                         Spacer()
-                        
+
                         // Main Play/Pause Button
                         Button(action: {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                                 if viewModel.isPlaying || viewModel.isPaused {
                                     viewModel.togglePlayPause()
                                 } else {
-                                    viewModel.playStory(story)
+                                    viewModel.playStory(currentStory)
                                 }
                             }
                         }) {
                             Image(systemName: playButtonIcon)
-                                .font(.system(size: 64))
+                                .font(.system(size: 56))
                                 .foregroundColor(.orange)
                         }
                         .scaleEffect(playButtonPressed ? 0.95 : 1.0)
@@ -234,9 +276,9 @@ struct AudioPlayerView: View {
                                 playButtonPressed = pressing
                             }
                         }, perform: {})
-                        
+
                         Spacer()
-                        
+
                         // Skip Forward 15s
                         Button(action: {
                             withAnimation(.easeInOut(duration: 0.1)) {
@@ -244,7 +286,7 @@ struct AudioPlayerView: View {
                             }
                         }) {
                             Image(systemName: "goforward.15")
-                                .font(.system(size: 28))
+                                .font(.system(size: 24))
                                 .foregroundColor(.orange)
                         }
                         .scaleEffect(skipForwardPressed ? 0.9 : 1.0)
@@ -254,13 +296,33 @@ struct AudioPlayerView: View {
                                 skipForwardPressed = pressing
                             }
                         }, perform: {})
+
+                        // Next Story Button
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.1)) {
+                                if viewModel.isQueueMode {
+                                    viewModel.playNextStory()
+                                }
+                            }
+                        }) {
+                            Image(systemName: "forward.fill")
+                                .font(.system(size: 24))
+                                .foregroundColor(canGoToNext ? .orange : .gray)
+                        }
+                        .scaleEffect(nextButtonPressed ? 0.9 : 1.0)
+                        .disabled(!canGoToNext)
+                        .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
+                            withAnimation(.easeInOut(duration: 0.1)) {
+                                nextButtonPressed = pressing
+                            }
+                        }, perform: {})
                     }
-                    .padding(.horizontal, 40)
+                    .padding(.horizontal, 30)
                     
                     // Secondary Controls
                     HStack(spacing: 30) {
                         // Audio regeneration indicator
-                        if story.audioNeedsRegeneration {
+                        if currentStory.audioNeedsRegeneration {
                             HStack(spacing: 4) {
                                 Image(systemName: "exclamationmark.circle.fill")
                                     .font(.caption)
@@ -321,21 +383,13 @@ struct AudioPlayerView: View {
                 }
                 
                 // Story info
-                VStack(spacing: 10) {
-                    HStack {
-                        Text("Created: \(story.formattedDate)")
-                        Spacer()
-                        Text("Played: \(story.playCount) times")
-                    }
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    
-                    if story.estimatedDuration > 0 {
-                        Text("Estimated duration: \(formatTime(story.estimatedDuration))")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+                HStack {
+                    Text("Created: \(currentStory.formattedDate)")
+                    Spacer()
+                    Text("Played: \(currentStory.playCount) times")
                 }
+                .font(.caption)
+                .foregroundColor(.secondary)
                 .padding(.horizontal)
                 
                 Spacer()
@@ -354,11 +408,11 @@ struct AudioPlayerView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     HStack(spacing: 16) {
                         Button(action: {
-                            story.isFavorite.toggle()
+                            currentStory.isFavorite.toggle()
                             try? modelContext.save()
                         }) {
-                            Image(systemName: story.isFavorite ? "heart.fill" : "heart")
-                                .foregroundColor(story.isFavorite ? .red : .secondary)
+                            Image(systemName: currentStory.isFavorite ? "heart.fill" : "heart")
+                                .foregroundColor(currentStory.isFavorite ? .red : .secondary)
                         }
                         
                         Button(action: {
@@ -373,15 +427,15 @@ struct AudioPlayerView: View {
                             exportAudioFile()
                         }) {
                             Image(systemName: "square.and.arrow.up")
-                                .foregroundColor(story.hasAudio ? .blue : .gray)
+                                .foregroundColor(currentStory.hasAudio ? .blue : .gray)
                         }
-                        .disabled(!story.hasAudio && story.audioFileName == nil)
-                        .opacity(story.hasAudio || story.audioFileName != nil ? 1.0 : 0.6)
+                        .disabled(!currentStory.hasAudio && currentStory.audioFileName == nil)
+                        .opacity(currentStory.hasAudio || currentStory.audioFileName != nil ? 1.0 : 0.6)
                     }
                 }
             }
             .sheet(isPresented: $showingEditView) {
-                StoryEditView(story: story)
+                StoryEditView(story: currentStory)
             }
             .sheet(isPresented: $showingShareSheet) {
                 if let audioFileURL = audioFileURL {
@@ -395,15 +449,25 @@ struct AudioPlayerView: View {
             }
             .onAppear {
                 print("🎵 === AudioPlayerView appeared ===")
-                print("🎵 Story title: '\(story.title)'")
-                print("🎵 Story content length: \(story.content.count) characters")
-                print("🎵 Story content preview: '\(story.shortContent)'")
-                print("🎵 Hero name: '\(story.hero?.name ?? "No hero")'")
-                print("🎵 Story created: \(story.formattedDate)")
-                print("🎵 Play count: \(story.playCount)")
-                print("🎵 Has audio: \(story.hasAudio)")
+                print("🎵 Initial story title: '\(initialStory.title)'")
+                print("🎵 Initial story content length: \(initialStory.content.count) characters")
+                print("🎵 Initial story content preview: '\(initialStory.shortContent)'")
+                print("🎵 Hero name: '\(initialStory.hero?.name ?? "No hero")'")
+                print("🎵 Story created: \(initialStory.formattedDate)")
+                print("🎵 Play count: \(initialStory.playCount)")
+                print("🎵 Has audio: \(initialStory.hasAudio)")
                 print("🎵 ==============================")
                 viewModel.setModelContext(modelContext)
+
+                // Setup story queue if stories are provided
+                if let allStories = allStories,
+                   let storyIndex = storyIndex {
+                    viewModel.setupStoryQueue(stories: allStories, startIndex: storyIndex)
+                    print("🎵 Queue mode enabled with \(allStories.count) stories")
+                } else {
+                    // If no queue, set the initial story as current
+                    viewModel.currentStory = initialStory
+                }
             }
             .onDisappear {
                 viewModel.stopAudio()
@@ -430,7 +494,7 @@ struct AudioPlayerView: View {
     }
     
     private var wordCount: Int {
-        story.content.components(separatedBy: .whitespacesAndNewlines)
+        currentStory.content.components(separatedBy: .whitespacesAndNewlines)
             .filter { !$0.isEmpty }
             .count
     }
@@ -439,108 +503,197 @@ struct AudioPlayerView: View {
         // Average reading speed is about 200 words per minute
         max(1, (wordCount + 199) / 200)
     }
-    
+
+    private var canGoToPrevious: Bool {
+        viewModel.isQueueMode && viewModel.currentStoryIndex > 0
+    }
+
+    private var canGoToNext: Bool {
+        viewModel.isQueueMode && viewModel.currentStoryIndex < viewModel.storyQueue.count - 1
+    }
+
     private func exportAudioFile() {
-        guard let audioFileName = story.audioFileName else {
+        guard let audioFileName = currentStory.audioFileName else {
             exportErrorMessage = "This story doesn't have an audio file yet. Please play the story first to generate audio."
             showingExportError = true
             return
         }
-        
-        let fileManager = FileManager.default
-        guard let documentsPath = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            exportErrorMessage = "Unable to access the documents directory. Please try again."
-            showingExportError = true
-            return
+
+        Task {
+            await performAudioExport(audioFileName: audioFileName)
         }
-        
-        // Audio files are stored directly in the documents directory, not in a subdirectory
-        let audioPath = documentsPath.appendingPathComponent(audioFileName)
-        
-        print("🎵 Export: Looking for audio file at: \(audioPath.path)")
-        print("🎵 Export: File exists: \(fileManager.fileExists(atPath: audioPath.path))")
-        
-        // Check if file exists at the expected path
-        if fileManager.fileExists(atPath: audioPath.path) {
-            // Create a temporary copy with a user-friendly name
-            let tempDirectory = fileManager.temporaryDirectory
-            // Clean the title for filename (remove special characters)
-            let cleanedTitle = story.title
-                .replacingOccurrences(of: "/", with: "-")
-                .replacingOccurrences(of: "\\", with: "-")
-                .replacingOccurrences(of: ":", with: "-")
-                .replacingOccurrences(of: "*", with: "-")
-                .replacingOccurrences(of: "?", with: "-")
-                .replacingOccurrences(of: "\"", with: "-")
-                .replacingOccurrences(of: "<", with: "-")
-                .replacingOccurrences(of: ">", with: "-")
-                .replacingOccurrences(of: "|", with: "-")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            
-            let exportFileName = "\(cleanedTitle).mp3"
-            let tempFileURL = tempDirectory.appendingPathComponent(exportFileName)
-            
-            do {
-                // Remove any existing temp file
-                if fileManager.fileExists(atPath: tempFileURL.path) {
-                    try fileManager.removeItem(at: tempFileURL)
-                }
-                
-                // Copy the audio file to temp location with friendly name
-                try fileManager.copyItem(at: audioPath, to: tempFileURL)
-                
-                print("🎵 Export: Successfully prepared audio file for sharing")
-                print("🎵 Export: Temp file: \(tempFileURL.path)")
-                
-                // Set the URL for sharing
-                audioFileURL = tempFileURL
-                showingShareSheet = true
-            } catch {
-                print("🎵 Export: Error preparing audio for export: \(error)")
-                exportErrorMessage = "Unable to prepare the audio file for sharing. Error: \(error.localizedDescription)"
-                showingExportError = true
+    }
+
+    @MainActor
+    private func performAudioExport(audioFileName: String) async {
+        let fileManager = FileManager.default
+
+        do {
+            // Get documents directory
+            let documentsURL = try fileManager.url(
+                for: .documentDirectory,
+                in: .userDomainMask,
+                appropriateFor: nil,
+                create: false
+            )
+
+            let audioPath = documentsURL.appendingPathComponent(audioFileName)
+
+            // Verify file exists
+            guard fileManager.fileExists(atPath: audioPath.path) else {
+                throw AudioExportError.fileNotFound
             }
+
+            // Create temp directory for export
+            let tempDir = fileManager.temporaryDirectory
+                .appendingPathComponent("AudioExports", isDirectory: true)
+
+            try fileManager.createDirectory(
+                at: tempDir,
+                withIntermediateDirectories: true,
+                attributes: nil
+            )
+
+            // Generate clean filename
+            let exportFileName = sanitizeFileName("\(currentStory.title).mp3")
+            let tempFileURL = tempDir.appendingPathComponent(exportFileName)
+
+            // Remove existing temp file if needed
+            if fileManager.fileExists(atPath: tempFileURL.path) {
+                try fileManager.removeItem(at: tempFileURL)
+            }
+
+            // Copy with proper attributes
+            try fileManager.copyItem(at: audioPath, to: tempFileURL)
+
+            // Set file attributes for sharing
+            try fileManager.setAttributes(
+                [.posixPermissions: 0o644],
+                ofItemAtPath: tempFileURL.path
+            )
+
+            // Prepare metadata
+            let metadata = createAudioMetadata(for: tempFileURL)
+
+            // Show share sheet
+            await MainActor.run {
+                self.audioFileURL = tempFileURL
+                self.exportMetadata = metadata
+                self.showingShareSheet = true
+            }
+
+        } catch {
+            await MainActor.run {
+                handleExportError(error)
+            }
+        }
+    }
+
+    private func sanitizeFileName(_ filename: String) -> String {
+        let invalidCharacters = CharacterSet(charactersIn: "/\\?%*|\"<>:")
+        return filename
+            .components(separatedBy: invalidCharacters)
+            .joined(separator: "-")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func createAudioMetadata(for url: URL) -> [String: Any] {
+        var metadata: [String: Any] = [:]
+
+        // Add story metadata
+        metadata["title"] = currentStory.title
+        metadata["artist"] = currentStory.hero?.name ?? "InfiniteStories"
+        metadata["album"] = "Bedtime Stories"
+        metadata["genre"] = "Children's Stories"
+
+        // Add creation date
+        metadata["year"] = Calendar.current.component(.year, from: currentStory.createdAt)
+
+        // Add custom metadata
+        metadata["comment"] = "Created with InfiniteStories app"
+
+        return metadata
+    }
+
+    private func handleExportError(_ error: Error) {
+        if let exportError = error as? AudioExportError {
+            exportErrorMessage = exportError.localizedDescription
         } else {
-            print("🎵 Export: Audio file not found at: \(audioPath.path)")
-            print("🎵 Export: Available files in documents directory:")
-            if let contents = try? fileManager.contentsOfDirectory(at: documentsPath, includingPropertiesForKeys: nil) {
-                for file in contents {
-                    print("🎵 Export:   - \(file.lastPathComponent)")
-                }
-            }
-            
-            // Check if audio needs regeneration
-            if story.audioNeedsRegeneration {
-                exportErrorMessage = "The audio file needs to be regenerated. Please play the story to generate a new audio file."
-            } else {
-                exportErrorMessage = "Audio file not found. Please play the story first to generate the audio file."
-            }
-            showingExportError = true
+            exportErrorMessage = "Unable to export audio: \(error.localizedDescription)"
+        }
+        showingExportError = true
+    }
+}
+
+enum AudioExportError: LocalizedError {
+    case fileNotFound
+    case invalidFileName
+    case exportFailed(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .fileNotFound:
+            return "Audio file not found. Please play the story to generate audio."
+        case .invalidFileName:
+            return "Invalid file name. Please try again."
+        case .exportFailed(let reason):
+            return "Export failed: \(reason)"
         }
     }
 }
 
-// MARK: - ShareSheet for iOS
+// MARK: - Enhanced ShareSheet for iOS
 struct ShareSheet: UIViewControllerRepresentable {
     let activityItems: [Any]
-    
+    @Environment(\.dismiss) private var dismiss
+
     func makeUIViewController(context: Context) -> UIActivityViewController {
         let controller = UIActivityViewController(
             activityItems: activityItems,
             applicationActivities: nil
         )
-        
-        // Exclude some activities that don't make sense for audio files
+
+        // Configure for iPad
+        if let popover = controller.popoverPresentationController {
+            popover.sourceView = context.coordinator.sourceView
+            popover.sourceRect = CGRect(x: context.coordinator.sourceView.bounds.midX,
+                                       y: context.coordinator.sourceView.bounds.midY,
+                                       width: 0, height: 0)
+            popover.permittedArrowDirections = []
+        }
+
+        // Exclude irrelevant activities
         controller.excludedActivityTypes = [
             .assignToContact,
             .addToReadingList,
-            .openInIBooks
+            .openInIBooks,
+            .postToWeibo,
+            .postToVimeo,
+            .postToTencentWeibo
         ]
-        
+
+        // Set completion handler
+        controller.completionWithItemsHandler = { _, completed, _, _ in
+            if completed {
+                // Clean up temp file after successful share
+                if let url = activityItems.first as? URL {
+                    try? FileManager.default.removeItem(at: url)
+                }
+            }
+        }
+
         return controller
     }
-    
+
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    class Coordinator {
+        let sourceView = UIView()
+    }
 }
 
 #Preview {

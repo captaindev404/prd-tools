@@ -29,10 +29,16 @@ class StoryViewModel: ObservableObject {
     @Published var currentTime: TimeInterval = 0
     @Published var duration: TimeInterval = 0
     @Published var playbackSpeed: Float = 1.0
-    
+
+    // Story navigation
+    @Published var currentStoryIndex: Int = 0
+    @Published var storyQueue: [Story] = []
+    @Published var isQueueMode: Bool = false
+    @Published var currentStory: Story?
+
     // Timer for updating playback progress
     private var audioUpdateTimer: Timer?
-    
+
     private var aiService: AIServiceProtocol
     private let audioService: AudioServiceProtocol
     private var modelContext: ModelContext?
@@ -44,7 +50,7 @@ class StoryViewModel: ObservableObject {
     
     init(audioService: AudioServiceProtocol = AudioService()) {
         self.audioService = audioService
-        
+
         // Only use real AI service - no mocks
         if appSettings.hasValidAPIKey {
             self.aiService = OpenAIService(apiKey: appSettings.openAIAPIKey)
@@ -52,8 +58,13 @@ class StoryViewModel: ObservableObject {
             // Create a placeholder that will show error messages
             self.aiService = OpenAIService(apiKey: "")
         }
-        
+
         setupBackgroundHandlers()
+
+        // Set navigation delegate if it's the AudioService implementation
+        if let audioService = audioService as? AudioService {
+            audioService.navigationDelegate = self
+        }
     }
     
     func setModelContext(_ context: ModelContext) {
@@ -266,7 +277,10 @@ class StoryViewModel: ObservableObject {
     func playStory(_ story: Story) {
         print("📱 🎵 === Audio Playback Started ===")
         print("📱 🎵 Story: \(story.title)")
-        
+
+        // Update current story
+        currentStory = story
+
         // Check if audio needs regeneration first
         if story.audioNeedsRegeneration {
             print("📱 🎵 Audio needs regeneration after text edit...")
@@ -274,17 +288,18 @@ class StoryViewModel: ObservableObject {
                 await regenerateAudioForStory(story)
                 if let updatedFileName = story.audioFileName {
                     print("📱 🎵 Audio regenerated, starting playback...")
-                    playAudioFile(fileName: updatedFileName)
+                    playAudioFile(fileName: updatedFileName, story: story)
                     story.incrementPlayCount()
                     try? modelContext?.save()
                     startAudioUpdateTimer()
+                    updateNowPlayingForStory(story)
                 } else {
                     print("📱 🎵 ❌ Failed to regenerate audio file")
                 }
             }
             return
         }
-        
+
         guard let audioFileName = story.audioFileName else {
             print("📱 🎵 No audio file found, generating audio...")
             // Generate audio if it doesn't exist
@@ -292,35 +307,50 @@ class StoryViewModel: ObservableObject {
                 await generateAudioForStory(story)
                 if let updatedFileName = story.audioFileName {
                     print("📱 🎵 Audio generated, starting playback...")
-                    playAudioFile(fileName: updatedFileName)
+                    playAudioFile(fileName: updatedFileName, story: story)
+                    updateNowPlayingForStory(story)
                 } else {
                     print("📱 🎵 ❌ Failed to generate audio file")
                 }
             }
             return
         }
-        
+
         print("📱 🎵 Playing existing audio file: \(audioFileName)")
-        playAudioFile(fileName: audioFileName)
+        playAudioFile(fileName: audioFileName, story: story)
         story.incrementPlayCount()
-        
+
         print("📱 🎵 Incremented play count to: \(story.playCount)")
         try? modelContext?.save()
         print("📱 🎵 Saved play count to database")
-        
+
+        // Update Now Playing info
+        updateNowPlayingForStory(story)
+
         // Start the timer to update audio state
         startAudioUpdateTimer()
     }
     
-    private func playAudioFile(fileName: String) {
+    private func playAudioFile(fileName: String, story: Story? = nil) {
         let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let audioURL = documentsPath.appendingPathComponent(fileName)
-        
+
         print("📱 🎵 Attempting to play audio from: \(audioURL.path)")
         print("📱 🎵 File exists: \(FileManager.default.fileExists(atPath: audioURL.path))")
-        
+
         do {
-            try audioService.playAudio(from: audioURL)
+            // Create metadata if story is provided
+            if let story = story {
+                let artwork = createArtworkForStory(story)
+                let metadata = AudioMetadata(
+                    title: story.title,
+                    artist: story.hero?.name,
+                    artwork: artwork
+                )
+                try audioService.playAudio(from: audioURL, metadata: metadata)
+            } else {
+                try audioService.playAudio(from: audioURL)
+            }
             updateAudioState()
             startAudioUpdateTimer()
             print("📱 🎵 ✅ Audio playback started successfully")
@@ -603,12 +633,141 @@ class StoryViewModel: ObservableObject {
         IdleTimerManager.shared.enableIdleTimer(for: "AudioGeneration")
     }
     
+    // MARK: - Story Queue Management
+
+    func setupStoryQueue(stories: [Story], startIndex: Int = 0) {
+        storyQueue = stories
+        currentStoryIndex = startIndex
+        isQueueMode = true
+        currentStory = stories.isEmpty ? nil : stories[startIndex]
+
+        // Set navigation delegate
+        if let audioService = audioService as? AudioService {
+            audioService.navigationDelegate = self
+        }
+    }
+
+    func clearQueue() {
+        storyQueue = []
+        currentStoryIndex = 0
+        isQueueMode = false
+        currentStory = nil
+    }
+
+    private func updateNowPlayingForStory(_ story: Story) {
+        // Create artwork from hero avatar or default image
+        let artwork = createArtworkForStory(story)
+
+        if let audioService = audioService as? AudioService {
+            audioService.updateNowPlayingInfo(
+                title: story.title,
+                artist: story.hero?.name,
+                duration: story.estimatedDuration,
+                artwork: artwork
+            )
+        }
+    }
+
+    private func createArtworkForStory(_ story: Story) -> UIImage? {
+        // Create a simple artwork image with story info
+        let size = CGSize(width: 600, height: 600)
+        let renderer = UIGraphicsImageRenderer(size: size)
+
+        return renderer.image { context in
+            // Background gradient
+            let colors = [UIColor.systemPurple.cgColor, UIColor.systemBlue.cgColor]
+            let gradient = CGGradient(
+                colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                colors: colors as CFArray,
+                locations: [0, 1]
+            )!
+
+            context.cgContext.drawLinearGradient(
+                gradient,
+                start: CGPoint.zero,
+                end: CGPoint(x: size.width, y: size.height),
+                options: []
+            )
+
+            // Add story title
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.alignment = .center
+
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.boldSystemFont(ofSize: 48),
+                .foregroundColor: UIColor.white,
+                .paragraphStyle: paragraphStyle
+            ]
+
+            let titleRect = CGRect(x: 50, y: size.height/2 - 50, width: size.width - 100, height: 100)
+            story.title.draw(in: titleRect, withAttributes: attributes)
+
+            // Add hero name if available
+            if let heroName = story.hero?.name {
+                let heroAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 32),
+                    .foregroundColor: UIColor.white.withAlphaComponent(0.8),
+                    .paragraphStyle: paragraphStyle
+                ]
+
+                let heroRect = CGRect(x: 50, y: size.height/2 + 50, width: size.width - 100, height: 50)
+                "Featuring \(heroName)".draw(in: heroRect, withAttributes: heroAttributes)
+            }
+        }
+    }
+
     deinit {
         NotificationCenter.default.removeObserver(self)
-        
+
         // Ensure idle timer is re-enabled
         IdleTimerManager.shared.enableIdleTimer(for: "StoryGeneration")
         IdleTimerManager.shared.enableIdleTimer(for: "AudioGeneration")
+    }
+}
+
+// MARK: - AudioNavigationDelegate
+
+extension StoryViewModel: AudioNavigationDelegate {
+    func playNextStory() {
+        guard isQueueMode,
+              currentStoryIndex < storyQueue.count - 1 else {
+            return
+        }
+
+        currentStoryIndex += 1
+        let nextStory = storyQueue[currentStoryIndex]
+        currentStory = nextStory
+
+        // Stop current playback
+        stopAudio()
+
+        // Play next story
+        playStory(nextStory)
+
+        // Update Now Playing info
+        updateNowPlayingForStory(nextStory)
+    }
+
+    func playPreviousStory() {
+        guard isQueueMode else {
+            // If not in queue mode, restart current story
+            seek(to: 0)
+            return
+        }
+
+        // If within first 3 seconds, go to previous story
+        if currentTime < 3.0 && currentStoryIndex > 0 {
+            currentStoryIndex -= 1
+            let previousStory = storyQueue[currentStoryIndex]
+            currentStory = previousStory
+
+            stopAudio()
+            playStory(previousStory)
+            updateNowPlayingForStory(previousStory)
+        } else {
+            // Otherwise, restart current story
+            seek(to: 0)
+        }
     }
 }
 
