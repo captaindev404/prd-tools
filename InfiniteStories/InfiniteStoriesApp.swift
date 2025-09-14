@@ -7,10 +7,16 @@
 
 import SwiftUI
 import SwiftData
+import BackgroundTasks
 
 @main
 struct InfiniteStoriesApp: App {
     @StateObject private var themeSettings = ThemeSettings.shared
+    
+    init() {
+        // Register background tasks when app launches
+        BackgroundTaskManager.shared.registerBackgroundTasks()
+    }
     
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([

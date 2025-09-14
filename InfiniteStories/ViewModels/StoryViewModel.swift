@@ -426,25 +426,28 @@ class StoryViewModel: ObservableObject {
         )
         
         // Listen for background task resume notifications
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(resumeStoryGeneration(_:)),
-            name: .resumeStoryGeneration,
-            object: nil
-        )
+        // Background task notifications are for scheduled tasks, not immediate continuation
+        // We use UIBackgroundTask for immediate background continuation instead
+        // NotificationCenter.default.addObserver(
+        //     self,
+        //     selector: #selector(resumeStoryGeneration(_:)),
+        //     name: .resumeStoryGeneration,
+        //     object: nil
+        // )
         
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(resumeAudioProcessing(_:)),
-            name: .resumeAudioProcessing,
-            object: nil
-        )
+        // NotificationCenter.default.addObserver(
+        //     self,
+        //     selector: #selector(resumeAudioProcessing(_:)),
+        //     name: .resumeAudioProcessing,
+        //     object: nil
+        // )
     }
     
     @objc private func appDidEnterBackground() {
         if isGeneratingStory || isGeneratingAudio {
-            print("📱 App entering background during generation, scheduling background task")
-            BackgroundTaskManager.shared.scheduleStoryGenerationTask()
+            print("📱 App entering background during generation, using background task")
+            // Don't schedule BGProcessingTask for immediate continuation
+            // The UIBackgroundTask is already handled in generateStory/generateAudio
         }
     }
     

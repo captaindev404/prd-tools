@@ -33,10 +33,16 @@ final class BackgroundTaskManager {
     }
     
     func scheduleStoryGenerationTask() {
+        // Only schedule if handlers are registered
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else {
+            logger.info("Skipping background task scheduling in test environment")
+            return
+        }
+        
         let request = BGProcessingTaskRequest(identifier: Self.storyGenerationTaskIdentifier)
         request.requiresNetworkConnectivity = true
         request.requiresExternalPower = false
-        request.earliestBeginDate = Date(timeIntervalSinceNow: 1)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 60) // Give more time before first run
         
         do {
             try BGTaskScheduler.shared.submit(request)
@@ -47,10 +53,16 @@ final class BackgroundTaskManager {
     }
     
     func scheduleAudioProcessingTask() {
+        // Only schedule if handlers are registered
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else {
+            logger.info("Skipping background task scheduling in test environment")
+            return
+        }
+        
         let request = BGProcessingTaskRequest(identifier: Self.audioProcessingTaskIdentifier)
         request.requiresNetworkConnectivity = true
         request.requiresExternalPower = false
-        request.earliestBeginDate = Date(timeIntervalSinceNow: 1)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 60) // Give more time before first run
         
         do {
             try BGTaskScheduler.shared.submit(request)
