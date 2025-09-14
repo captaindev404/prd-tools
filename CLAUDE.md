@@ -16,7 +16,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Services Layer
 - **AIService**: Handles story generation via OpenAI GPT-4o and audio via gpt-4o-mini-tts model
-- **AudioService**: OpenAI-exclusive audio generation and playback (no local TTS fallback)
+- **AudioService**: OpenAI-exclusive audio generation and playback with background processing support
+- **IdleTimerManager**: Prevents screen sleep during audio playback with reference counting
+- **BackgroundTaskManager**: Manages iOS background tasks for audio and story processing
+- **NetworkService**: Monitors network connectivity and handles network-dependent operations
 - **AppSettings**: User preferences and API configuration with secure keychain storage
 
 ### View Architecture (MVVM)
@@ -60,8 +63,10 @@ The app requires OpenAI API configuration:
 - **SwiftUI**: Declarative UI with navigation and sheets
 - **SwiftData**: Model persistence with relationships
 - **AVFoundation**: MP3 audio playback only (no local TTS)
+- **BackgroundTasks**: iOS background processing for long-running operations
 - **Combine**: Reactive programming for ViewModels
 - **URLSession**: HTTP requests for AI APIs
+- **Network**: Network connectivity monitoring
 
 ## File Structure
 
@@ -81,7 +86,10 @@ InfiniteStories/
 │   └── ContentView.swift       # Main dashboard
 ├── Services/
 │   ├── AIService.swift         # Story generation
-│   └── AudioService.swift      # Audio handling
+│   ├── AudioService.swift      # Audio handling
+│   ├── IdleTimerManager.swift  # Screen sleep prevention
+│   ├── BackgroundTaskManager.swift # Background processing
+│   └── NetworkService.swift    # Network monitoring
 ├── ViewModels/
 │   └── StoryViewModel.swift    # Business logic
 └── InfiniteStoriesApp.swift    # App entry point
@@ -97,3 +105,7 @@ InfiniteStories/
 - Error handling includes user-friendly messages for API failures (no silent fallbacks)
 - API keys are stored securely in iOS Keychain
 - Audio playback requires OpenAI API - no local TTS fallback
+- Background processing enabled for audio playback and story generation
+- Idle timer automatically disabled during audio playback to prevent screen sleep
+- Network connectivity monitored for optimal user experience
+- App Info.plist configured with background modes (audio, processing, fetch)
