@@ -81,4 +81,29 @@ enum StoryEvent: String, CaseIterable, Codable {
             return "a festive holiday adventure full of joy"
         }
     }
+    
+    var icon: String {
+        switch self {
+        case .bedtime:
+            return "moon.stars"
+        case .schoolDay:
+            return "backpack"
+        case .birthday:
+            return "birthday.cake"
+        case .weekend:
+            return "sun.max"
+        case .rainyDay:
+            return "cloud.rain"
+        case .family:
+            return "house.fill"
+        case .friendship:
+            return "person.2"
+        case .learning:
+            return "book"
+        case .helping:
+            return "heart"
+        case .holiday:
+            return "gift"
+        }
+    }
 }

@@ -29,11 +29,21 @@
 		CE3AA1D22E71C97E00236398 /* InfiniteStoriesUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = InfiniteStoriesUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		CE3AA1BB2E71C97D00236399 /* Exceptions for "InfiniteStories" folder in "InfiniteStories" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = CE3AA1B82E71C97D00236398 /* InfiniteStories */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		CE3AA1BB2E71C97D00236398 /* InfiniteStories */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				CE3AA1BB2E71C97D00236399 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+				CE3AA1BB2E71C97D00236399 /* Exceptions for "InfiniteStories" folder in "InfiniteStories" target */,
 			);
 			path = InfiniteStories;
 			sourceTree = "<group>";
@@ -49,16 +59,6 @@
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
-
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		CE3AA1BB2E71C97D00236399 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = CE3AA1B82E71C97D00236398 /* InfiniteStories */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		CE3AA1B62E71C97D00236398 /* Frameworks */ = {

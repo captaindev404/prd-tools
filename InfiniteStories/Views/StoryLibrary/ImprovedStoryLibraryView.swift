@@ -419,14 +419,20 @@ struct ImprovedStoryCard: View {
     }
     
     private var eventColor: Color {
-        switch story.event {
-        case .bedtime: return StoryLibraryDesign.Colors.bedtimeColor
-        case .schoolDay: return StoryLibraryDesign.Colors.schoolColor
-        case .birthday: return StoryLibraryDesign.Colors.birthdayColor
-        case .weekend: return StoryLibraryDesign.Colors.weekendColor
-        case .rainyDay: return StoryLibraryDesign.Colors.rainyDayColor
-        case .family: return StoryLibraryDesign.Colors.familyColor
-        default: return StoryLibraryDesign.Colors.primaryPurple
+        if let builtInEvent = story.builtInEvent {
+            switch builtInEvent {
+            case .bedtime: return StoryLibraryDesign.Colors.bedtimeColor
+            case .schoolDay: return StoryLibraryDesign.Colors.schoolColor
+            case .birthday: return StoryLibraryDesign.Colors.birthdayColor
+            case .weekend: return StoryLibraryDesign.Colors.weekendColor
+            case .rainyDay: return StoryLibraryDesign.Colors.rainyDayColor
+            case .family: return StoryLibraryDesign.Colors.familyColor
+            default: return StoryLibraryDesign.Colors.primaryPurple
+            }
+        } else if let customEvent = story.customEvent {
+            return Color(hex: customEvent.colorHex)
+        } else {
+            return StoryLibraryDesign.Colors.primaryPurple
         }
     }
     
@@ -477,7 +483,7 @@ struct ImprovedStoryCard: View {
                 )
                 .frame(width: 60, height: 60)
             
-            Image(systemName: iconForEvent(story.event))
+            Image(systemName: story.eventIcon)
                 .font(.system(size: 24))
                 .foregroundColor(eventColor)
         }
@@ -517,7 +523,7 @@ struct ImprovedStoryCard: View {
     @ViewBuilder
     private var metadataRow: some View {
         HStack(spacing: 12) {
-            EventBadge(event: story.event, color: eventColor)
+            EventBadge(eventTitle: story.eventTitle, color: eventColor)
             
             Spacer()
             
@@ -808,11 +814,11 @@ struct StatusBadge: View {
 }
 
 struct EventBadge: View {
-    let event: StoryEvent
+    let eventTitle: String
     let color: Color
     
     var body: some View {
-        Text(event.rawValue)
+        Text(eventTitle)
             .font(StoryLibraryDesign.Typography.badge)
             .foregroundColor(color)
             .padding(.horizontal, 8)

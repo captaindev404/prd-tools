@@ -16,7 +16,8 @@ struct StoryGenerationView: View {
     
     @StateObject private var viewModel = StoryViewModel()
     @StateObject private var appSettings = AppSettings()
-    @State private var selectedEvent: StoryEvent = .bedtime
+    @State private var selectedBuiltInEvent: StoryEvent? = .bedtime
+    @State private var selectedCustomEvent: CustomStoryEvent? = nil
     @State private var showingEventPicker = false
     
     var body: some View {
@@ -51,11 +52,11 @@ struct StoryGenerationView: View {
                     Button(action: { showingEventPicker = true }) {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(selectedEvent.rawValue)
+                                Text(eventTitle)
                                     .font(.headline)
                                     .foregroundColor(.primary)
                                 
-                                Text(selectedEvent.promptSeed.capitalized)
+                                Text(eventDescription.capitalized)
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
                                     .multilineTextAlignment(.leading)
@@ -155,7 +156,10 @@ struct StoryGenerationView: View {
             }
             .navigationBarHidden(true)
             .sheet(isPresented: $showingEventPicker) {
-                EventPickerView(selectedEvent: $selectedEvent)
+                EnhancedEventPickerView(
+                    selectedBuiltInEvent: $selectedBuiltInEvent,
+                    selectedCustomEvent: $selectedCustomEvent
+                )
             }
             .onAppear {
                 viewModel.setModelContext(modelContext)
@@ -166,13 +170,35 @@ struct StoryGenerationView: View {
     
     private func generateStory() {
         Task {
-            await viewModel.generateStory(for: hero, event: selectedEvent)
+            if let builtInEvent = selectedBuiltInEvent {
+                await viewModel.generateStory(for: hero, event: builtInEvent)
+            } else if let customEvent = selectedCustomEvent {
+                await viewModel.generateStory(for: hero, customEvent: customEvent)
+            }
             
             // If successful, dismiss the view
             if viewModel.generationError == nil {
                 dismiss()
             }
         }
+    }
+    
+    private var eventTitle: String {
+        if let builtIn = selectedBuiltInEvent {
+            return builtIn.rawValue
+        } else if let custom = selectedCustomEvent {
+            return custom.title
+        }
+        return "Select an Event"
+    }
+    
+    private var eventDescription: String {
+        if let builtIn = selectedBuiltInEvent {
+            return builtIn.promptSeed
+        } else if let custom = selectedCustomEvent {
+            return custom.eventDescription
+        }
+        return "Choose an adventure type"
     }
 }
 

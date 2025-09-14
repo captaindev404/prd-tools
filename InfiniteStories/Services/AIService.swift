@@ -14,6 +14,13 @@ struct StoryGenerationRequest {
     let language: String // Target language for story generation
 }
 
+struct CustomStoryGenerationRequest {
+    let hero: Hero
+    let customEvent: CustomStoryEvent
+    let targetDuration: TimeInterval // in seconds (5-10 minutes = 300-600 seconds)
+    let language: String // Target language for story generation
+}
+
 struct StoryGenerationResponse {
     let title: String
     let content: String
@@ -30,6 +37,7 @@ enum AIServiceError: Error {
 
 protocol AIServiceProtocol {
     func generateStory(request: StoryGenerationRequest) async throws -> StoryGenerationResponse
+    func generateStoryWithCustomEvent(request: CustomStoryGenerationRequest) async throws -> StoryGenerationResponse
     func generateSpeech(text: String, voice: String, language: String) async throws -> Data
 }
 
@@ -150,6 +158,99 @@ class OpenAIService: AIServiceProtocol {
         }
     }
     
+    func generateStoryWithCustomEvent(request: CustomStoryGenerationRequest) async throws -> StoryGenerationResponse {
+        print("🤖 === OpenAI Custom Story Generation Started ===")
+        print("🤖 Hero: \(request.hero.name)")
+        print("🤖 Custom Event: \(request.customEvent.title)")
+        print("🤖 Target Duration: \(Int(request.targetDuration/60)) minutes")
+        
+        guard !apiKey.isEmpty else {
+            print("🤖 ❌ Error: API key is empty")
+            throw AIServiceError.invalidAPIKey
+        }
+        
+        let prompt = buildPromptForCustomEvent(request: request)
+        print("🤖 📝 Generated Custom Prompt:")
+        print("🤖 \(prompt)")
+        print("🤖 ==================")
+        
+        let requestBody = [
+            "model": "gpt-4o",
+            "messages": [
+                [
+                    "role": "system",
+                    "content": PromptLocalizer.getSystemMessage(for: request.language)
+                ],
+                [
+                    "role": "user",
+                    "content": prompt
+                ]
+            ],
+            "max_tokens": 2000,
+            "temperature": 0.8
+        ] as [String : Any]
+        
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: requestBody) else {
+            print("🤖 ❌ Error: Failed to serialize request JSON")
+            throw AIServiceError.invalidResponse
+        }
+        
+        print("🤖 🚀 Sending custom event request to OpenAI...")
+        
+        var urlRequest = URLRequest(url: URL(string: chatURL)!)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        urlRequest.httpBody = jsonData
+        
+        do {
+            let (data, response) = try await URLSession.shared.data(for: urlRequest)
+            
+            print("🤖 📥 Received response from OpenAI")
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                print("🤖 ❌ Error: Invalid HTTP response")
+                throw AIServiceError.networkError(URLError(.badServerResponse))
+            }
+            
+            print("🤖 📊 HTTP Status Code: \(httpResponse.statusCode)")
+            
+            guard httpResponse.statusCode == 200 else {
+                if httpResponse.statusCode == 429 {
+                    print("🤖 ⏳ Error: Rate limit exceeded")
+                    throw AIServiceError.rateLimitExceeded
+                }
+                print("🤖 ❌ HTTP Error: \(httpResponse.statusCode)")
+                throw AIServiceError.apiError("HTTP \(httpResponse.statusCode)")
+            }
+            
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let choices = json["choices"] as? [[String: Any]],
+                  let firstChoice = choices.first,
+                  let message = firstChoice["message"] as? [String: Any],
+                  let content = message["content"] as? String else {
+                print("🤖 ❌ Error: Failed to parse JSON response")
+                throw AIServiceError.invalidResponse
+            }
+            
+            print("🤖 ✅ Successfully parsed custom story response")
+            
+            let result = parseCustomStoryResponse(content: content, request: request)
+            print("🤖 📊 Final Result - Title: \(result.title)")
+            print("🤖 📊 Final Result - Duration: \(Int(result.estimatedDuration/60)) minutes")
+            print("🤖 === Custom Story Generation Completed ===")
+            
+            return result
+            
+        } catch let error as AIServiceError {
+            print("🤖 ❌ AI Service Error: \(error)")
+            throw error
+        } catch {
+            print("🤖 ❌ Network Error: \(error.localizedDescription)")
+            throw AIServiceError.networkError(error)
+        }
+    }
+    
     private func buildPrompt(for request: StoryGenerationRequest) -> String {
         let targetMinutes = Int(request.targetDuration / 60)
         
@@ -163,6 +264,65 @@ class OpenAIService: AIServiceProtocol {
             hero: request.hero.name,
             traits: traits,
             event: request.event.promptSeed
+        )
+    }
+    
+    private func buildPromptForCustomEvent(request: CustomStoryGenerationRequest) -> String {
+        let targetMinutes = Int(request.targetDuration / 60)
+        let event = request.customEvent
+        
+        // Build trait description
+        let traits = "\(request.hero.primaryTrait.description), \(request.hero.secondaryTrait.description), \(request.hero.appearance.isEmpty ? "lovable appearance" : request.hero.appearance), \(request.hero.specialAbility.isEmpty ? "warm heart" : request.hero.specialAbility)"
+        
+        // Build enhanced prompt with custom event details
+        var prompt = PromptLocalizer.getPromptTemplate(
+            for: request.language,
+            storyLength: targetMinutes,
+            hero: request.hero.name,
+            traits: traits,
+            event: event.promptSeed
+        )
+        
+        // Add additional context from custom event
+        if !event.keywords.isEmpty {
+            prompt += "\n\nPlease include these elements in the story: \(event.keywords.joined(separator: ", "))"
+        }
+        
+        // Add tone guidance
+        prompt += "\n\nThe story should have a \(event.tone.rawValue.lowercased()) tone."
+        
+        // Add age-appropriate guidance
+        prompt += "\nMake sure the story is appropriate for children aged \(event.ageRange.rawValue)."
+        
+        return prompt
+    }
+    
+    private func parseCustomStoryResponse(content: String, request: CustomStoryGenerationRequest) -> StoryGenerationResponse {
+        let lines = content.components(separatedBy: .newlines)
+        var title = request.customEvent.title
+        var storyContent = content
+        
+        // Try to extract title if formatted properly
+        for line in lines {
+            if line.hasPrefix("TITLE:") {
+                title = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
+                break
+            }
+        }
+        
+        // Extract story content after STORY: if present
+        if let storyIndex = content.range(of: "STORY:")?.upperBound {
+            storyContent = String(content[storyIndex...]).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        
+        // Estimate duration based on word count (average 200 words per minute)
+        let wordCount = storyContent.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.count
+        let estimatedDuration = TimeInterval(wordCount) / 200.0 * 60.0 // Convert to seconds
+        
+        return StoryGenerationResponse(
+            title: title,
+            content: storyContent,
+            estimatedDuration: estimatedDuration
         )
     }
     

@@ -141,6 +141,81 @@ class StoryViewModel: ObservableObject {
         print("📱 Final state - Error: \(generationError ?? "None")")
     }
     
+    func generateStory(for hero: Hero, customEvent: CustomStoryEvent) async {
+        print("📱 === Custom Story Generation Flow Started ===")
+        print("📱 Hero: \(hero.name) (\(hero.traitsDescription))")
+        print("📱 Custom Event: \(customEvent.title)")
+        print("📱 Has API Key: \(appSettings.hasValidAPIKey)")
+        
+        isGeneratingStory = true
+        generationError = nil
+        
+        // Disable idle timer during story generation
+        IdleTimerManager.shared.disableIdleTimer(for: "StoryGeneration")
+        
+        // Begin background task for story generation
+        backgroundTaskId = BackgroundTaskManager.shared.beginBackgroundTask(
+            withName: "StoryGeneration",
+            expirationHandler: { [weak self] in
+                self?.handleBackgroundTaskExpiration()
+            }
+        )
+        
+        do {
+            // Create a custom request for the custom event
+            let request = CustomStoryGenerationRequest(
+                hero: hero,
+                customEvent: customEvent,
+                targetDuration: 420, // 7 minutes target
+                language: appSettings.preferredLanguage
+            )
+            
+            print("📱 🚀 Calling AI service with custom event...")
+            let response = try await aiService.generateStoryWithCustomEvent(request: request)
+            
+            print("📱 ✅ AI service returned successfully")
+            print("📱 📊 Response - Title: \(response.title)")
+            print("📱 📊 Response - Content length: \(response.content.count) characters")
+            print("📱 📊 Response - Duration: \(response.estimatedDuration) seconds")
+            
+            // Create and save the story with custom event
+            let story = Story(
+                title: response.title,
+                content: response.content,
+                customEvent: customEvent,
+                hero: hero
+            )
+            story.estimatedDuration = response.estimatedDuration
+            
+            print("📱 💾 Saving custom story to SwiftData...")
+            modelContext?.insert(story)
+            try modelContext?.save()
+            print("📱 ✅ Custom story saved successfully")
+            
+            // Generate audio file
+            print("📱 🎵 Starting audio generation...")
+            await generateAudioForStory(story)
+            
+        } catch {
+            print("📱 ❌ Custom story generation failed: \(error)")
+            generationError = handleAIError(error)
+        }
+        
+        isGeneratingStory = false
+        
+        // Re-enable idle timer after generation
+        IdleTimerManager.shared.enableIdleTimer(for: "StoryGeneration")
+        
+        // End background task
+        if backgroundTaskId != .invalid {
+            BackgroundTaskManager.shared.endBackgroundTask(backgroundTaskId)
+            backgroundTaskId = .invalid
+        }
+        
+        print("📱 === Custom Story Generation Flow Completed ===")
+        print("📱 Final state - Error: \(generationError ?? "None")")
+    }
+    
     private func generateAudioForStory(_ story: Story) async {
         print("📱 🎵 === Audio Generation Started ===")
         isGeneratingAudio = true

@@ -215,7 +215,7 @@ struct StoryRow: View {
                                     .foregroundColor(.secondary)
                             }
                             
-                            Label(story.event.rawValue, systemImage: "sparkles")
+                            Label(story.eventTitle, systemImage: "sparkles")
                                 .font(.caption)
                                 .foregroundColor(.purple)
                         }

@@ -123,7 +123,7 @@ struct AccessibilityLabelProvider {
             components.append("Favorite")
         }
         
-        components.append("Event: \(story.event.rawValue)")
+        components.append("Event: \(story.eventTitle)")
         components.append(story.hasAudio ? "Has audio" : "Text only")
         
         if story.hasAudio {
