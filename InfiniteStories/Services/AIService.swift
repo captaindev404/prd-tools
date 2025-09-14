@@ -11,6 +11,7 @@ struct StoryGenerationRequest {
     let hero: Hero
     let event: StoryEvent
     let targetDuration: TimeInterval // in seconds (5-10 minutes = 300-600 seconds)
+    let language: String // Target language for story generation
 }
 
 struct StoryGenerationResponse {
@@ -29,7 +30,7 @@ enum AIServiceError: Error {
 
 protocol AIServiceProtocol {
     func generateStory(request: StoryGenerationRequest) async throws -> StoryGenerationResponse
-    func generateSpeech(text: String, voice: String) async throws -> Data
+    func generateSpeech(text: String, voice: String, language: String) async throws -> Data
 }
 
 class OpenAIService: AIServiceProtocol {
@@ -62,7 +63,7 @@ class OpenAIService: AIServiceProtocol {
             "messages": [
                 [
                     "role": "system",
-                    "content": "You are a skilled children's storyteller who creates engaging, age-appropriate stories for bedtime. Your stories should be 5-10 minutes long when read aloud, educational, and end on a positive, calming note."
+                    "content": PromptLocalizer.getSystemMessage(for: request.language)
                 ],
                 [
                     "role": "user",
@@ -152,32 +153,17 @@ class OpenAIService: AIServiceProtocol {
     private func buildPrompt(for request: StoryGenerationRequest) -> String {
         let targetMinutes = Int(request.targetDuration / 60)
         
-        return """
-        Create a \(targetMinutes)-minute bedtime story for children aged 3-8 featuring a character named \(request.hero.name).
+        // Build trait description
+        let traits = "\(request.hero.primaryTrait.description), \(request.hero.secondaryTrait.description), \(request.hero.appearance.isEmpty ? "lovable appearance" : request.hero.appearance), \(request.hero.specialAbility.isEmpty ? "warm heart" : request.hero.specialAbility)"
         
-        Character Details:
-        - Name: \(request.hero.name)
-        - Personality: \(request.hero.primaryTrait.description) and \(request.hero.secondaryTrait.description)
-        - Appearance: \(request.hero.appearance.isEmpty ? "a lovable character" : request.hero.appearance)
-        - Special Ability: \(request.hero.specialAbility.isEmpty ? "has a warm heart" : request.hero.specialAbility)
-        
-        Story Context: \(request.event.promptSeed)
-        
-        Requirements:
-        - Age-appropriate language and themes
-        - Positive messages about friendship, kindness, courage, or learning
-        - Gentle, calming tone suitable for bedtime
-        - Include the character's special traits in the story
-        - About \(targetMinutes) minutes when read aloud (approximately \(targetMinutes * 200) words)
-        - Begin with an engaging title
-        - End peacefully to help children wind down
-        
-        Format your response as:
-        TITLE: [Story Title]
-        
-        STORY:
-        [The complete story text]
-        """
+        // Use localized prompt template
+        return PromptLocalizer.getPromptTemplate(
+            for: request.language,
+            storyLength: targetMinutes,
+            hero: request.hero.name,
+            traits: traits,
+            event: request.event.promptSeed
+        )
     }
     
     private func parseStoryResponse(content: String, request: StoryGenerationRequest) -> StoryGenerationResponse {
@@ -209,7 +195,7 @@ class OpenAIService: AIServiceProtocol {
         )
     }
     
-    func generateSpeech(text: String, voice: String) async throws -> Data {
+    func generateSpeech(text: String, voice: String, language: String) async throws -> Data {
         print("🎙️ === OpenAI TTS Generation Started ===")
         print("🎙️ Voice: \(voice)")
         print("🎙️ Text length: \(text.count) characters")
@@ -221,15 +207,15 @@ class OpenAIService: AIServiceProtocol {
         }
         
         // Use the gpt-4o-mini-tts model with voice instructions
-        return try await generateSpeechWithModel(text: text, voice: voice)
+        return try await generateSpeechWithModel(text: text, voice: voice, language: language)
     }
     
     /// TTS generation using the gpt-4o-mini-tts model with voice instructions
-    private func generateSpeechWithModel(text: String, voice: String) async throws -> Data {
+    private func generateSpeechWithModel(text: String, voice: String, language: String) async throws -> Data {
         print("🎙️ Using gpt-4o-mini-tts model with voice instructions")
         
-        // Craft child-friendly storytelling instructions based on the voice
-        let instructions = getStorytellingInstructions(for: voice)
+        // Craft child-friendly storytelling instructions based on the voice and language
+        let instructions = getStorytellingInstructions(for: voice, language: language)
         
         // Prepare request body with the model and instructions
         let requestBody: [String: Any] = [
@@ -291,34 +277,42 @@ class OpenAIService: AIServiceProtocol {
         }
     }
     
-    /// Get appropriate storytelling instructions based on the selected voice
-    private func getStorytellingInstructions(for voice: String) -> String {
+    /// Get appropriate storytelling instructions based on the selected voice and language
+    private func getStorytellingInstructions(for voice: String, language: String) -> String {
         // Voice-specific instructions for optimal children's storytelling
         switch voice.lowercased() {
         case "coral":
-            return "Speak with a warm, gentle, and nurturing tone perfect for bedtime stories. Use a calm and soothing pace with clear pronunciation. Add subtle emotional expressions to bring characters to life while maintaining a peaceful atmosphere that helps children relax and drift off to sleep."
+            let baseInstructions = "Speak with a warm, gentle, and nurturing tone perfect for bedtime stories. Use a calm and soothing pace with clear pronunciation. Add subtle emotional expressions to bring characters to life while maintaining a peaceful atmosphere that helps children relax and drift off to sleep."
+            return baseInstructions + " " + PromptLocalizer.getLanguageInstruction(for: language)
             
         case "nova":
-            return "Use a friendly, cheerful, and engaging storyteller voice that captivates young listeners. Speak clearly at a moderate pace with gentle enthusiasm. Create distinct character voices while keeping the overall tone calming and suitable for bedtime. Emphasize wonder and magic in the narrative."
+            let baseInstructions = "Use a friendly, cheerful, and engaging storyteller voice that captivates young listeners. Speak clearly at a moderate pace with gentle enthusiasm. Create distinct character voices while keeping the overall tone calming and suitable for bedtime. Emphasize wonder and magic in the narrative."
+            return baseInstructions + " " + PromptLocalizer.getLanguageInstruction(for: language)
             
         case "fable":
-            return "Adopt a wise, comforting grandfather-like tone that makes children feel safe and loved. Use a slower, deliberate pace with warm inflections. Add gentle dramatic pauses for effect and speak as if sharing a treasured tale. Keep the voice soft and reassuring throughout."
+            let baseInstructions = "Adopt a wise, comforting grandfather-like tone that makes children feel safe and loved. Use a slower, deliberate pace with warm inflections. Add gentle dramatic pauses for effect and speak as if sharing a treasured tale. Keep the voice soft and reassuring throughout."
+            return baseInstructions + " " + PromptLocalizer.getLanguageInstruction(for: language)
             
         case "alloy":
-            return "Speak with a clear, pleasant, and neutral tone that's easy for children to understand. Use moderate pacing with good articulation. Add subtle warmth and friendliness while maintaining consistency. Perfect for educational elements in the story."
+            let baseInstructions = "Speak with a clear, pleasant, and neutral tone that's easy for children to understand. Use moderate pacing with good articulation. Add subtle warmth and friendliness while maintaining consistency. Perfect for educational elements in the story."
+            return baseInstructions + " " + PromptLocalizer.getLanguageInstruction(for: language)
             
         case "echo":
-            return "Use a soft, dreamy, and ethereal voice that creates a magical atmosphere. Speak gently with a flowing rhythm that mimics the natural cadence of bedtime stories. Add whisper-like qualities for mysterious moments while keeping the overall tone comforting."
+            let baseInstructions = "Use a soft, dreamy, and ethereal voice that creates a magical atmosphere. Speak gently with a flowing rhythm that mimics the natural cadence of bedtime stories. Add whisper-like qualities for mysterious moments while keeping the overall tone comforting."
+            return baseInstructions + " " + PromptLocalizer.getLanguageInstruction(for: language)
             
         case "onyx":
-            return "Deliver the story with a deep, warm, and reassuring voice like a protective parent. Use a slow, steady pace that helps children feel secure. Add gravitas to important moments while maintaining gentleness. Perfect for adventure stories that need to stay calming."
+            let baseInstructions = "Deliver the story with a deep, warm, and reassuring voice like a protective parent. Use a slow, steady pace that helps children feel secure. Add gravitas to important moments while maintaining gentleness. Perfect for adventure stories that need to stay calming."
+            return baseInstructions + " " + PromptLocalizer.getLanguageInstruction(for: language)
             
         case "shimmer":
-            return "Speak with a bright, melodic, and enchanting voice that sparkles with imagination. Use varied intonation to paint vivid pictures while keeping the energy level appropriate for bedtime. Add musical qualities to dialogue and maintain a soothing undertone throughout."
+            let baseInstructions = "Speak with a bright, melodic, and enchanting voice that sparkles with imagination. Use varied intonation to paint vivid pictures while keeping the energy level appropriate for bedtime. Add musical qualities to dialogue and maintain a soothing undertone throughout."
+            return baseInstructions + " " + PromptLocalizer.getLanguageInstruction(for: language)
             
         default:
             // Generic instructions for any voice
-            return "Speak in a warm, gentle, and engaging tone perfect for children's bedtime stories. Use clear pronunciation at a calm, steady pace. Add appropriate emotional expression to bring characters to life while maintaining a soothing atmosphere that helps children relax. Create distinct but subtle character voices and emphasize the wonder and magic of the story."
+            let baseInstructions = "Speak in a warm, gentle, and engaging tone perfect for children's bedtime stories. Use clear pronunciation at a calm, steady pace. Add appropriate emotional expression to bring characters to life while maintaining a soothing atmosphere that helps children relax. Create distinct but subtle character voices and emphasize the wonder and magic of the story."
+            return baseInstructions + " " + PromptLocalizer.getLanguageInstruction(for: language)
         }
     }
 }

@@ -72,7 +72,8 @@ class StoryViewModel: ObservableObject {
             let request = StoryGenerationRequest(
                 hero: hero,
                 event: event,
-                targetDuration: 420 // 7 minutes target
+                targetDuration: 420, // 7 minutes target
+                language: appSettings.preferredLanguage
             )
             
             print("📱 🚀 Calling AI service...")
@@ -125,7 +126,8 @@ class StoryViewModel: ObservableObject {
             let audioURL = try await audioService.generateAudioFile(
                 from: story.content,
                 fileName: fileName,
-                voice: preferredVoice
+                voice: preferredVoice,
+                language: appSettings.preferredLanguage
             )
             
             print("📱 🎵 ✅ Audio file generated at: \(audioURL.path)")
@@ -397,6 +399,12 @@ class AppSettings: ObservableObject {
         }
     }
     
+    @Published var preferredLanguage: String {
+        didSet {
+            UserDefaults.standard.set(preferredLanguage, forKey: "preferredLanguage")
+        }
+    }
+    
     init() {
         // Load API key from Keychain (secure storage)
         self.openAIAPIKey = keychainHelper.loadString(key: apiKeyIdentifier) ?? ""
@@ -404,6 +412,11 @@ class AppSettings: ObservableObject {
         // Load other settings from UserDefaults
         self.preferredVoice = UserDefaults.standard.string(forKey: "preferredVoice") ?? "coral"
         self.defaultStoryLength = UserDefaults.standard.integer(forKey: "defaultStoryLength") == 0 ? 7 : UserDefaults.standard.integer(forKey: "defaultStoryLength")
+        
+        // Load language setting with system language as default
+        let systemLanguage = Locale.current.language.languageCode?.identifier ?? "en"
+        let defaultLanguage = Self.languageCodeToSupported(systemLanguage)
+        self.preferredLanguage = UserDefaults.standard.string(forKey: "preferredLanguage") ?? defaultLanguage
     }
     
     var hasValidAPIKey: Bool {
@@ -420,4 +433,25 @@ class AppSettings: ObservableObject {
         ("onyx", "Onyx", "Deep and reassuring - protective parent voice"),
         ("shimmer", "Shimmer", "Bright and melodic - sparkles with imagination")
     ]
+    
+    // Available languages for story generation
+    static let availableLanguages: [(id: String, name: String, nativeName: String)] = [
+        ("English", "English", "English"),
+        ("Spanish", "Spanish", "Español"),
+        ("French", "French", "Français"),
+        ("German", "German", "Deutsch"),
+        ("Italian", "Italian", "Italiano")
+    ]
+    
+    // Helper method to map system language code to supported language
+    static func languageCodeToSupported(_ code: String) -> String {
+        switch code {
+        case "es": return "Spanish"
+        case "fr": return "French"
+        case "de": return "German"
+        case "it": return "Italian"
+        case "en": return "English"
+        default: return "English"  // Default to English for unsupported languages
+        }
+    }
 }

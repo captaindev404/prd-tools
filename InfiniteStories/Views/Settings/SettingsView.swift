@@ -169,6 +169,26 @@ struct SettingsView: View {
                                     .foregroundColor(.secondary)
                             }
                         }
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Picker("Language", selection: $settings.preferredLanguage) {
+                                    ForEach(AppSettings.availableLanguages, id: \.id) { language in
+                                        HStack {
+                                            Text(language.name)
+                                            Text(language.nativeName)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        .tag(language.id)
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                            }
+                            
+                            Text("Stories will be generated in the selected language")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     } header: {
                         Text("Story Preferences")
                     } footer: {

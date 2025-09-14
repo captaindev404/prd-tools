@@ -18,7 +18,7 @@ enum AudioServiceError: Error {
 }
 
 protocol AudioServiceProtocol {
-    func generateAudioFile(from text: String, fileName: String, voice: String) async throws -> URL
+    func generateAudioFile(from text: String, fileName: String, voice: String, language: String) async throws -> URL
     func playAudio(from url: URL) throws
     func pauseAudio()
     func resumeAudio()
@@ -154,7 +154,7 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPla
         }
     }
     
-    func generateAudioFile(from text: String, fileName: String, voice: String = "nova") async throws -> URL {
+    func generateAudioFile(from text: String, fileName: String, voice: String = "nova", language: String = "English") async throws -> URL {
         print("🎵 === Audio Generation Started ===")
         print("🎵 Using voice: \(voice)")
         print("🎵 Text length: \(text.count) characters")
@@ -171,7 +171,7 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPla
         
         do {
             print("🎵 Generating audio with OpenAI API...")
-            let audioData = try await aiService.generateSpeech(text: text, voice: voice)
+            let audioData = try await aiService.generateSpeech(text: text, voice: voice, language: language)
             
             // Save the MP3 data to file
             try audioData.write(to: audioURL)
