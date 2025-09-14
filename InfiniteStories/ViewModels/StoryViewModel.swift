@@ -8,6 +8,8 @@
 import Foundation
 import SwiftData
 import Combine
+import BackgroundTasks
+import UIKit
 
 @MainActor
 class StoryViewModel: ObservableObject {
@@ -31,6 +33,10 @@ class StoryViewModel: ObservableObject {
     private var modelContext: ModelContext?
     private let appSettings = AppSettings()
     
+    // Background task support
+    private var backgroundTaskId: UIBackgroundTaskIdentifier = .invalid
+    private var currentGenerationTask: Task<Void, Never>?
+    
     init(audioService: AudioServiceProtocol = AudioService()) {
         self.audioService = audioService
         
@@ -41,6 +47,8 @@ class StoryViewModel: ObservableObject {
             // Create a placeholder that will show error messages
             self.aiService = OpenAIService(apiKey: "")
         }
+        
+        setupBackgroundHandlers()
     }
     
     func setModelContext(_ context: ModelContext) {
@@ -67,6 +75,17 @@ class StoryViewModel: ObservableObject {
         
         isGeneratingStory = true
         generationError = nil
+        
+        // Disable idle timer during story generation
+        IdleTimerManager.shared.disableIdleTimer(for: "StoryGeneration")
+        
+        // Begin background task for story generation
+        backgroundTaskId = BackgroundTaskManager.shared.beginBackgroundTask(
+            withName: "StoryGeneration",
+            expirationHandler: { [weak self] in
+                self?.handleBackgroundTaskExpiration()
+            }
+        )
         
         do {
             let request = StoryGenerationRequest(
@@ -108,6 +127,16 @@ class StoryViewModel: ObservableObject {
         }
         
         isGeneratingStory = false
+        
+        // Re-enable idle timer after generation
+        IdleTimerManager.shared.enableIdleTimer(for: "StoryGeneration")
+        
+        // End background task
+        if backgroundTaskId != .invalid {
+            BackgroundTaskManager.shared.endBackgroundTask(backgroundTaskId)
+            backgroundTaskId = .invalid
+        }
+        
         print("📱 === Story Generation Flow Completed ===")
         print("📱 Final state - Error: \(generationError ?? "None")")
     }
@@ -115,6 +144,9 @@ class StoryViewModel: ObservableObject {
     private func generateAudioForStory(_ story: Story) async {
         print("📱 🎵 === Audio Generation Started ===")
         isGeneratingAudio = true
+        
+        // Disable idle timer during audio generation
+        IdleTimerManager.shared.disableIdleTimer(for: "AudioGeneration")
         
         do {
             let fileName = "story_\(story.createdAt.timeIntervalSince1970)"
@@ -144,6 +176,10 @@ class StoryViewModel: ObservableObject {
         }
         
         isGeneratingAudio = false
+        
+        // Re-enable idle timer after audio generation
+        IdleTimerManager.shared.enableIdleTimer(for: "AudioGeneration")
+        
         print("📱 🎵 === Audio Generation Completed ===")
     }
     
@@ -369,6 +405,100 @@ class StoryViewModel: ObservableObject {
                 await regenerateAudioForStory(story)
             }
         }
+    }
+    
+    // MARK: - Background Task Support
+    
+    private func setupBackgroundHandlers() {
+        // Listen for app lifecycle events
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appDidEnterBackground),
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appWillEnterForeground),
+            name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
+        
+        // Listen for background task resume notifications
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(resumeStoryGeneration(_:)),
+            name: .resumeStoryGeneration,
+            object: nil
+        )
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(resumeAudioProcessing(_:)),
+            name: .resumeAudioProcessing,
+            object: nil
+        )
+    }
+    
+    @objc private func appDidEnterBackground() {
+        if isGeneratingStory || isGeneratingAudio {
+            print("📱 App entering background during generation, scheduling background task")
+            BackgroundTaskManager.shared.scheduleStoryGenerationTask()
+        }
+    }
+    
+    @objc private func appWillEnterForeground() {
+        print("📱 App entering foreground")
+        // Resume any paused operations if needed
+    }
+    
+    @objc private func resumeStoryGeneration(_ notification: Notification) {
+        guard let bgTask = notification.userInfo?["backgroundTask"] as? BGProcessingTask else { return }
+        
+        print("📱 Resuming story generation from background task")
+        
+        // Continue story generation if it was interrupted
+        if isGeneratingStory {
+            bgTask.setTaskCompleted(success: true)
+        } else {
+            bgTask.setTaskCompleted(success: false)
+        }
+    }
+    
+    @objc private func resumeAudioProcessing(_ notification: Notification) {
+        guard let bgTask = notification.userInfo?["backgroundTask"] as? BGProcessingTask else { return }
+        
+        print("📱 Resuming audio processing from background task")
+        
+        // Continue audio generation if it was interrupted
+        if isGeneratingAudio {
+            bgTask.setTaskCompleted(success: true)
+        } else {
+            bgTask.setTaskCompleted(success: false)
+        }
+    }
+    
+    private func handleBackgroundTaskExpiration() {
+        print("📱 ⚠️ Background task is about to expire")
+        
+        // Cancel current generation task if needed
+        currentGenerationTask?.cancel()
+        
+        // Save state for resumption
+        // You could save partial progress here if needed
+        
+        // Re-enable idle timer
+        IdleTimerManager.shared.enableIdleTimer(for: "StoryGeneration")
+        IdleTimerManager.shared.enableIdleTimer(for: "AudioGeneration")
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+        
+        // Ensure idle timer is re-enabled
+        IdleTimerManager.shared.enableIdleTimer(for: "StoryGeneration")
+        IdleTimerManager.shared.enableIdleTimer(for: "AudioGeneration")
     }
 }
 

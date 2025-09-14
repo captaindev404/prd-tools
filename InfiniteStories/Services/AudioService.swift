@@ -51,7 +51,7 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPla
     
     deinit {
         // Clean up and ensure idle timer is re-enabled
-        enableIdleTimer()
+        IdleTimerManager.shared.enableIdleTimer(for: "AudioService")
         NotificationCenter.default.removeObserver(self)
     }
     
@@ -95,17 +95,13 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPla
     // MARK: - Idle Timer Management
     
     private func disableIdleTimer() {
-        DispatchQueue.main.async {
-            UIApplication.shared.isIdleTimerDisabled = true
-            print("📱 ✅ Idle timer disabled - phone will not sleep during playback")
-        }
+        IdleTimerManager.shared.disableIdleTimer(for: "AudioService-Playback")
+        print("📱 ✅ Idle timer disabled - phone will not sleep during playback")
     }
     
     private func enableIdleTimer() {
-        DispatchQueue.main.async {
-            UIApplication.shared.isIdleTimerDisabled = false
-            print("📱 ✅ Idle timer enabled - phone can sleep normally")
-        }
+        IdleTimerManager.shared.enableIdleTimer(for: "AudioService-Playback")
+        print("📱 ✅ Idle timer enabled - phone can sleep normally")
     }
     
     // MARK: - App Lifecycle Handlers
