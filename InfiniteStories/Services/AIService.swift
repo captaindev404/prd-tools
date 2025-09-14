@@ -39,12 +39,15 @@ protocol AIServiceProtocol {
     func generateStory(request: StoryGenerationRequest) async throws -> StoryGenerationResponse
     func generateStoryWithCustomEvent(request: CustomStoryGenerationRequest) async throws -> StoryGenerationResponse
     func generateSpeech(text: String, voice: String, language: String) async throws -> Data
+    func cancelCurrentTask()
+    var currentTask: URLSessionDataTask? { get set }
 }
 
 class OpenAIService: AIServiceProtocol {
     private let apiKey: String
     private let chatURL = "https://api.openai.com/v1/chat/completions"
     private let ttsURL = "https://api.openai.com/v1/audio/speech"
+    var currentTask: URLSessionDataTask?
     
     init(apiKey: String) {
         self.apiKey = apiKey
@@ -474,5 +477,11 @@ class OpenAIService: AIServiceProtocol {
             let baseInstructions = "Speak in a warm, gentle, and engaging tone perfect for children's bedtime stories. Use clear pronunciation at a calm, steady pace. Add appropriate emotional expression to bring characters to life while maintaining a soothing atmosphere that helps children relax. Create distinct but subtle character voices and emphasize the wonder and magic of the story."
             return baseInstructions + " " + PromptLocalizer.getLanguageInstruction(for: language)
         }
+    }
+
+    func cancelCurrentTask() {
+        print("🚫 Cancelling current AI service task")
+        currentTask?.cancel()
+        currentTask = nil
     }
 }

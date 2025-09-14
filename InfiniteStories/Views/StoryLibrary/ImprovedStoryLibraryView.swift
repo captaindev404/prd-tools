@@ -76,7 +76,7 @@ struct ImprovedStoryLibraryView: View {
     @Query(sort: \Story.createdAt, order: .reverse) private var stories: [Story]
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    
+
     @State private var selectedStory: Story?
     @State private var searchText = ""
     @State private var selectedFilter: StoryFilter = .all
@@ -85,6 +85,12 @@ struct ImprovedStoryLibraryView: View {
     @State private var storyToDelete: Story?
     @State private var visibleStoryCount = 20 // Initial load
     @State private var isLoadingMore = false
+    @State private var showingAudioRegeneration = false
+    @State private var storyToRegenerate: Story?
+    @State private var regeneratingStories: Set<PersistentIdentifier> = []
+    @State private var isEditMode = false
+    @State private var selectedStories: Set<PersistentIdentifier> = []
+    @State private var showBulkDeleteConfirmation = false
     @StateObject private var viewModel = StoryViewModel()
     
     // Group stories by status
@@ -150,13 +156,56 @@ struct ImprovedStoryLibraryView: View {
                     }
                 }
                 .padding()
+
+                // Edit mode toolbar at bottom
+                if isEditMode && !stories.isEmpty {
+                    EditModeToolbar(
+                        selectedStories: $selectedStories,
+                        totalStories: filteredStories.count,
+                        onDelete: {
+                            if !selectedStories.isEmpty {
+                                showBulkDeleteConfirmation = true
+                            }
+                        },
+                        onSelectAll: {
+                            withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
+                                if selectedStories.count == filteredStories.count {
+                                    selectedStories.removeAll()
+                                } else {
+                                    selectedStories = Set(filteredStories.map { $0.id })
+                                }
+                            }
+                        }
+                    )
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             }
         }
         .navigationTitle("Story Library")
         .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(isEditMode ? "Done" : "Edit") {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        isEditMode.toggle()
+                        if !isEditMode {
+                            selectedStories.removeAll()
+                        }
+                    }
+                }
+                .fontWeight(.medium)
+                .disabled(stories.isEmpty)
+            }
+        }
         .sheet(item: $selectedStory) { story in
             NavigationStack {
                 AudioPlayerView(story: story)
+            }
+        }
+        .sheet(item: $storyToRegenerate) { story in
+            AudioRegenerationView(story: story) {
+                // On completion, play the story
+                selectedStory = story
             }
         }
         .onAppear {
@@ -171,6 +220,14 @@ struct ImprovedStoryLibraryView: View {
             }
         } message: {
             Text("This action cannot be undone.")
+        }
+        .alert("Delete \(selectedStories.count) Stories?", isPresented: $showBulkDeleteConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete All", role: .destructive) {
+                deleteSelectedStories()
+            }
+        } message: {
+            Text("This will permanently delete \(selectedStories.count) stories. This action cannot be undone.")
         }
     }
     
@@ -270,44 +327,32 @@ struct ImprovedStoryLibraryView: View {
         LazyVStack(spacing: StoryLibraryDesign.Spacing.cardSpacing) {
             // Show limited number of stories for performance
             ForEach(Array(filteredStories.prefix(visibleStoryCount)), id: \.id) { story in
-                ImprovedStoryCard(
-                    story: story,
-                    onTap: {
-                        selectedStory = story
-                    },
-                    onToggleFavorite: {
-                        toggleFavorite(story)
-                    },
-                    onShare: {
-                        shareStory(story)
-                    },
-                    onDelete: {
-                        storyToDelete = story
-                        showDeleteConfirmation = true
-                    },
-                    onEdit: {
-                        // Show edit view
-                        selectedStory = story
-                    },
-                    onRegenerateAudio: {
-                        Task {
-                            await viewModel.regenerateAudioForStory(story)
-                        }
+                HStack(spacing: 12) {
+                    // Selection indicator in edit mode
+                    if isEditMode {
+                        SelectionCircle(isSelected: selectedStories.contains(story.id))
+                            .onTapGesture {
+                                withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
+                                    if selectedStories.contains(story.id) {
+                                        selectedStories.remove(story.id)
+                                    } else {
+                                        selectedStories.insert(story.id)
+                                    }
+                                }
+                            }
+                            .transition(.asymmetric(
+                                insertion: .scale(scale: 0.5).combined(with: .opacity),
+                                removal: .scale(scale: 0.5).combined(with: .opacity)
+                            ))
                     }
-                )
-                .transition(.asymmetric(
-                    insertion: .scale(scale: 0.9).combined(with: .opacity),
-                    removal: .scale(scale: 1.1).combined(with: .opacity)
-                ))
-                .animation(.spring(response: 0.4, dampingFraction: 0.8, blendDuration: 0), value: filteredStories.count)
-                .onAppear {
-                    // Load more when reaching the last few items
-                    if story.id == Array(filteredStories.prefix(visibleStoryCount)).last?.id {
-                        loadMoreStoriesIfNeeded()
-                    }
+
+                    storyCardView(for: story)
+                        .opacity(isEditMode && !selectedStories.contains(story.id) ? 0.6 : 1.0)
+                        .allowsHitTesting(!isEditMode || selectedStories.contains(story.id))
                 }
+                .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isEditMode)
             }
-            
+
             // Load more button/indicator
             if visibleStoryCount < filteredStories.count {
                 LoadMoreView(isLoading: $isLoadingMore) {
@@ -342,6 +387,18 @@ struct ImprovedStoryLibraryView: View {
             viewModel.deleteStoryWithCleanup(story)
         }
     }
+
+    private func deleteSelectedStories() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            for storyId in selectedStories {
+                if let story = stories.first(where: { $0.id == storyId }) {
+                    viewModel.deleteStoryWithCleanup(story)
+                }
+            }
+            selectedStories.removeAll()
+            isEditMode = false
+        }
+    }
     
     private func toggleFavorite(_ story: Story) {
         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -373,14 +430,62 @@ struct ImprovedStoryLibraryView: View {
     
     private func loadMoreStories() {
         guard !isLoadingMore else { return }
-        
+
         isLoadingMore = true
-        
+
         // Simulate loading delay for smooth UX
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                 self.visibleStoryCount = min(self.visibleStoryCount + 20, self.filteredStories.count)
                 self.isLoadingMore = false
+            }
+        }
+    }
+
+    // MARK: - Story Card View Builder
+    @ViewBuilder
+    private func storyCardView(for story: Story) -> some View {
+        let isRegenerating = regeneratingStories.contains(story.id)
+
+        ImprovedStoryCard(
+            story: story,
+            onTap: {
+                selectedStory = story
+            },
+            onToggleFavorite: {
+                toggleFavorite(story)
+            },
+            onShare: {
+                shareStory(story)
+            },
+            onDelete: {
+                storyToDelete = story
+                showDeleteConfirmation = true
+            },
+            onEdit: {
+                // Show edit view
+                selectedStory = story
+            },
+            onRegenerateAudio: {
+                // Show inline regeneration progress
+                regeneratingStories.insert(story.id)
+                Task {
+                    await viewModel.regenerateAudioForStory(story)
+                    regeneratingStories.remove(story.id)
+                }
+            },
+            isRegenerating: isRegenerating
+        )
+        .transition(.asymmetric(
+            insertion: .scale(scale: 0.9).combined(with: .opacity),
+            removal: .scale(scale: 1.1).combined(with: .opacity)
+        ))
+        .animation(.spring(response: 0.4, dampingFraction: 0.8, blendDuration: 0), value: filteredStories.count)
+        .onAppear {
+            // Load more when reaching the last few items
+            let visibleStories = Array(filteredStories.prefix(visibleStoryCount))
+            if story.id == visibleStories.last?.id {
+                loadMoreStoriesIfNeeded()
             }
         }
     }
@@ -395,6 +500,7 @@ struct ImprovedStoryCard: View {
     var onDelete: (() -> Void)? = nil
     var onEdit: (() -> Void)? = nil
     var onRegenerateAudio: (() -> Void)? = nil
+    var isRegenerating: Bool = false
     
     @State private var isPressed = false
     @State private var showingActions = false
@@ -454,8 +560,10 @@ struct ImprovedStoryCard: View {
             }
             .padding(StoryLibraryDesign.Spacing.cardPadding)
             
-            // Progress bar
-            if storyStatus == .inProgress {
+            // Progress bar or regeneration indicator
+            if isRegenerating {
+                regenerationProgressBar
+            } else if storyStatus == .inProgress {
                 progressBar
             }
         }
@@ -526,8 +634,21 @@ struct ImprovedStoryCard: View {
             EventBadge(eventTitle: story.eventTitle, color: eventColor)
             
             Spacer()
-            
-            if story.hasAudio {
+
+            // Regenerate audio button
+            if !isRegenerating && story.audioFileName != nil {
+                Button(action: { onRegenerateAudio?() }) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 12))
+                        .foregroundColor(.blue)
+                        .padding(6)
+                        .background(Color.blue.opacity(0.1))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+
+            if story.hasAudio && !isRegenerating {
                 MetadataItem(
                     icon: "speaker.wave.2.fill",
                     text: "\(Int(story.estimatedDuration / 60))m",
@@ -551,6 +672,22 @@ struct ImprovedStoryCard: View {
         }
     }
     
+    @ViewBuilder
+    private var regenerationProgressBar: some View {
+        HStack(spacing: 8) {
+            ProgressView()
+                .progressViewStyle(CircularProgressViewStyle())
+                .scaleEffect(0.7)
+            Text("Regenerating audio...")
+                .font(.caption)
+                .foregroundColor(.purple)
+            Spacer()
+        }
+        .padding(.horizontal, StoryLibraryDesign.Spacing.cardPadding)
+        .padding(.vertical, 8)
+        .background(Color.purple.opacity(0.1))
+    }
+
     @ViewBuilder
     private var progressBar: some View {
         GeometryReader { geometry in
@@ -900,7 +1037,7 @@ struct RoundedCorner: Shape {
 struct LoadMoreView: View {
     @Binding var isLoading: Bool
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
@@ -930,5 +1067,77 @@ struct LoadMoreView: View {
         }
         .disabled(isLoading)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isLoading)
+    }
+}
+
+// MARK: - Selection Circle
+struct SelectionCircle: View {
+    let isSelected: Bool
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .strokeBorder(isSelected ? Color.clear : Color.gray.opacity(0.4), lineWidth: 2)
+                .background(
+                    Circle()
+                        .fill(isSelected ? Color.purple : Color.clear)
+                )
+                .frame(width: 24, height: 24)
+
+            if isSelected {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.white)
+            }
+        }
+        .frame(width: 44, height: 44) // Larger tap target
+        .contentShape(Circle())
+    }
+}
+
+// MARK: - Edit Mode Toolbar
+struct EditModeToolbar: View {
+    @Binding var selectedStories: Set<PersistentIdentifier>
+    let totalStories: Int
+    let onDelete: () -> Void
+    let onSelectAll: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Divider()
+
+            HStack(spacing: 20) {
+                // Selection info
+                Text("\(selectedStories.count) selected")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+                Spacer()
+
+                // Select All/None button
+                Button(action: onSelectAll) {
+                    Text(selectedStories.count == totalStories ? "Deselect All" : "Select All")
+                        .font(.subheadline.weight(.medium))
+                }
+
+                // Delete button
+                Button(action: onDelete) {
+                    Label("Delete", systemImage: "trash")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(
+                            Color.red
+                                .opacity(selectedStories.isEmpty ? 0.5 : 1.0)
+                        )
+                        .cornerRadius(20)
+                }
+                .disabled(selectedStories.isEmpty)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 15)
+            .background(.ultraThinMaterial)
+        }
     }
 }

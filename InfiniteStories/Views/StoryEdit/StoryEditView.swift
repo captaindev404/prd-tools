@@ -21,6 +21,8 @@ struct StoryEditView: View {
     @State private var wordCount = 0
     @State private var showingSaveConfirmation = false
     @State private var isSaving = false
+    @State private var showingRegenerationView = false
+    @State private var shouldRegenerateAudio = false
     
     @FocusState private var isTextEditorFocused: Bool
     
@@ -165,7 +167,14 @@ struct StoryEditView: View {
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: saveChanges) {
+                    Menu {
+                        Button(action: { saveChanges(regenerateAudio: false) }) {
+                            Label("Save", systemImage: "square.and.arrow.down")
+                        }
+                        Button(action: { saveChanges(regenerateAudio: true) }) {
+                            Label("Save & Regenerate Audio", systemImage: "waveform")
+                        }
+                    } label: {
                         if isSaving {
                             ProgressView()
                                 .progressViewStyle(CircularProgressViewStyle())
@@ -188,10 +197,23 @@ struct StoryEditView: View {
             }
             .alert("Story Updated", isPresented: $showingSaveConfirmation) {
                 Button("OK") {
-                    dismiss()
+                    if shouldRegenerateAudio {
+                        showingRegenerationView = true
+                    } else {
+                        dismiss()
+                    }
                 }
             } message: {
-                Text("Your story has been updated successfully. The audio will be regenerated using OpenAI when you play the story.")
+                Text(shouldRegenerateAudio ?
+                     "Your story has been saved. Audio generation will begin now." :
+                     "Your story has been updated successfully. The audio will be regenerated using OpenAI when you play the story.")
+            }
+            .fullScreenCover(isPresented: $showingRegenerationView) {
+                AudioRegenerationView(story: story) {
+                    // On completion, dismiss both views
+                    showingRegenerationView = false
+                    dismiss()
+                }
             }
             .onAppear {
                 editedTitle = story.title
@@ -240,8 +262,9 @@ struct StoryEditView: View {
         updateCounts()
     }
     
-    private func saveChanges() {
+    private func saveChanges(regenerateAudio: Bool = false) {
         isSaving = true
+        shouldRegenerateAudio = regenerateAudio
         
         // Update story properties
         // The Story model will automatically mark audio for regeneration and delete old audio

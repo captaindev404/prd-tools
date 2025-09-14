@@ -17,7 +17,12 @@ class StoryViewModel: ObservableObject {
     @Published var isGeneratingAudio = false
     @Published var generationError: String?
     @Published var selectedEvent: StoryEvent = .bedtime
-    
+
+    // Audio generation progress tracking
+    @Published var audioGenerationProgress: Double = 0.0
+    @Published var audioGenerationStage: String = ""
+    @Published var currentAudioTask: URLSessionDataTask?
+
     // Audio playback state
     @Published var isPlaying = false
     @Published var isPaused = false
@@ -458,20 +463,47 @@ class StoryViewModel: ObservableObject {
         }
     }
     
-    func regenerateAudioForStory(_ story: Story) async {
+    func regenerateAudioForStory(_ story: Story, withProgress: Bool = false) async {
         print("📱 🔄 Regenerating audio for story: \(story.title)")
-        
+
+        if withProgress {
+            audioGenerationProgress = 0.0
+            audioGenerationStage = "Preparing story..."
+        }
+
         // Delete old audio file if it exists
         if let oldAudioFileName = story.audioFileName {
             deleteAudioFile(fileName: oldAudioFileName)
             story.audioFileName = nil
         }
-        
+
         // Clear the regeneration flag
         story.clearAudioRegenerationFlag()
-        
+
+        if withProgress {
+            audioGenerationProgress = 0.2
+            audioGenerationStage = "Generating audio with OpenAI..."
+        }
+
         // Generate new audio
         await generateAudioForStory(story)
+
+        if withProgress {
+            audioGenerationProgress = 1.0
+            audioGenerationStage = "Complete!"
+        }
+    }
+
+    func cancelAudioGeneration() {
+        print("📱 ❌ Cancelling audio generation")
+        currentAudioTask?.cancel()
+        currentAudioTask = nil
+        isGeneratingAudio = false
+        audioGenerationProgress = 0.0
+        audioGenerationStage = ""
+
+        // Re-enable idle timer
+        IdleTimerManager.shared.enableIdleTimer(for: "AudioGeneration")
     }
     
     func checkAndRegenerateAudioIfNeeded(_ story: Story) {
