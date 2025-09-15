@@ -17,7 +17,10 @@ final class Hero {
     var specialAbility: String
     var createdAt: Date
     var isActive: Bool
-    
+    var avatarImagePath: String?
+    var avatarPrompt: String?
+    var avatarGeneratedAt: Date?
+
     @Relationship(deleteRule: .nullify) var stories: [Story] = []
     
     init(name: String, primaryTrait: CharacterTrait, secondaryTrait: CharacterTrait, appearance: String = "", specialAbility: String = "") {
@@ -28,6 +31,9 @@ final class Hero {
         self.specialAbility = specialAbility
         self.createdAt = Date()
         self.isActive = true
+        self.avatarImagePath = nil
+        self.avatarPrompt = nil
+        self.avatarGeneratedAt = nil
     }
     
     var traitsDescription: String {
@@ -46,5 +52,19 @@ final class Hero {
         }
         
         return description + "."
+    }
+
+    var avatarURL: URL? {
+        guard let avatarImagePath = avatarImagePath else { return nil }
+        return getDocumentsDirectory().appendingPathComponent("Avatars").appendingPathComponent(avatarImagePath)
+    }
+
+    var hasAvatar: Bool {
+        return avatarImagePath != nil
+    }
+
+    private func getDocumentsDirectory() -> URL {
+        let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+        return paths[0]
     }
 }

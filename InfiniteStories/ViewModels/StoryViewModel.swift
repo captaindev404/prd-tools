@@ -454,6 +454,10 @@ class StoryViewModel: ObservableObject {
                 return "API Error: \(message)"
             case .rateLimitExceeded:
                 return "Rate limit exceeded. Please try again later"
+            case .imageGenerationFailed:
+                return "Failed to generate image. Please try again"
+            case .fileSystemError:
+                return "Failed to save file. Please check storage permissions"
             }
         } else {
             return "An unexpected error occurred: \(error.localizedDescription)"

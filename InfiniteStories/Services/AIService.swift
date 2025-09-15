@@ -27,18 +27,33 @@ struct StoryGenerationResponse {
     let estimatedDuration: TimeInterval
 }
 
+struct AvatarGenerationRequest {
+    let hero: Hero
+    let prompt: String
+    let size: String // "1024x1024", "1792x1024", or "1024x1792"
+    let quality: String // "standard" or "hd"
+}
+
+struct AvatarGenerationResponse {
+    let imageData: Data
+    let revisedPrompt: String?
+}
+
 enum AIServiceError: Error {
     case invalidAPIKey
     case networkError(Error)
     case invalidResponse
     case apiError(String)
     case rateLimitExceeded
+    case imageGenerationFailed
+    case fileSystemError
 }
 
 protocol AIServiceProtocol {
     func generateStory(request: StoryGenerationRequest) async throws -> StoryGenerationResponse
     func generateStoryWithCustomEvent(request: CustomStoryGenerationRequest) async throws -> StoryGenerationResponse
     func generateSpeech(text: String, voice: String, language: String) async throws -> Data
+    func generateAvatar(request: AvatarGenerationRequest) async throws -> AvatarGenerationResponse
     func cancelCurrentTask()
     var currentTask: URLSessionDataTask? { get set }
 }
@@ -47,6 +62,7 @@ class OpenAIService: AIServiceProtocol {
     private let apiKey: String
     private let chatURL = "https://api.openai.com/v1/chat/completions"
     private let ttsURL = "https://api.openai.com/v1/audio/speech"
+    private let imageURL = "https://api.openai.com/v1/images/generations"
     var currentTask: URLSessionDataTask?
     
     init(apiKey: String) {
@@ -476,6 +492,98 @@ class OpenAIService: AIServiceProtocol {
             // Generic instructions for any voice
             let baseInstructions = "Speak in a warm, gentle, and engaging tone perfect for children's bedtime stories. Use clear pronunciation at a calm, steady pace. Add appropriate emotional expression to bring characters to life while maintaining a soothing atmosphere that helps children relax. Create distinct but subtle character voices and emphasize the wonder and magic of the story."
             return baseInstructions + " " + PromptLocalizer.getLanguageInstruction(for: language)
+        }
+    }
+
+    func generateAvatar(request: AvatarGenerationRequest) async throws -> AvatarGenerationResponse {
+        print("🎨 === OpenAI Avatar Generation Started ===")
+        print("🎨 Hero: \(request.hero.name)")
+        print("🎨 Prompt: \(request.prompt)")
+        print("🎨 Size: \(request.size)")
+        print("🎨 Quality: \(request.quality)")
+
+        guard !apiKey.isEmpty else {
+            print("🎨 ❌ Error: API key is empty")
+            throw AIServiceError.invalidAPIKey
+        }
+
+        let requestBody: [String: Any] = [
+            "model": "dall-e-3",
+            "prompt": request.prompt,
+            "n": 1,
+            "size": request.size,
+            "quality": request.quality,
+            "response_format": "b64_json"
+        ]
+
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: requestBody) else {
+            print("🎨 ❌ Error: Failed to serialize request JSON")
+            throw AIServiceError.invalidResponse
+        }
+
+        print("🎨 🚀 Sending request to OpenAI DALL-E...")
+
+        var urlRequest = URLRequest(url: URL(string: imageURL)!)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        urlRequest.httpBody = jsonData
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: urlRequest)
+
+            print("🎨 📥 Received response from OpenAI")
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                print("🎨 ❌ Error: Invalid HTTP response")
+                throw AIServiceError.networkError(URLError(.badServerResponse))
+            }
+
+            print("🎨 📊 HTTP Status Code: \(httpResponse.statusCode)")
+
+            guard httpResponse.statusCode == 200 else {
+                if httpResponse.statusCode == 429 {
+                    print("🎨 ⏳ Error: Rate limit exceeded")
+                    throw AIServiceError.rateLimitExceeded
+                }
+
+                if let errorString = String(data: data, encoding: .utf8) {
+                    print("🎨 📥 Error Response: \(errorString)")
+                }
+
+                print("🎨 ❌ HTTP Error: \(httpResponse.statusCode)")
+                throw AIServiceError.apiError("HTTP \(httpResponse.statusCode)")
+            }
+
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let dataArray = json["data"] as? [[String: Any]],
+                  let firstImage = dataArray.first,
+                  let b64Json = firstImage["b64_json"] as? String,
+                  let imageData = Data(base64Encoded: b64Json) else {
+                print("🎨 ❌ Error: Failed to parse image response")
+                throw AIServiceError.invalidResponse
+            }
+
+            let revisedPrompt = firstImage["revised_prompt"] as? String
+
+            print("🎨 ✅ Successfully generated avatar")
+            print("🎨 📊 Image data size: \(imageData.count) bytes")
+            if let revised = revisedPrompt {
+                print("🎨 📝 Revised prompt: \(revised)")
+            }
+            print("🎨 === Avatar Generation Completed ===")
+
+            return AvatarGenerationResponse(
+                imageData: imageData,
+                revisedPrompt: revisedPrompt
+            )
+
+        } catch let error as AIServiceError {
+            print("🎨 ❌ AI Service Error: \(error)")
+            throw error
+        } catch {
+            print("🎨 ❌ Network Error: \(error.localizedDescription)")
+            throw AIServiceError.networkError(error)
         }
     }
 

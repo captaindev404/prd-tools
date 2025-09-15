@@ -647,25 +647,30 @@ struct MiniStoryCard: View {
                 AccessibleCardStyle.cardBackground(for: colorScheme)
                 
                 HStack(spacing: AccessibleSizes.cardSpacing) {
-                    // Larger touch-friendly icon area
-                    ZStack {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        AccessibleColors.accessibleAccent.opacity(0.3),
-                                        AccessibleColors.accessibleAccent.opacity(0.1)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
+                    // Hero Avatar or story icon
+                    if let hero = story.hero {
+                        HeroAvatarImageView(hero: hero, size: AccessibleSizes.iconContainerSize)
+                    } else {
+                        // Fallback to story icon
+                        ZStack {
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            AccessibleColors.accessibleAccent.opacity(0.3),
+                                            AccessibleColors.accessibleAccent.opacity(0.1)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
                                 )
-                            )
-                            .frame(width: AccessibleSizes.iconContainerSize, 
-                                   height: AccessibleSizes.iconContainerSize)
-                        
-                        Image(systemName: "book.fill")
-                            .font(.system(size: 24))
-                            .foregroundColor(AccessibleColors.accessibleAccent)
+                                .frame(width: AccessibleSizes.iconContainerSize,
+                                       height: AccessibleSizes.iconContainerSize)
+
+                            Image(systemName: "book.fill")
+                                .font(.system(size: 24))
+                                .foregroundColor(AccessibleColors.accessibleAccent)
+                        }
                     }
                     
                     VStack(alignment: .leading, spacing: 6) {
@@ -690,13 +695,20 @@ struct MiniStoryCard: View {
                             .multilineTextAlignment(.leading)
                         
                         HStack {
+                            if let hero = story.hero {
+                                Text(hero.name)
+                                    .font(AccessibleTypography.metadata)
+                                    .foregroundColor(AccessibleColors.accessibleAccent)
+                                    .fontWeight(.medium)
+                            }
+
                             if story.hasAudio {
-                                Label("\(Int(story.estimatedDuration / 60))m", 
+                                Label("\(Int(story.estimatedDuration / 60))m",
                                       systemImage: "speaker.wave.2.fill")
                                     .font(AccessibleTypography.metadata)
                                     .foregroundColor(.orange)
                             }
-                            
+
                             Spacer()
                             
                             Text(story.formattedDate)

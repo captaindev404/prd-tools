@@ -136,15 +136,7 @@ struct HeroManagementCard: View {
             // Hero Info Section
             HStack(spacing: 15) {
                 // Hero Avatar
-                ZStack {
-                    Circle()
-                        .fill(Color.purple.opacity(0.1))
-                        .frame(width: 60, height: 60)
-                    
-                    Image(systemName: "person.fill")
-                        .font(.title)
-                        .foregroundColor(.purple)
-                }
+                HeroAvatarImageView.medium(hero)
                 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(hero.name)

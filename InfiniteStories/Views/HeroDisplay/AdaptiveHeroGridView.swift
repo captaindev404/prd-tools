@@ -199,7 +199,9 @@ struct ExpandedHeroCard: View {
                     // Hero Header
                     HStack(spacing: 16) {
                         // Avatar
-                        HeroAvatarView(hero: hero, size: 80)
+                        HeroAvatarImageView.large(hero).withEditButton {
+                            onEdit()
+                        }
                         
                         VStack(alignment: .leading, spacing: 8) {
                             Text(hero.name)
@@ -352,7 +354,7 @@ struct CompactHeroCard: View {
         Button(action: onTap) {
             VStack(spacing: 12) {
                 // Avatar
-                HeroAvatarView(hero: hero, size: 60)
+                HeroAvatarImageView.medium(hero)
                 
                 // Name
                 Text(hero.name)
@@ -484,42 +486,7 @@ struct AddHeroCard: View {
     }
 }
 
-// MARK: - Hero Avatar View
-struct HeroAvatarView: View {
-    let hero: Hero
-    let size: CGFloat
-    @State private var isAnimating = false
-    
-    var body: some View {
-        ZStack {
-            // Background Circle
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            Color.purple.opacity(0.3),
-                            Color.purple.opacity(0.1)
-                        ],
-                        center: .center,
-                        startRadius: 5,
-                        endRadius: size / 2
-                    )
-                )
-                .frame(width: size, height: size)
-            
-            // Hero Icon
-            Image(systemName: "person.fill")
-                .font(.system(size: size * 0.5))
-                .foregroundColor(.purple)
-                .scaleEffect(isAnimating ? 1.1 : 1.0)
-        }
-        .onAppear {
-            withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
-                isAnimating = true
-            }
-        }
-    }
-}
+// Note: HeroAvatarView is now handled by HeroAvatarImageView in Components folder
 
 // MARK: - Trait Pill
 struct TraitPill: View {

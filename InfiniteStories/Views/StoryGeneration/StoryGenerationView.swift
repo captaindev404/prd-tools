@@ -212,9 +212,7 @@ struct HeroInfoCard: View {
                 .foregroundColor(.secondary)
             
             HStack {
-                Image(systemName: "person.circle.fill")
-                    .font(.largeTitle)
-                    .foregroundColor(.purple)
+                HeroAvatarImageView.medium(hero)
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(hero.name)

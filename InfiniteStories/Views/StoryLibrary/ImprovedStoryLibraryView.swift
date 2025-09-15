@@ -586,30 +586,45 @@ struct ImprovedStoryCard: View {
     
     @ViewBuilder
     private var thumbnailView: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 12)
-                .fill(
-                    LinearGradient(
-                        colors: [eventColor.opacity(0.3), eventColor.opacity(0.1)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+        if let hero = story.hero {
+            // Show hero avatar
+            HeroAvatarImageView(hero: hero, size: 60)
+        } else {
+            // Fallback to event icon
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(
+                        LinearGradient(
+                            colors: [eventColor.opacity(0.3), eventColor.opacity(0.1)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
-                )
-                .frame(width: 60, height: 60)
-            
-            Image(systemName: story.eventIcon)
-                .font(.system(size: 24))
-                .foregroundColor(eventColor)
+                    .frame(width: 60, height: 60)
+
+                Image(systemName: story.eventIcon)
+                    .font(.system(size: 24))
+                    .foregroundColor(eventColor)
+            }
         }
     }
     
     @ViewBuilder
     private var titleRow: some View {
         HStack(alignment: .top) {
-            Text(story.title)
-                .font(StoryLibraryDesign.Typography.cardTitle)
-                .foregroundColor(StoryLibraryDesign.Colors.titleText)
-                .lineLimit(2)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(story.title)
+                    .font(StoryLibraryDesign.Typography.cardTitle)
+                    .foregroundColor(StoryLibraryDesign.Colors.titleText)
+                    .lineLimit(2)
+
+                if let hero = story.hero {
+                    Text("Hero: \(hero.name)")
+                        .font(.caption)
+                        .foregroundColor(StoryLibraryDesign.Colors.primaryPurple)
+                        .fontWeight(.medium)
+                }
+            }
             
             Spacer()
             

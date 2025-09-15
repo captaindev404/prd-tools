@@ -96,24 +96,7 @@ struct HeroSelectionCard: View {
         Button(action: onSelect) {
             VStack(spacing: 12) {
                 // Hero Avatar
-                ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.purple.opacity(0.2),
-                                    Color.purple.opacity(0.1)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 80, height: 80)
-                    
-                    Image(systemName: "person.fill")
-                        .font(.largeTitle)
-                        .foregroundColor(.purple)
-                }
+                HeroAvatarImageView.large(hero)
                 
                 VStack(spacing: 6) {
                     Text(hero.name)

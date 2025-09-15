@@ -178,10 +178,25 @@ struct StoryLibraryView: View {
 struct StoryRow: View {
     let story: Story
     let onTap: () -> Void
-    
+
     var body: some View {
         Button(action: onTap) {
-            HStack {
+            HStack(spacing: 12) {
+                // Hero Avatar
+                if let hero = story.hero {
+                    HeroAvatarImageView.medium(hero)
+                } else {
+                    // Fallback if no hero
+                    ZStack {
+                        Circle()
+                            .fill(Color.purple.opacity(0.1))
+                            .frame(width: 60, height: 60)
+                        Image(systemName: "book.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.purple)
+                    }
+                }
+
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Text(story.title)
@@ -203,10 +218,20 @@ struct StoryRow: View {
                         .multilineTextAlignment(.leading)
                     
                     HStack {
+                        if let hero = story.hero {
+                            Text(hero.name)
+                                .font(.caption)
+                                .foregroundColor(.purple)
+                                .fontWeight(.medium)
+                            Text("•")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
                         Text(story.formattedDate)
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        
+
                         Spacer()
                         
                         HStack(spacing: 15) {
