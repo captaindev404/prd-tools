@@ -28,6 +28,7 @@ struct ImprovedContentView: View {
     @State private var isRefreshing = false
     @State private var errorMessage: String?
     @State private var showingError = false
+    @State private var showingFullJourney = false
     
     // Performance optimization: Limit floating elements on older devices
     private var shouldShowFloatingElements: Bool {
@@ -57,7 +58,7 @@ struct ImprovedContentView: View {
                 // Magical Background
                 MagicalBackgroundView()
                     .allowsHitTesting(false)
-                
+
                 ScrollView {
                     VStack(spacing: 0) {
                         // Hero Section
@@ -70,25 +71,6 @@ struct ImprovedContentView: View {
                             showingStoryGeneration: $showingStoryGeneration
                         )
                         .padding(.top, 20)
-                        
-                        // Quick Actions
-                        QuickActionsView(
-                            hasHeroes: !heroes.isEmpty,
-                            storiesCount: stories.count,
-                            showingStoryGeneration: $showingStoryGeneration,
-                            selectedHeroForStory: $selectedHeroForStory
-                        )
-                        .padding(.top, 30)
-
-                        // Compact Journey Card - New condensed version
-                        if !stories.isEmpty {
-                            CompactJourneyCard(
-                                totalStories: stories.count,
-                                totalReads: totalStoriesRead,
-                                streak: currentStreak
-                            )
-                            .padding(.top, 25)
-                        }
 
                         // Recent Stories - Now with more space
                         if !recentStories.isEmpty {
@@ -98,7 +80,7 @@ struct ImprovedContentView: View {
                             )
                             .padding(.top, 25)
                         }
-                        
+
                         // Empty State
                         if heroes.isEmpty {
                             EmptyStateView(showingHeroCreation: $showingHeroCreation)
@@ -106,12 +88,12 @@ struct ImprovedContentView: View {
                         }
                     }
                     .padding(.horizontal, 20)
-                    .padding(.bottom, 30)
+                    .padding(.bottom, 100) // Extra padding for floating button
                 }
                 .refreshable {
                     await refreshData()
                 }
-                
+
                 // Floating Elements (performance optimized)
                 if shouldShowFloatingElements {
                     FloatingElementsView(
@@ -120,25 +102,44 @@ struct ImprovedContentView: View {
                     )
                     .allowsHitTesting(false)
                 }
+
+                // Floating Create Story Button
+                if !heroes.isEmpty {
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            FloatingCreateStoryButton(
+                                showingStoryGeneration: $showingStoryGeneration
+                            )
+                            .padding(.trailing, 20)
+                            .padding(.bottom, 30)
+                        }
+                    }
+                }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     MagicalLogoView()
                 }
-                
+
                 ToolbarItem(placement: .navigationBarTrailing) {
                     HStack(spacing: 15) {
+                        // Reading Journey Button (replaced Story Library button)
                         if !stories.isEmpty {
-                            NavigationLink(destination: ImprovedStoryLibraryView()) {
-                                Image(systemName: "books.vertical.fill")
-                                    .foregroundColor(MagicalColors.primary)
-                                    .font(.system(size: 20))
+                            Button(action: {
+                                showingFullJourney = true
+                            }) {
+                                ReadingJourneyTopButton(
+                                    totalStories: stories.count,
+                                    streak: currentStreak
+                                )
                             }
-                            .accessibilityLabel("Story Library")
-                            .accessibilityHint("View all your stories")
+                            .accessibilityLabel("Reading Journey")
+                            .accessibilityHint("View your reading statistics and progress")
                         }
-                        
+
                         Button(action: { showingSettings = true }) {
                             Image(systemName: "gearshape.fill")
                                 .foregroundColor(MagicalColors.primary)
@@ -179,11 +180,14 @@ struct ImprovedContentView: View {
                 }
             }
             .alert("Error", isPresented: $showingError) {
-                Button("OK") { 
-                    errorMessage = nil 
+                Button("OK") {
+                    errorMessage = nil
                 }
             } message: {
                 Text(errorMessage ?? "An unexpected error occurred")
+            }
+            .fullScreenCover(isPresented: $showingFullJourney) {
+                ReadingJourneyView()
             }
             .onAppear {
                 startAnimations()
@@ -358,211 +362,121 @@ struct HeroSectionView: View {
 }
 
 
-// MARK: - Quick Actions View
-struct QuickActionsView: View {
-    let hasHeroes: Bool
-    let storiesCount: Int
+// MARK: - Floating Create Story Button
+struct FloatingCreateStoryButton: View {
     @Binding var showingStoryGeneration: Bool
-    @Binding var selectedHeroForStory: Hero?
-    @State private var generateButtonPressed = false
-    @State private var libraryButtonPressed = false
-    
-    private let buttonFont = Font.system(size: 20, weight: .bold, design: .rounded)
-    
-    var body: some View {
-        VStack(spacing: 15) {
-            // Generate Story Button
-            Button(action: {
-                // Haptic feedback
-                let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                impactFeedback.impactOccurred()
-                
-                withAnimation(.spring()) {
-                    generateButtonPressed = true
-                }
-                showingStoryGeneration = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    generateButtonPressed = false
-                }
-            }) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.orange,
-                                    Color.orange.opacity(0.8)
-                                ],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .shadow(color: Color.orange.opacity(0.4), radius: 8, x: 0, y: 4)
-                    
-                    HStack(spacing: 12) {
-                        Image(systemName: "sparkles")
-                            .font(.title2)
-                            .rotationEffect(.degrees(generateButtonPressed ? 360 : 0))
-                        
-                        Text("Create New Story")
-                            .font(buttonFont)
-                        
-                        Spacer()
-                        
-                        Image(systemName: "arrow.right.circle.fill")
-                            .font(.title2)
-                            .opacity(0.8)
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 20)
-                }
-            }
-            .frame(height: 65)
-            .disabled(!hasHeroes)
-            .opacity(hasHeroes ? 1.0 : 0.6)
-            .scaleEffect(generateButtonPressed ? 0.95 : 1.0)
-            .accessibilityLabel("Create new story")
-            .accessibilityHint(hasHeroes ? "Generate a new magical story" : "Create a hero first to generate stories")
-            
-            // Library Button
-            if storiesCount > 0 {
-                NavigationLink(destination: ImprovedStoryLibraryView()) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 20)
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        MagicalColors.primary,
-                                        MagicalColors.primary.opacity(0.8)
-                                    ],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .shadow(color: MagicalColors.primary.opacity(0.3), radius: 8, x: 0, y: 4)
-                        
-                        HStack(spacing: 12) {
-                            Image(systemName: "books.vertical.fill")
-                                .font(.title2)
-                            
-                            Text("Story Library")
-                                .font(buttonFont)
-                            
-                            Spacer()
-                            
-                            ZStack {
-                                Circle()
-                                    .fill(Color.white.opacity(0.3))
-                                    .frame(width: 35, height: 35)
-                                
-                                Text("\(storiesCount)")
-                                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                                    .foregroundColor(.white)
-                            }
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 20)
-                    }
-                }
-                .frame(height: 65)
-                .scaleEffect(libraryButtonPressed ? 0.95 : 1.0)
-                .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
-                    withAnimation(.spring()) {
-                        libraryButtonPressed = pressing
-                    }
-                }, perform: {})
-                .accessibilityLabel("Story Library")
-                .accessibilityHint("View all \(storiesCount) stories")
-            }
-        }
-    }
-}
-
-// MARK: - Compact Journey Card - Space-efficient version
-struct CompactJourneyCard: View {
-    let totalStories: Int
-    let totalReads: Int
-    let streak: Int
-
-    @State private var showingFullJourney = false
-    @Environment(\.colorScheme) private var colorScheme
-
-    private let headerFont = Font.system(size: 16, weight: .bold, design: .rounded)
+    @State private var isPressed = false
+    @State private var isAnimating = false
 
     var body: some View {
         Button(action: {
-            showingFullJourney = true
+            // Haptic feedback
+            let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+            impactFeedback.impactOccurred()
+
+            showingStoryGeneration = true
         }) {
             ZStack {
-                RoundedRectangle(cornerRadius: 20)
+                // Shadow layer
+                Circle()
+                    .fill(Color.orange.opacity(0.3))
+                    .frame(width: 72, height: 72)
+                    .blur(radius: 10)
+                    .offset(y: 4)
+
+                // Main button
+                Circle()
                     .fill(
                         LinearGradient(
                             colors: [
-                                MagicalColors.primary.opacity(colorScheme == .dark ? 0.3 : 0.15),
-                                MagicalColors.accent.opacity(colorScheme == .dark ? 0.2 : 0.1)
+                                Color.orange,
+                                Color.orange.opacity(0.8)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(MagicalColors.primary.opacity(0.3), lineWidth: 1)
-                    )
+                    .frame(width: 64, height: 64)
 
-                HStack(spacing: 20) {
-                    // Journey Icon
-                    ZStack {
-                        Circle()
-                            .fill(MagicalColors.primary.opacity(0.2))
-                            .frame(width: 45, height: 45)
-
-                        Image(systemName: "chart.line.uptrend.xyaxis")
-                            .font(.title3)
-                            .foregroundColor(MagicalColors.primary)
-                    }
-
-                    // Quick Stats
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Reading Journey")
-                            .font(headerFont)
-                            .foregroundColor(MagicalColors.primary)
-
-                        HStack(spacing: 15) {
-                            Label("\(totalStories)", systemImage: "book.closed.fill")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-
-                            Label("\(streak)d", systemImage: "flame.fill")
-                                .font(.caption)
-                                .foregroundColor(.orange)
-
-                            Label("\(totalReads)", systemImage: "play.circle.fill")
-                                .font(.caption)
-                                .foregroundColor(.green)
-                        }
-                    }
-
-                    Spacer()
-
-                    // Arrow indicator
-                    Image(systemName: "chevron.right.circle.fill")
-                        .font(.title2)
-                        .foregroundColor(MagicalColors.primary.opacity(0.6))
-                }
-                .padding(.horizontal, 15)
-                .padding(.vertical, 12)
+                // Icon
+                Image(systemName: "plus")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundColor(.white)
+                    .rotationEffect(.degrees(isAnimating ? 90 : 0))
             }
-            .frame(height: 75)
         }
-        .buttonStyle(PlainButtonStyle())
-        .fullScreenCover(isPresented: $showingFullJourney) {
-            ReadingJourneyView()
+        .scaleEffect(isPressed ? 0.9 : 1.0)
+        .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                isPressed = pressing
+            }
+        }, perform: {})
+        .onAppear {
+            withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) {
+                isAnimating = true
+            }
+        }
+        .accessibilityLabel("Create new story")
+        .accessibilityHint("Generate a new magical story")
+    }
+}
+
+// MARK: - Reading Journey Top Button
+struct ReadingJourneyTopButton: View {
+    let totalStories: Int
+    let streak: Int
+    @State private var isAnimating = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            // Icon with animation
+            ZStack {
+                Circle()
+                    .fill(MagicalColors.primary.opacity(0.2))
+                    .frame(width: 32, height: 32)
+
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(MagicalColors.primary)
+                    .scaleEffect(isAnimating ? 1.1 : 1.0)
+            }
+
+            // Compact stats
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Journey")
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .foregroundColor(MagicalColors.primary)
+
+                HStack(spacing: 4) {
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 10))
+                        .foregroundColor(.orange)
+                    Text("\(streak)d")
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.orange)
+                }
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            Capsule()
+                .fill(MagicalColors.primary.opacity(0.1))
+                .overlay(
+                    Capsule()
+                        .stroke(MagicalColors.primary.opacity(0.2), lineWidth: 1)
+                )
+        )
+        .onAppear {
+            withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
+                isAnimating = true
+            }
         }
     }
 }
 
-// Note: ImprovedStatCard removed - stats now shown in CompactJourneyCard and full ReadingJourneyView
 
 // MARK: - Recent Stories View - Enhanced with more content
 struct RecentStoriesView: View {
@@ -570,7 +484,7 @@ struct RecentStoriesView: View {
     @Binding var selectedStory: Story?
 
     private let headerFont = Font.system(size: 18, weight: .bold, design: .rounded)
-    private let linkFont = Font.system(size: 14, weight: .light, design: .rounded)
+    private let linkFont = Font.system(size: 14, weight: .medium, design: .rounded)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -598,12 +512,22 @@ struct RecentStoriesView: View {
 
                 NavigationLink(destination: ImprovedStoryLibraryView()) {
                     HStack(spacing: 4) {
-                        Text("View All")
+                        Image(systemName: "books.vertical.fill")
+                            .font(.system(size: 14))
+                        Text("Library")
                             .font(linkFont)
-                        Image(systemName: "arrow.right")
-                            .font(.caption)
                     }
                     .foregroundColor(MagicalColors.accent)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(
+                        Capsule()
+                            .fill(MagicalColors.accent.opacity(0.1))
+                            .overlay(
+                                Capsule()
+                                    .stroke(MagicalColors.accent.opacity(0.2), lineWidth: 1)
+                            )
+                    )
                 }
             }
 
