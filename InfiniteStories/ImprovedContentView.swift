@@ -44,7 +44,7 @@ struct ImprovedContentView: View {
     }
     
     private var recentStories: [Story] {
-        Array(stories.prefix(3))
+        Array(stories.prefix(6))  // Increased from 3 to 6 since we have more space
     }
     
     private var favoriteStories: [Story] {
@@ -79,22 +79,21 @@ struct ImprovedContentView: View {
                             selectedHeroForStory: $selectedHeroForStory
                         )
                         .padding(.top, 30)
-                        
-                        // Stats Dashboard
+
+                        // Compact Journey Card - New condensed version
                         if !stories.isEmpty {
-                            StatsDashboardView(
+                            CompactJourneyCard(
                                 totalStories: stories.count,
                                 totalReads: totalStoriesRead,
-                                streak: currentStreak,
-                                favoriteCount: favoriteStories.count
+                                streak: currentStreak
                             )
                             .padding(.top, 25)
                         }
-                        
-                        // Recent Stories
+
+                        // Recent Stories - Now with more space
                         if !recentStories.isEmpty {
                             RecentStoriesView(
-                                stories: recentStories,
+                                stories: Array(stories.prefix(6)),  // Show more stories now
                                 selectedStory: $selectedStory
                             )
                             .padding(.top, 25)
@@ -479,134 +478,135 @@ struct QuickActionsView: View {
     }
 }
 
-// MARK: - Stats Dashboard View
-struct StatsDashboardView: View {
+// MARK: - Compact Journey Card - Space-efficient version
+struct CompactJourneyCard: View {
     let totalStories: Int
     let totalReads: Int
     let streak: Int
-    let favoriteCount: Int
-    
-    private let headerFont = Font.system(size: 18, weight: .bold, design: .rounded)
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Your Reading Journey")
-                .font(headerFont)
-                .foregroundColor(MagicalColors.primary)
-            
-            HStack(spacing: 15) {
-                ImprovedStatCard(
-                    icon: "book.closed.fill",
-                    value: "\(totalStories)",
-                    label: "Stories",
-                    color: .blue
-                )
-                
-                ImprovedStatCard(
-                    icon: "play.circle.fill",
-                    value: "\(totalReads)",
-                    label: "Reads",
-                    color: .green
-                )
-                
-                ImprovedStatCard(
-                    icon: "flame.fill",
-                    value: "\(streak)",
-                    label: "Streak",
-                    color: .orange
-                )
-                
-                ImprovedStatCard(
-                    icon: "heart.fill",
-                    value: "\(favoriteCount)",
-                    label: "Favorites",
-                    color: .red
-                )
-            }
-        }
-    }
-}
 
-// MARK: - Stat Card
-struct ImprovedStatCard: View {
-    let icon: String
-    let value: String
-    let label: String
-    let color: Color
-    @State private var isAnimated = false
-    
-    private let valueFont = Font.system(size: 20, weight: .bold, design: .rounded)
-    private let labelFont = Font.system(size: 11, weight: .light, design: .rounded)
-    
+    @State private var showingFullJourney = false
+    @Environment(\.colorScheme) private var colorScheme
+
+    private let headerFont = Font.system(size: 16, weight: .bold, design: .rounded)
+
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 15)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            color.opacity(0.2),
-                            color.opacity(0.1)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+        Button(action: {
+            showingFullJourney = true
+        }) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                MagicalColors.primary.opacity(colorScheme == .dark ? 0.3 : 0.15),
+                                MagicalColors.accent.opacity(colorScheme == .dark ? 0.2 : 0.1)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 15)
-                        .stroke(color.opacity(0.3), lineWidth: 1)
-                )
-            
-            VStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.title2)
-                    .foregroundColor(color)
-                    .scaleEffect(isAnimated ? 1.2 : 1.0)
-                
-                Text(value)
-                    .font(valueFont)
-                    .foregroundColor(MagicalColors.text)
-                
-                Text(label)
-                    .font(labelFont)
-                    .foregroundColor(MagicalColors.secondary)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(MagicalColors.primary.opacity(0.3), lineWidth: 1)
+                    )
+
+                HStack(spacing: 20) {
+                    // Journey Icon
+                    ZStack {
+                        Circle()
+                            .fill(MagicalColors.primary.opacity(0.2))
+                            .frame(width: 45, height: 45)
+
+                        Image(systemName: "chart.line.uptrend.xyaxis")
+                            .font(.title3)
+                            .foregroundColor(MagicalColors.primary)
+                    }
+
+                    // Quick Stats
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Reading Journey")
+                            .font(headerFont)
+                            .foregroundColor(MagicalColors.primary)
+
+                        HStack(spacing: 15) {
+                            Label("\(totalStories)", systemImage: "book.closed.fill")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+
+                            Label("\(streak)d", systemImage: "flame.fill")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+
+                            Label("\(totalReads)", systemImage: "play.circle.fill")
+                                .font(.caption)
+                                .foregroundColor(.green)
+                        }
+                    }
+
+                    Spacer()
+
+                    // Arrow indicator
+                    Image(systemName: "chevron.right.circle.fill")
+                        .font(.title2)
+                        .foregroundColor(MagicalColors.primary.opacity(0.6))
+                }
+                .padding(.horizontal, 15)
+                .padding(.vertical, 12)
             }
-            .padding(.vertical, 12)
+            .frame(height: 75)
         }
-        .frame(maxWidth: .infinity)
-        .onAppear {
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.5).delay(0.2)) {
-                isAnimated = true
-            }
+        .buttonStyle(PlainButtonStyle())
+        .fullScreenCover(isPresented: $showingFullJourney) {
+            ReadingJourneyView()
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(value) \(label)")
     }
 }
 
-// MARK: - Recent Stories View
+// Note: ImprovedStatCard removed - stats now shown in CompactJourneyCard and full ReadingJourneyView
+
+// MARK: - Recent Stories View - Enhanced with more content
 struct RecentStoriesView: View {
     let stories: [Story]
     @Binding var selectedStory: Story?
-    
+
     private let headerFont = Font.system(size: 18, weight: .bold, design: .rounded)
     private let linkFont = Font.system(size: 14, weight: .light, design: .rounded)
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Recent Adventures")
-                    .font(headerFont)
-                    .foregroundColor(MagicalColors.primary)
-                
+                HStack(spacing: 8) {
+                    Text("Recent Adventures")
+                        .font(headerFont)
+                        .foregroundColor(MagicalColors.primary)
+
+                    // Story count badge
+                    if stories.count > 3 {
+                        Text("\(stories.count) new")
+                            .font(.caption)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule()
+                                    .fill(MagicalColors.accent.opacity(0.2))
+                            )
+                            .foregroundColor(MagicalColors.accent)
+                    }
+                }
+
                 Spacer()
-                
+
                 NavigationLink(destination: ImprovedStoryLibraryView()) {
-                    Text("View All")
-                        .font(linkFont)
-                        .foregroundColor(MagicalColors.accent)
+                    HStack(spacing: 4) {
+                        Text("View All")
+                            .font(linkFont)
+                        Image(systemName: "arrow.right")
+                            .font(.caption)
+                    }
+                    .foregroundColor(MagicalColors.accent)
                 }
             }
-            
+
             VStack(spacing: 10) {
                 ForEach(stories) { story in
                     MiniStoryCard(story: story) {
