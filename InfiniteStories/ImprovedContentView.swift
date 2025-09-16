@@ -343,17 +343,26 @@ struct HeroSectionView: View {
                 }
             }
             
-            // Empty State or Hero Count
+            // Heroes Avatar Row
             if !heroes.isEmpty {
-                // Simple hero count display
-                HStack {
-                    Image(systemName: "person.2.fill")
-                        .font(.title3)
-                        .foregroundColor(MagicalColors.secondary)
-                    Text("\(heroes.count) \(heroes.count == 1 ? "Hero" : "Heroes") Created")
-                        .font(.subheadline)
-                        .foregroundColor(MagicalColors.secondary)
-                    Spacer()
+                VStack(alignment: .leading, spacing: 8) {
+                 
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 16) {
+                            ForEach(heroes) { hero in
+                                VStack(spacing: 4) {
+                                    HeroAvatarImageView(hero: hero, size: 40)
+
+                                    Text(hero.name)
+                                        .font(.caption2)
+                                        .foregroundColor(MagicalColors.primary)
+                                        .lineLimit(1)
+                                        .frame(minWidth: 60, maxWidth: 80)
+                                }
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
                 }
                 .padding(.horizontal, 5)
             }
