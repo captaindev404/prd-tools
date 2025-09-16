@@ -4,7 +4,7 @@
 *Must fix before submission*
 
 ### Technical Requirements
-- [ ] **Fix iOS Deployment Target** - Change from iOS 18.5 to iOS 17.0 in project settings
+- [x] **Fix iOS Deployment Target** - Change from iOS 18.5 to iOS 17.0 in project settings
 - [ ] **Create Entitlements File** - Add `.entitlements` file with background modes and keychain access
 - [ ] **Add Launch Screen** - Create LaunchScreen.storyboard or use launch images
 - [ ] **Fix Bundle ID Mismatch** - Update background task IDs to match `captaindev.InfiniteStories.*`
