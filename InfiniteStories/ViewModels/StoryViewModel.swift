@@ -954,6 +954,99 @@ class StoryViewModel: ObservableObject {
         AppLogger.shared.info("Illustration generation cancelled and cleaned up", category: .illustration)
     }
 
+    // MARK: - Retry Failed Illustrations
+
+    /// Retry a single failed illustration
+    func retryFailedIllustration(_ illustration: StoryIllustration) async {
+        let requestId = UUID().uuidString.prefix(8).lowercased()
+        AppLogger.shared.info("Retrying failed illustration #\(illustration.displayOrder + 1)", category: .illustration, requestId: String(requestId))
+
+        guard let generator = illustrationGenerator else {
+            AppLogger.shared.error("Illustration generator not initialized", category: .illustration, requestId: String(requestId))
+            illustrationErrors.append("Cannot retry - illustration service not available")
+            return
+        }
+
+        // Update UI state
+        isGeneratingIllustrations = true
+        illustrationGenerationStage = "Retrying illustration #\(illustration.displayOrder + 1)..."
+        illustrationErrors.removeAll()
+
+        do {
+            // Reset the illustration's retry count and error state
+            illustration.resetError()
+            illustration.retryCount = 0  // Reset retry count for manual retry
+            try? modelContext?.save()
+
+            // Attempt to regenerate the illustration
+            try await generator.regenerateIllustration(illustration)
+
+            AppLogger.shared.success("Successfully retried illustration #\(illustration.displayOrder + 1)", category: .illustration, requestId: String(requestId))
+            illustrationGenerationStage = "Illustration retry successful!"
+        } catch {
+            AppLogger.shared.error("Failed to retry illustration", category: .illustration, requestId: String(requestId), error: error)
+            illustrationErrors.append("Failed to retry illustration: \(error.localizedDescription)")
+            illustrationGenerationStage = "Illustration retry failed"
+        }
+
+        // Reset UI state after a delay
+        Task {
+            try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+            isGeneratingIllustrations = false
+            illustrationGenerationStage = ""
+        }
+    }
+
+    /// Retry all failed illustrations for a story
+    func retryAllFailedIllustrations(for story: Story) async {
+        let requestId = UUID().uuidString.prefix(8).lowercased()
+        let failedIllustrations = story.illustrations.filter { $0.isPlaceholder && !$0.hasReachedRetryLimit }
+
+        guard !failedIllustrations.isEmpty else {
+            AppLogger.shared.info("No failed illustrations to retry", category: .illustration, requestId: String(requestId))
+            return
+        }
+
+        AppLogger.shared.info("Retrying \(failedIllustrations.count) failed illustrations", category: .illustration, requestId: String(requestId))
+
+        guard let generator = illustrationGenerator else {
+            AppLogger.shared.error("Illustration generator not initialized", category: .illustration, requestId: String(requestId))
+            illustrationErrors.append("Cannot retry - illustration service not available")
+            return
+        }
+
+        // Update UI state
+        isGeneratingIllustrations = true
+        illustrationGenerationProgress = 0.0
+        illustrationGenerationStage = "Retrying failed illustrations..."
+        illustrationErrors.removeAll()
+
+        // Use the generator's batch retry method
+        await generator.retryFailedIllustrations(for: story)
+
+        // Update UI state
+        illustrationGenerationProgress = 1.0
+        illustrationGenerationStage = "Retry complete!"
+
+        // Reset UI state after a delay
+        Task {
+            try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+            isGeneratingIllustrations = false
+            illustrationGenerationProgress = 0.0
+            illustrationGenerationStage = ""
+        }
+    }
+
+    /// Check if a story has any failed illustrations that can be retried
+    func hasRetryableFailedIllustrations(_ story: Story) -> Bool {
+        return story.illustrations.contains { $0.isPlaceholder && !$0.hasReachedRetryLimit }
+    }
+
+    /// Get count of failed illustrations for a story
+    func failedIllustrationCount(for story: Story) -> Int {
+        return story.illustrations.filter { $0.isPlaceholder }.count
+    }
+
     // MARK: - Illustration Sync with Audio
 
     func seekToIllustration(_ illustration: StoryIllustration) {

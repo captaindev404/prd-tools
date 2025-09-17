@@ -134,7 +134,7 @@ class OpenAIService: AIServiceProtocol {
     
     func generateStory(request: StoryGenerationRequest) async throws -> StoryGenerationResponse {
         let requestId = UUID().uuidString.prefix(8).lowercased()
-        _ = Date()
+        let startTime = Date()
 
         AppLogger.shared.info("Story generation started", category: .story, requestId: String(requestId))
         AppLogger.shared.debug("Parameters - Hero: \(request.hero.name), Event: \(request.event.rawValue), Language: \(request.language), Duration: \(Int(request.targetDuration/60))min", category: .story, requestId: String(requestId))
@@ -169,12 +169,19 @@ class OpenAIService: AIServiceProtocol {
             print("🤖 ❌ Error: Failed to serialize request JSON")
             throw AIServiceError.invalidResponse
         }
-        
-        print("🤖 🚀 Sending request to OpenAI...")
-        if let jsonString = String(data: jsonData, encoding: .utf8) {
-            print("🤖 📤 Request Body: \(jsonString)")
-        }
-        
+
+        // Comprehensive HTTP Request Logging
+        logFullHTTPRequest(
+            url: chatURL,
+            method: "POST",
+            headers: [
+                "Content-Type": "application/json",
+                "Authorization": "Bearer \(apiKey.prefix(10))...[REDACTED]"
+            ],
+            bodyData: jsonData,
+            requestId: String(requestId)
+        )
+
         var urlRequest = URLRequest(url: URL(string: chatURL)!)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -183,15 +190,21 @@ class OpenAIService: AIServiceProtocol {
         
         do {
             let (data, response) = try await URLSession.shared.data(for: urlRequest)
-            
-            print("🤖 📥 Received response from OpenAI")
-            
+
             guard let httpResponse = response as? HTTPURLResponse else {
                 print("🤖 ❌ Error: Invalid HTTP response")
                 throw AIServiceError.networkError(URLError(.badServerResponse))
             }
-            
-            print("🤖 📊 HTTP Status Code: \(httpResponse.statusCode)")
+
+            // Log response details
+            let responseTime = Date().timeIntervalSince(startTime)
+            logHTTPResponse(
+                statusCode: httpResponse.statusCode,
+                headers: httpResponse.allHeaderFields,
+                dataSize: data.count,
+                responseTime: responseTime,
+                requestId: String(requestId)
+            )
             
             guard httpResponse.statusCode == 200 else {
                 if httpResponse.statusCode == 429 {
@@ -242,10 +255,11 @@ class OpenAIService: AIServiceProtocol {
     }
     
     func generateStoryWithCustomEvent(request: CustomStoryGenerationRequest) async throws -> StoryGenerationResponse {
-        print("🤖 === OpenAI Custom Story Generation Started ===")
-        print("🤖 Hero: \(request.hero.name)")
-        print("🤖 Custom Event: \(request.customEvent.title)")
-        print("🤖 Target Duration: \(Int(request.targetDuration/60)) minutes")
+        let requestId = UUID().uuidString.prefix(8).lowercased()
+        let startTime = Date()
+
+        AppLogger.shared.info("Custom story generation started", category: .story, requestId: String(requestId))
+        AppLogger.shared.debug("Hero: \(request.hero.name), Event: \(request.customEvent.title), Duration: \(Int(request.targetDuration/60))min", category: .story, requestId: String(requestId))
         
         guard !apiKey.isEmpty else {
             print("🤖 ❌ Error: API key is empty")
@@ -277,9 +291,19 @@ class OpenAIService: AIServiceProtocol {
             print("🤖 ❌ Error: Failed to serialize request JSON")
             throw AIServiceError.invalidResponse
         }
-        
-        print("🤖 🚀 Sending custom event request to OpenAI...")
-        
+
+        // Comprehensive HTTP Request Logging
+        logFullHTTPRequest(
+            url: chatURL,
+            method: "POST",
+            headers: [
+                "Content-Type": "application/json",
+                "Authorization": "Bearer \(apiKey.prefix(10))...[REDACTED]"
+            ],
+            bodyData: jsonData,
+            requestId: String(requestId)
+        )
+
         var urlRequest = URLRequest(url: URL(string: chatURL)!)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -288,15 +312,21 @@ class OpenAIService: AIServiceProtocol {
         
         do {
             let (data, response) = try await URLSession.shared.data(for: urlRequest)
-            
-            print("🤖 📥 Received response from OpenAI")
-            
+
             guard let httpResponse = response as? HTTPURLResponse else {
                 print("🤖 ❌ Error: Invalid HTTP response")
                 throw AIServiceError.networkError(URLError(.badServerResponse))
             }
-            
-            print("🤖 📊 HTTP Status Code: \(httpResponse.statusCode)")
+
+            // Log response details
+            let responseTime = Date().timeIntervalSince(startTime)
+            logHTTPResponse(
+                statusCode: httpResponse.statusCode,
+                headers: httpResponse.allHeaderFields,
+                dataSize: data.count,
+                responseTime: responseTime,
+                requestId: String(requestId)
+            )
             
             guard httpResponse.statusCode == 200 else {
                 if httpResponse.statusCode == 429 {
@@ -1468,5 +1498,70 @@ class OpenAIService: AIServiceProtocol {
         print("🚫 Cancelling current AI service task")
         currentTask?.cancel()
         currentTask = nil
+    }
+
+    // MARK: - Comprehensive HTTP Request Logging
+
+    private func logFullHTTPRequest(
+        url: String,
+        method: String,
+        headers: [String: String],
+        bodyData: Data?,
+        requestId: String
+    ) {
+        print("\n")
+        print("=== OpenAI API Request ===")
+        print("Request ID: \(requestId)")
+        print("Timestamp: \(Date())")
+        print("URL: \(url)")
+        print("Method: \(method)")
+        print("Headers:")
+        for (key, value) in headers {
+            print("  \(key): \(value)")
+        }
+
+        if let bodyData = bodyData {
+            print("Body Size: \(bodyData.count) bytes")
+            if let prettyJson = try? JSONSerialization.jsonObject(with: bodyData, options: []),
+               let prettyData = try? JSONSerialization.data(withJSONObject: prettyJson, options: [.prettyPrinted]),
+               let prettyString = String(data: prettyData, encoding: .utf8) {
+                print("Body (formatted JSON):")
+                print(prettyString)
+            } else if let bodyString = String(data: bodyData, encoding: .utf8) {
+                print("Body (raw):")
+                print(bodyString)
+            }
+        }
+        print("=== End Request ===\n")
+
+        // Also log to AppLogger for persistence
+        AppLogger.shared.info("HTTP Request to \(url)", category: .api, requestId: requestId)
+        AppLogger.shared.debug("Method: \(method), Body size: \(bodyData?.count ?? 0) bytes", category: .api, requestId: requestId)
+    }
+
+    private func logHTTPResponse(
+        statusCode: Int,
+        headers: [AnyHashable: Any],
+        dataSize: Int,
+        responseTime: TimeInterval,
+        requestId: String
+    ) {
+        print("\n")
+        print("=== OpenAI API Response ===")
+        print("Request ID: \(requestId)")
+        print("Status Code: \(statusCode)")
+        print("Response Time: \(String(format: "%.2f", responseTime)) seconds")
+        print("Data Size: \(dataSize) bytes (\(dataSize / 1024) KB)")
+        print("Headers:")
+        for (key, value) in headers {
+            if let keyStr = key as? String {
+                print("  \(keyStr): \(value)")
+            }
+        }
+        print("=== End Response ===\n")
+
+        // Also log to AppLogger
+        AppLogger.shared.info("HTTP Response: \(statusCode)", category: .api, requestId: requestId)
+        AppLogger.shared.debug("Response time: \(String(format: "%.2f", responseTime))s, Size: \(dataSize / 1024)KB", category: .api, requestId: requestId)
     }
 }

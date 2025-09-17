@@ -480,7 +480,14 @@ struct ImprovedStoryLibraryView: View {
                     regeneratingStories.remove(story.id)
                 }
             },
-            isRegenerating: isRegenerating
+            onRetryFailedIllustrations: {
+                Task {
+                    await viewModel.retryAllFailedIllustrations(for: story)
+                }
+            },
+            isRegenerating: isRegenerating,
+            hasFailedIllustrations: viewModel.hasRetryableFailedIllustrations(story),
+            failedIllustrationCount: viewModel.failedIllustrationCount(for: story)
         )
         .transition(.asymmetric(
             insertion: .scale(scale: 0.9).combined(with: .opacity),
@@ -506,7 +513,10 @@ struct ImprovedStoryCard: View {
     var onDelete: (() -> Void)? = nil
     var onEdit: (() -> Void)? = nil
     var onRegenerateAudio: (() -> Void)? = nil
+    var onRetryFailedIllustrations: (() -> Void)? = nil
     var isRegenerating: Bool = false
+    var hasFailedIllustrations: Bool = false
+    var failedIllustrationCount: Int = 0
     
     @State private var isPressed = false
     @State private var showingActions = false
@@ -833,14 +843,24 @@ struct ImprovedStoryCard: View {
                     systemImage: story.isFavorite ? "heart.slash" : "heart"
                 )
             }
-            
+
             Button(action: { onShare?() }) {
                 Label("Share Story", systemImage: "square.and.arrow.up")
             }
-            
+
             if story.hasAudio {
                 Button(action: { /* Download functionality can be added later */ }) {
                     Label("Download Audio", systemImage: "arrow.down.circle")
+                }
+            }
+
+            // Add retry failed illustrations option
+            if hasFailedIllustrations {
+                Button(action: { onRetryFailedIllustrations?() }) {
+                    Label(
+                        "Retry Failed Illustrations (\(failedIllustrationCount))",
+                        systemImage: "arrow.clockwise.circle"
+                    )
                 }
             }
             

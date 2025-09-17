@@ -100,7 +100,12 @@ struct AudioPlayerView: View {
                             // Illustration Carousel with sync support
                             IllustrationCarouselView(
                                 illustrations: currentStory.sortedIllustrations,
-                                currentTime: $viewModel.currentTime
+                                currentTime: $viewModel.currentTime,
+                                onRetryIllustration: { illustration in
+                                    Task {
+                                        await viewModel.retryFailedIllustration(illustration)
+                                    }
+                                }
                             )
                             .onAppear {
                                 print("🖼️ === iPad IllustrationCarousel appeared ===")
@@ -143,7 +148,12 @@ struct AudioPlayerView: View {
                             // Illustration Carousel with sync support
                             IllustrationCarouselView(
                                 illustrations: currentStory.sortedIllustrations,
-                                currentTime: $viewModel.currentTime
+                                currentTime: $viewModel.currentTime,
+                                onRetryIllustration: { illustration in
+                                    Task {
+                                        await viewModel.retryFailedIllustration(illustration)
+                                    }
+                                }
                             )
                             .onAppear {
                                 print("🖼️ === iPhone IllustrationCarousel appeared ===")
