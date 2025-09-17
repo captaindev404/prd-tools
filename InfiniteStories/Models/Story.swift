@@ -152,8 +152,13 @@ final class Story {
 
     // MARK: - Illustration Management
 
-    /// Check if the story has any illustrations
+    /// Check if the story has any generated illustrations to display
     var hasIllustrations: Bool {
+        return !illustrations.isEmpty && illustrations.contains { $0.isGenerated }
+    }
+
+    /// Check if all illustrations have been successfully generated
+    var allIllustrationsGenerated: Bool {
         return !illustrations.isEmpty && illustrations.allSatisfy { $0.isGenerated }
     }
 
@@ -162,14 +167,19 @@ final class Story {
         return !illustrations.isEmpty && illustrations.contains { !$0.isGenerated }
     }
 
-    /// Get sorted illustrations by display order
+    /// Get sorted illustrations by display order (includes all illustrations regardless of status)
     var sortedIllustrations: [StoryIllustration] {
         return illustrations.sorted { $0.displayOrder < $1.displayOrder }
     }
 
+    /// Get only generated illustrations sorted by display order
+    var generatedIllustrations: [StoryIllustration] {
+        return illustrations.filter { $0.isGenerated }.sorted { $0.displayOrder < $1.displayOrder }
+    }
+
     /// Get illustration timeline data for sync with audio
     var illustrationTimeline: [(timestamp: Double, illustration: StoryIllustration)] {
-        return sortedIllustrations.map { (timestamp: $0.timestamp, illustration: $0) }
+        return generatedIllustrations.map { (timestamp: $0.timestamp, illustration: $0) }
     }
 
     /// Find the illustration that should be displayed at a given audio timestamp

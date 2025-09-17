@@ -354,6 +354,9 @@ class StoryViewModel: ObservableObject {
         print("📱 🎵 === Audio Playback Started ===")
         print("📱 🎵 Story: \(story.title)")
 
+        // Force load illustrations relationship (SwiftData lazy loading)
+        _ = story.illustrations.count
+
         // Update current story
         currentStory = story
 
@@ -993,6 +996,8 @@ extension StoryViewModel: AudioNavigationDelegate {
 
             currentStoryIndex += 1
             let nextStory = storyQueue[currentStoryIndex]
+            // Force load illustrations relationship (SwiftData lazy loading)
+            _ = nextStory.illustrations.count
             currentStory = nextStory
 
             // Stop current playback
@@ -1018,6 +1023,8 @@ extension StoryViewModel: AudioNavigationDelegate {
             if currentTime < 3.0 && currentStoryIndex > 0 {
                 currentStoryIndex -= 1
                 let previousStory = storyQueue[currentStoryIndex]
+                // Force load illustrations relationship (SwiftData lazy loading)
+                _ = previousStory.illustrations.count
                 currentStory = previousStory
 
                 stopAudio()

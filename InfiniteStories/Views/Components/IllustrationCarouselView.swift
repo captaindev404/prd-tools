@@ -93,6 +93,10 @@ struct IllustrationCarouselView: View {
             }
         }
         .onAppear {
+            print("🖼️ IllustrationCarouselView appeared with \(illustrations.count) illustrations")
+            for (i, ill) in illustrations.enumerated() {
+                print("🖼️   [\(i)] generated: \(ill.isGenerated), placeholder: \(ill.isPlaceholder), path: \(ill.imagePath ?? "nil")")
+            }
             updateSelectedIndexForTime()
             startKenBurnsAnimation()
         }
@@ -111,6 +115,9 @@ struct IllustrationCarouselView: View {
     private func carouselContent(geometry: GeometryProxy) -> some View {
         if illustrations.isEmpty {
             emptyStateView
+                .onAppear {
+                    print("🖼️ IllustrationCarouselView: Showing empty state - no illustrations")
+                }
         } else {
             TabView(selection: $selectedIndex) {
                 ForEach(Array(illustrations.enumerated()), id: \.element.id) { index, illustration in
@@ -383,7 +390,7 @@ struct IllustrationCarouselView: View {
                 .font(.system(size: 60))
                 .foregroundColor(.gray.opacity(0.5))
 
-            Text("No Illustrations Yet")
+            Text("No Illustrations Available")
                 .font(.headline)
                 .foregroundColor(.secondary)
 

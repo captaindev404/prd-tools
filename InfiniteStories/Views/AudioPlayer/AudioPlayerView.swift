@@ -39,13 +39,21 @@ struct AudioPlayerView: View {
         self.initialStory = story
         self.allStories = allStories
         self.storyIndex = storyIndex
+
+        // Force load illustrations relationship immediately (SwiftData lazy loading workaround)
+        _ = story.illustrations.count
     }
 
     // Computed property to get the current story being played
     private var currentStory: Story {
         // If we're in queue mode and have a current story, use it
         // Otherwise fall back to the initial story
-        viewModel.currentStory ?? initialStory
+        let story = viewModel.currentStory ?? initialStory
+
+        // Force load illustrations relationship if needed (SwiftData lazy loading workaround)
+        _ = story.illustrations.count
+
+        return story
     }
     
     var body: some View {
@@ -94,6 +102,18 @@ struct AudioPlayerView: View {
                                 illustrations: currentStory.sortedIllustrations,
                                 currentTime: $viewModel.currentTime
                             )
+                            .onAppear {
+                                print("🖼️ === iPad IllustrationCarousel appeared ===")
+                                print("🖼️ Current story: '\(currentStory.title)'")
+                                print("🖼️ Total illustrations: \(currentStory.illustrations.count)")
+                                print("🖼️ Sorted illustrations: \(currentStory.sortedIllustrations.count)")
+                                print("🖼️ Generated illustrations: \(currentStory.generatedIllustrations.count)")
+                                print("🖼️ Has illustrations: \(currentStory.hasIllustrations)")
+                                for (idx, ill) in currentStory.sortedIllustrations.enumerated() {
+                                    print("🖼️   [\(idx)] generated: \(ill.isGenerated), path: \(ill.imagePath ?? "nil")")
+                                }
+                                print("🖼️ ===========================")
+                            }
                         }
                         .frame(width: geometry.size.width * 0.5)
                         .clipped()
@@ -125,6 +145,18 @@ struct AudioPlayerView: View {
                                 illustrations: currentStory.sortedIllustrations,
                                 currentTime: $viewModel.currentTime
                             )
+                            .onAppear {
+                                print("🖼️ === iPhone IllustrationCarousel appeared ===")
+                                print("🖼️ Current story: '\(currentStory.title)'")
+                                print("🖼️ Total illustrations: \(currentStory.illustrations.count)")
+                                print("🖼️ Sorted illustrations: \(currentStory.sortedIllustrations.count)")
+                                print("🖼️ Generated illustrations: \(currentStory.generatedIllustrations.count)")
+                                print("🖼️ Has illustrations: \(currentStory.hasIllustrations)")
+                                for (idx, ill) in currentStory.sortedIllustrations.enumerated() {
+                                    print("🖼️   [\(idx)] generated: \(ill.isGenerated), path: \(ill.imagePath ?? "nil")")
+                                }
+                                print("🖼️ ===========================")
+                            }
                         }
                         .frame(height: illustrationHeight)
                         .clipped()
@@ -602,6 +634,12 @@ struct AudioPlayerView: View {
                 print("🎵 Story created: \(initialStory.formattedDate)")
                 print("🎵 Play count: \(initialStory.playCount)")
                 print("🎵 Has audio: \(initialStory.hasAudio)")
+                print("🖼️ Total illustrations: \(initialStory.illustrations.count)")
+                print("🖼️ Generated illustrations: \(initialStory.generatedIllustrations.count)")
+                print("🖼️ Has illustrations (any generated): \(initialStory.hasIllustrations)")
+                for (index, illustration) in initialStory.illustrations.enumerated() {
+                    print("🖼️   [\(index)] isGenerated: \(illustration.isGenerated), imagePath: \(illustration.imagePath ?? "nil")")
+                }
                 print("🎵 ==============================")
                 viewModel.setModelContext(modelContext)
 

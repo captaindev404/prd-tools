@@ -679,7 +679,10 @@ struct ImprovedStoryCard: View {
 
             // Illustration indicator
             if !story.illustrations.isEmpty {
-                IllustrationBadge(count: story.illustrations.count)
+                IllustrationBadge(
+                    count: story.illustrations.count,
+                    generatedCount: story.generatedIllustrations.count
+                )
             }
 
             // Regenerate audio button
@@ -1145,11 +1148,12 @@ struct SelectionCircle: View {
 // MARK: - Illustration Badge
 struct IllustrationBadge: View {
     let count: Int
+    let generatedCount: Int
     @State private var isAnimating = false
 
     var body: some View {
         HStack(spacing: 4) {
-            Image(systemName: "photo.stack.fill")
+            Image(systemName: generatedCount == count ? "photo.stack.fill" : "photo.stack")
                 .font(.system(size: 12))
                 .rotationEffect(.degrees(isAnimating ? 5 : -5))
                 .animation(
@@ -1158,15 +1162,22 @@ struct IllustrationBadge: View {
                     value: isAnimating
                 )
 
-            Text("\(count)")
-                .font(.system(size: 12, weight: .bold, design: .rounded))
+            if generatedCount == count {
+                Text("\(count)")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+            } else {
+                Text("\(generatedCount)/\(count)")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+            }
         }
         .foregroundColor(.white)
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(
             LinearGradient(
-                colors: [Color.purple, Color.pink],
+                colors: generatedCount == count ?
+                    [Color.purple, Color.pink] :
+                    [Color.orange, Color.yellow],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -1176,11 +1187,13 @@ struct IllustrationBadge: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
         )
-        .shadow(color: Color.purple.opacity(0.3), radius: 4, y: 2)
+        .shadow(color: generatedCount == count ?
+            Color.purple.opacity(0.3) :
+            Color.orange.opacity(0.3), radius: 4, y: 2)
         .onAppear {
             isAnimating = true
         }
-        .accessibilityLabel("\(count) illustrations available")
+        .accessibilityLabel("\(generatedCount) of \(count) illustrations generated")
     }
 }
 
