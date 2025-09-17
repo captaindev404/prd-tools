@@ -12,8 +12,18 @@ import BackgroundTasks
 @main
 struct InfiniteStoriesApp: App {
     @StateObject private var themeSettings = ThemeSettings.shared
+    private func loadRocketSimConnect() {
+        #if DEBUG
+        guard (Bundle(path: "/Applications/RocketSim.app/Contents/Frameworks/RocketSimConnectLinker.nocache.framework")?.load() == true) else {
+            print("Failed to load linker framework")
+            return
+        }
+        print("RocketSim Connect successfully linked")
+        #endif
+    }
     
     init() {
+        loadRocketSimConnect()
         // Register background tasks when app launches
         BackgroundTaskManager.shared.registerBackgroundTasks()
 
