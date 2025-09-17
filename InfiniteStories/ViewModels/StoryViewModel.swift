@@ -30,6 +30,13 @@ class StoryViewModel: ObservableObject {
     @Published var duration: TimeInterval = 0
     @Published var playbackSpeed: Float = 1.0
 
+    // Illustration generation state
+    @Published var isGeneratingIllustrations = false
+    @Published var illustrationGenerationProgress: Double = 0.0
+    @Published var illustrationGenerationStage: String = ""
+    @Published var illustrationErrors: [String] = []
+    @Published var enableIllustrations: Bool = true // Toggle for illustration generation
+
     // Story navigation
     @Published var currentStoryIndex: Int = 0
     @Published var storyQueue: [Story] = []
@@ -43,6 +50,11 @@ class StoryViewModel: ObservableObject {
     private let audioService: AudioServiceProtocol
     private var modelContext: ModelContext?
     private let appSettings = AppSettings()
+
+    // Illustration services
+    private var illustrationGenerator: IllustrationGenerator?
+    let illustrationSyncManager = IllustrationSyncManager() // Made public for AudioPlayerView
+    private var illustrationGenerationTask: Task<Void, Never>?
     
     // Background task support
     private var backgroundTaskId: UIBackgroundTaskIdentifier = .invalid
@@ -69,6 +81,8 @@ class StoryViewModel: ObservableObject {
     
     func setModelContext(_ context: ModelContext) {
         self.modelContext = context
+        // Initialize illustration generator with context
+        self.illustrationGenerator = IllustrationGenerator(aiService: aiService, modelContext: context)
     }
     
     func refreshAIService() {
@@ -127,16 +141,47 @@ class StoryViewModel: ObservableObject {
                 hero: hero
             )
             story.estimatedDuration = response.estimatedDuration
+
+            // Import scenes if available for illustration
+            if let scenes = response.scenes, !scenes.isEmpty {
+                story.importScenes(from: scenes.map { scene in
+                    (sceneNumber: scene.sceneNumber,
+                     textSegment: scene.textSegment,
+                     illustrationPrompt: scene.illustrationPrompt,
+                     timestamp: scene.timestamp)
+                })
+            }
             
             print("📱 💾 Saving story to SwiftData...")
             modelContext?.insert(story)
             try modelContext?.save()
             print("📱 ✅ Story saved successfully")
+
+            // Update current story reference
+            currentStory = story
             
             // Generate audio file
             print("📱 🎵 Starting audio generation...")
             await generateAudioForStory(story)
-            
+
+            // Generate illustrations if enabled and hero has avatar
+            if enableIllustrations && hero.hasAvatar {
+                AppLogger.shared.info("Illustration generation enabled and hero has avatar", category: .illustration)
+                AppLogger.shared.info("Starting background illustration generation task", category: .illustration)
+                // Run illustration generation in parallel/background
+                illustrationGenerationTask = Task {
+                    await generateIllustrationsForStory(story)
+                }
+                // Don't await - let it run in background
+            } else {
+                if !enableIllustrations {
+                    AppLogger.shared.info("Illustration generation disabled by user preference", category: .illustration)
+                }
+                if !hero.hasAvatar {
+                    AppLogger.shared.info("Skipping illustrations - hero needs avatar first", category: .illustration)
+                }
+            }
+
         } catch {
             print("📱 ❌ Story generation failed: \(error)")
             generationError = handleAIError(error)
@@ -202,16 +247,47 @@ class StoryViewModel: ObservableObject {
                 hero: hero
             )
             story.estimatedDuration = response.estimatedDuration
+
+            // Import scenes if available for illustration
+            if let scenes = response.scenes, !scenes.isEmpty {
+                story.importScenes(from: scenes.map { scene in
+                    (sceneNumber: scene.sceneNumber,
+                     textSegment: scene.textSegment,
+                     illustrationPrompt: scene.illustrationPrompt,
+                     timestamp: scene.timestamp)
+                })
+            }
             
             print("📱 💾 Saving custom story to SwiftData...")
             modelContext?.insert(story)
             try modelContext?.save()
             print("📱 ✅ Custom story saved successfully")
+
+            // Update current story reference
+            currentStory = story
             
             // Generate audio file
             print("📱 🎵 Starting audio generation...")
             await generateAudioForStory(story)
-            
+
+            // Generate illustrations if enabled and hero has avatar
+            if enableIllustrations && hero.hasAvatar {
+                AppLogger.shared.info("Illustration generation enabled and hero has avatar", category: .illustration)
+                AppLogger.shared.info("Starting background illustration generation task", category: .illustration)
+                // Run illustration generation in parallel/background
+                illustrationGenerationTask = Task {
+                    await generateIllustrationsForStory(story)
+                }
+                // Don't await - let it run in background
+            } else {
+                if !enableIllustrations {
+                    AppLogger.shared.info("Illustration generation disabled by user preference", category: .illustration)
+                }
+                if !hero.hasAvatar {
+                    AppLogger.shared.info("Skipping illustrations - hero needs avatar first", category: .illustration)
+                }
+            }
+
         } catch {
             print("📱 ❌ Custom story generation failed: \(error)")
             generationError = handleAIError(error)
@@ -280,6 +356,11 @@ class StoryViewModel: ObservableObject {
 
         // Update current story
         currentStory = story
+
+        // Configure illustration sync if story has illustrations
+        if story.hasIllustrations {
+            illustrationSyncManager.configure(story: story, audioService: audioService)
+        }
 
         // Check if audio needs regeneration first
         if story.audioNeedsRegeneration {
@@ -382,6 +463,15 @@ class StoryViewModel: ObservableObject {
     func seek(to time: TimeInterval) {
         audioService.seek(to: time)
         updateAudioState()
+
+        // Update illustration sync when seeking
+        if currentStory?.hasIllustrations == true {
+            NotificationCenter.default.post(
+                name: .audioPlaybackTimeChanged,
+                object: nil,
+                userInfo: ["time": time]
+            )
+        }
     }
     
     func togglePlayPause() {
@@ -413,9 +503,18 @@ class StoryViewModel: ObservableObject {
         isPlaying = audioService.isPlaying
         currentTime = audioService.currentTime
         duration = audioService.duration
-        
+
         // Calculate pause state: we have content (duration > 0) but not currently playing
         isPaused = duration > 0 && !isPlaying && currentTime > 0
+
+        // Notify illustration sync manager of time updates
+        if isPlaying {
+            NotificationCenter.default.post(
+                name: .audioPlaybackTimeChanged,
+                object: nil,
+                userInfo: ["time": currentTime]
+            )
+        }
     }
     
     private func startAudioUpdateTimer() {
@@ -458,6 +557,10 @@ class StoryViewModel: ObservableObject {
                 return "Failed to generate image. Please try again"
             case .fileSystemError:
                 return "Failed to save file. Please check storage permissions"
+            case .invalidPrompt:
+                return "The prompt contains invalid content. Please try with different settings"
+            case .contentPolicyViolation(let message):
+                return "Content policy violation: \(message). Please try with different content"
             }
         } else {
             return "An unexpected error occurred: \(error.localizedDescription)"
@@ -466,6 +569,7 @@ class StoryViewModel: ObservableObject {
     
     func clearError() {
         generationError = nil
+        illustrationErrors.removeAll()
     }
     
     // MARK: - Story Management
@@ -625,16 +729,18 @@ class StoryViewModel: ObservableObject {
     
     private func handleBackgroundTaskExpiration() {
         print("📱 ⚠️ Background task is about to expire")
-        
+
         // Cancel current generation task if needed
         currentGenerationTask?.cancel()
-        
+        illustrationGenerationTask?.cancel()
+
         // Save state for resumption
         // You could save partial progress here if needed
-        
+
         // Re-enable idle timer
         IdleTimerManager.shared.enableIdleTimer(for: "StoryGeneration")
         IdleTimerManager.shared.enableIdleTimer(for: "AudioGeneration")
+        IdleTimerManager.shared.enableIdleTimer(for: "IllustrationGeneration")
     }
     
     // MARK: - Story Queue Management
@@ -720,57 +826,207 @@ class StoryViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Illustration Generation
+
+    func generateIllustrationsForStory(_ story: Story) async {
+        let requestId = UUID().uuidString.prefix(8).lowercased()
+        let startTime = Date()
+
+        AppLogger.shared.info("=== ILLUSTRATION GENERATION WORKFLOW STARTED ===", category: .illustration, requestId: String(requestId))
+        AppLogger.shared.info("Story: \(story.title)", category: .illustration, requestId: String(requestId))
+        AppLogger.shared.info("Story ID: \(story.id)", category: .illustration, requestId: String(requestId))
+
+        // Check if we can generate illustrations
+        guard let hero = story.hero else {
+            AppLogger.shared.error("Cannot generate illustrations - no hero associated with story", category: .illustration, requestId: String(requestId))
+            return
+        }
+
+        AppLogger.shared.info("Hero: \(hero.name), Has Avatar: \(hero.hasAvatar)", category: .illustration, requestId: String(requestId))
+
+        guard hero.hasAvatar else {
+            AppLogger.shared.warning("Cannot generate illustrations - hero needs avatar first", category: .illustration, requestId: String(requestId))
+            illustrationErrors.append("Hero must have an avatar before generating story illustrations")
+            return
+        }
+
+        guard let generator = illustrationGenerator else {
+            AppLogger.shared.error("Illustration generator not initialized", category: .illustration, requestId: String(requestId))
+            return
+        }
+
+        isGeneratingIllustrations = true
+        illustrationGenerationProgress = 0.0
+        illustrationGenerationStage = "Preparing illustrations..."
+        illustrationErrors.removeAll()
+
+        AppLogger.shared.info("Disabling idle timer for illustration generation", category: .illustration, requestId: String(requestId))
+        IdleTimerManager.shared.disableIdleTimer(for: "IllustrationGeneration")
+
+        do {
+            // Check existing illustration status
+            if story.illustrations.isEmpty {
+                AppLogger.shared.warning("No pre-defined illustration scenes found", category: .illustration, requestId: String(requestId))
+                AppLogger.shared.info("Generator will create illustrations from text segments", category: .illustration, requestId: String(requestId))
+            } else {
+                AppLogger.shared.success("Found \(story.illustrations.count) pre-defined illustration scenes", category: .illustration, requestId: String(requestId))
+                for (index, illustration) in story.illustrations.enumerated() {
+                    AppLogger.shared.debug("Scene \(index + 1): Generated=\(illustration.isGenerated), HasPath=\(illustration.imagePath != nil)", category: .illustration, requestId: String(requestId))
+                }
+            }
+
+            illustrationGenerationProgress = 0.3
+            illustrationGenerationStage = "Generating images with AI..."
+            AppLogger.shared.info("Starting AI image generation", category: .illustration, requestId: String(requestId))
+
+            // Generate illustrations
+            try await generator.generateIllustrations(for: story)
+
+            illustrationGenerationProgress = 1.0
+            illustrationGenerationStage = "Illustrations complete!"
+
+            // Log final status
+            let generatedCount = story.illustrations.filter { $0.isGenerated }.count
+            AppLogger.shared.success("Generated \(generatedCount)/\(story.illustrations.count) illustrations successfully", category: .illustration, requestId: String(requestId))
+
+            AppLogger.shared.logPerformance(operation: "Complete Illustration Generation", startTime: startTime, requestId: String(requestId))
+
+        } catch {
+            AppLogger.shared.error("Illustration generation failed", category: .illustration, requestId: String(requestId), error: error)
+            illustrationErrors.append(error.localizedDescription)
+
+            // Provide more specific error information
+            if let generatorError = error as? IllustrationGenerator.GeneratorError {
+                switch generatorError {
+                case .noHeroAvatar:
+                    AppLogger.shared.error("Hero avatar missing - cannot maintain visual consistency", category: .illustration, requestId: String(requestId))
+                case .textSegmentationFailed:
+                    AppLogger.shared.error("Failed to segment story text for illustrations", category: .illustration, requestId: String(requestId))
+                case .imageGenerationFailed:
+                    AppLogger.shared.error("AI image generation failed", category: .illustration, requestId: String(requestId))
+                case .fileSystemError:
+                    AppLogger.shared.error("Failed to save illustration to file system", category: .illustration, requestId: String(requestId))
+                }
+            }
+        }
+
+        isGeneratingIllustrations = false
+
+        AppLogger.shared.info("Re-enabling idle timer", category: .illustration, requestId: String(requestId))
+        IdleTimerManager.shared.enableIdleTimer(for: "IllustrationGeneration")
+
+        AppLogger.shared.info("=== ILLUSTRATION GENERATION WORKFLOW COMPLETED ===", category: .illustration, requestId: String(requestId))
+        AppLogger.shared.info("Final Status - Errors: \(illustrationErrors.count), Progress: \(illustrationGenerationProgress * 100)%", category: .illustration, requestId: String(requestId))
+    }
+
+    func regenerateIllustration(_ illustration: StoryIllustration) async {
+        let requestId = UUID().uuidString.prefix(8).lowercased()
+        AppLogger.shared.info("Regenerating single illustration", category: .illustration, requestId: String(requestId))
+
+        guard let generator = illustrationGenerator else {
+            AppLogger.shared.error("Illustration generator not initialized", category: .illustration, requestId: String(requestId))
+            return
+        }
+
+        do {
+            AppLogger.shared.info("Scene #\(illustration.displayOrder + 1) regeneration started", category: .illustration, requestId: String(requestId))
+            try await generator.regenerateIllustration(illustration)
+            AppLogger.shared.success("Scene #\(illustration.displayOrder + 1) regenerated successfully", category: .illustration, requestId: String(requestId))
+        } catch {
+            AppLogger.shared.error("Failed to regenerate illustration", category: .illustration, requestId: String(requestId), error: error)
+            illustrationErrors.append("Failed to regenerate illustration: \(error.localizedDescription)")
+        }
+    }
+
+    func cancelIllustrationGeneration() {
+        AppLogger.shared.warning("Cancelling illustration generation", category: .illustration)
+        illustrationGenerationTask?.cancel()
+        illustrationGenerationTask = nil
+        isGeneratingIllustrations = false
+        illustrationGenerationProgress = 0.0
+        illustrationGenerationStage = ""
+
+        // Re-enable idle timer
+        IdleTimerManager.shared.enableIdleTimer(for: "IllustrationGeneration")
+        AppLogger.shared.info("Illustration generation cancelled and cleaned up", category: .illustration)
+    }
+
+    // MARK: - Illustration Sync with Audio
+
+    func seekToIllustration(_ illustration: StoryIllustration) {
+        // Seek audio to illustration timestamp
+        seek(to: illustration.timestamp)
+
+        // Move carousel to this illustration
+        illustrationSyncManager.moveToIllustration(illustration)
+    }
+
+    func onIllustrationCarouselSwipe(to index: Int) {
+        // User swiped carousel, enter manual mode
+        illustrationSyncManager.moveToIndex(index)
+
+        // Optionally seek audio to match
+        if let illustration = illustrationSyncManager.illustrationForPage(index) {
+            seek(to: illustration.timestamp)
+        }
+    }
+
     deinit {
         NotificationCenter.default.removeObserver(self)
 
         // Ensure idle timer is re-enabled
         IdleTimerManager.shared.enableIdleTimer(for: "StoryGeneration")
         IdleTimerManager.shared.enableIdleTimer(for: "AudioGeneration")
+        IdleTimerManager.shared.enableIdleTimer(for: "IllustrationGeneration")
     }
 }
 
 // MARK: - AudioNavigationDelegate
 
 extension StoryViewModel: AudioNavigationDelegate {
-    func playNextStory() {
-        guard isQueueMode,
-              currentStoryIndex < storyQueue.count - 1 else {
-            return
+    nonisolated func playNextStory() {
+        Task { @MainActor in
+            guard isQueueMode,
+                  currentStoryIndex < storyQueue.count - 1 else {
+                return
+            }
+
+            currentStoryIndex += 1
+            let nextStory = storyQueue[currentStoryIndex]
+            currentStory = nextStory
+
+            // Stop current playback
+            stopAudio()
+
+            // Play next story
+            playStory(nextStory)
+
+            // Update Now Playing info
+            updateNowPlayingForStory(nextStory)
         }
-
-        currentStoryIndex += 1
-        let nextStory = storyQueue[currentStoryIndex]
-        currentStory = nextStory
-
-        // Stop current playback
-        stopAudio()
-
-        // Play next story
-        playStory(nextStory)
-
-        // Update Now Playing info
-        updateNowPlayingForStory(nextStory)
     }
 
-    func playPreviousStory() {
-        guard isQueueMode else {
-            // If not in queue mode, restart current story
-            seek(to: 0)
-            return
-        }
+    nonisolated func playPreviousStory() {
+        Task { @MainActor in
+            guard isQueueMode else {
+                // If not in queue mode, restart current story
+                seek(to: 0)
+                return
+            }
 
-        // If within first 3 seconds, go to previous story
-        if currentTime < 3.0 && currentStoryIndex > 0 {
-            currentStoryIndex -= 1
-            let previousStory = storyQueue[currentStoryIndex]
-            currentStory = previousStory
+            // If within first 3 seconds, go to previous story
+            if currentTime < 3.0 && currentStoryIndex > 0 {
+                currentStoryIndex -= 1
+                let previousStory = storyQueue[currentStoryIndex]
+                currentStory = previousStory
 
-            stopAudio()
-            playStory(previousStory)
-            updateNowPlayingForStory(previousStory)
-        } else {
-            // Otherwise, restart current story
-            seek(to: 0)
+                stopAudio()
+                playStory(previousStory)
+                updateNowPlayingForStory(previousStory)
+            } else {
+                // Otherwise, restart current story
+                seek(to: 0)
+            }
         }
     }
 }

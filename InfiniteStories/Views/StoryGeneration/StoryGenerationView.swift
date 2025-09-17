@@ -19,6 +19,9 @@ struct StoryGenerationView: View {
     @State private var selectedBuiltInEvent: StoryEvent? = .bedtime
     @State private var selectedCustomEvent: CustomStoryEvent? = nil
     @State private var showingEventPicker = false
+    @State private var showIllustrationProgress = false
+    @State private var dismissOnComplete = true
+    @State private var generatedStory: Story?
     
     var body: some View {
         NavigationView {
@@ -74,22 +77,80 @@ struct StoryGenerationView: View {
                     .buttonStyle(.plain)
                 }
                 .padding(.horizontal)
-                
+
+                // Illustration Options (only show if hero has avatar)
+                if hero.hasAvatar {
+                    VStack(spacing: 12) {
+                        HStack {
+                            Image(systemName: "photo.artframe")
+                                .foregroundColor(.purple)
+                            Text("Visual Story Options")
+                                .font(.headline)
+                            Spacer()
+                        }
+
+                        Toggle(isOn: $viewModel.enableIllustrations) {
+                            HStack(spacing: 10) {
+                                Image(systemName: viewModel.enableIllustrations ? "sparkles.rectangle.stack.fill" : "rectangle.stack")
+                                    .foregroundColor(viewModel.enableIllustrations ? .purple : .secondary)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Generate Illustrations")
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                    Text("Add beautiful AI-generated images to your story")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        }
+                        .toggleStyle(.automatic)
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(10)
+
+                        if viewModel.enableIllustrations {
+                            HStack {
+                                Image(systemName: "info.circle")
+                                    .font(.caption)
+                                    .foregroundColor(.blue)
+                                Text("Illustrations will be generated after the story is created")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                            }
+                            .padding(.horizontal)
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+
                 Spacer()
                 
                 // Generation status
-                if viewModel.isGeneratingStory {
+                if viewModel.isGeneratingStory || viewModel.isGeneratingIllustrations {
                     VStack(spacing: 15) {
                         ProgressView()
                             .scaleEffect(1.2)
-                        
-                        Text(viewModel.isGeneratingAudio ? "Creating audio..." : "Writing your story...")
+
+                        Text(generationStatusText)
                             .font(.headline)
                             .foregroundColor(.secondary)
-                        
-                        Text("This may take a moment")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+
+                        if viewModel.isGeneratingIllustrations {
+                            Text(viewModel.illustrationGenerationStage)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+
+                            if viewModel.illustrationGenerationProgress > 0 {
+                                ProgressView(value: viewModel.illustrationGenerationProgress)
+                                    .progressViewStyle(.linear)
+                                    .frame(width: 200)
+                            }
+                        } else {
+                            Text("This may take a moment")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
                     }
                     .padding()
                 } else {
@@ -129,6 +190,28 @@ struct StoryGenerationView: View {
                     .padding(.horizontal)
                 }
                 
+                // Illustration errors
+                if !viewModel.illustrationErrors.isEmpty {
+                    VStack(spacing: 10) {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle")
+                                .foregroundColor(.orange)
+                            Text("Some illustrations couldn't be generated")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                        }
+
+                        Text("Your story was created successfully, but some images may be missing.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding()
+                    .background(Color.orange.opacity(0.1))
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                }
+
                 // Error message
                 if let error = viewModel.generationError {
                     VStack(spacing: 10) {
@@ -165,6 +248,15 @@ struct StoryGenerationView: View {
                 viewModel.setModelContext(modelContext)
                 viewModel.refreshAIService() // Refresh AI service to get latest API key
             }
+            .sheet(isPresented: $showIllustrationProgress) {
+                if let story = generatedStory {
+                    IllustrationGenerationProgressView(viewModel: viewModel, story: story)
+                        .interactiveDismissDisabled(viewModel.isGeneratingIllustrations)
+                        .onDisappear {
+                            dismiss()
+                        }
+                }
+            }
         }
     }
     
@@ -175,10 +267,24 @@ struct StoryGenerationView: View {
             } else if let customEvent = selectedCustomEvent {
                 await viewModel.generateStory(for: hero, customEvent: customEvent)
             }
-            
-            // If successful, dismiss the view
+
+            // If successful, handle post-generation
             if viewModel.generationError == nil {
-                dismiss()
+                // Get the generated story
+                if let story = viewModel.currentStory {
+                    generatedStory = story
+
+                    // Show illustration progress if generating
+                    if viewModel.enableIllustrations && hero.hasAvatar && viewModel.isGeneratingIllustrations {
+                        showIllustrationProgress = true
+                    } else {
+                        // No illustrations, just dismiss
+                        dismiss()
+                    }
+                } else {
+                    // No story found, just dismiss
+                    dismiss()
+                }
             }
         }
     }
@@ -199,6 +305,16 @@ struct StoryGenerationView: View {
             return custom.eventDescription
         }
         return "Choose an adventure type"
+    }
+
+    private var generationStatusText: String {
+        if viewModel.isGeneratingIllustrations {
+            return "Creating illustrations..."
+        } else if viewModel.isGeneratingAudio {
+            return "Creating audio..."
+        } else {
+            return "Writing your story..."
+        }
     }
 }
 

@@ -586,25 +586,46 @@ struct ImprovedStoryCard: View {
     
     @ViewBuilder
     private var thumbnailView: some View {
-        if let hero = story.hero {
-            // Show hero avatar
-            HeroAvatarImageView(hero: hero, size: 60)
-        } else {
-            // Fallback to event icon
-            ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(
-                        LinearGradient(
-                            colors: [eventColor.opacity(0.3), eventColor.opacity(0.1)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+        ZStack {
+            if let hero = story.hero {
+                // Show hero avatar
+                HeroAvatarImageView(hero: hero, size: 60)
+            } else {
+                // Fallback to event icon
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(
+                            LinearGradient(
+                                colors: [eventColor.opacity(0.3), eventColor.opacity(0.1)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
-                    )
-                    .frame(width: 60, height: 60)
+                        .frame(width: 60, height: 60)
 
-                Image(systemName: story.eventIcon)
-                    .font(.system(size: 24))
-                    .foregroundColor(eventColor)
+                    Image(systemName: story.eventIcon)
+                        .font(.system(size: 24))
+                        .foregroundColor(eventColor)
+                }
+            }
+
+            // Show first illustration as preview thumbnail if available
+            if let firstIllustration = story.illustrations.first {
+                AsyncImage(url: firstIllustration.imageURL) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 60, height: 60)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.purple.opacity(0.3), lineWidth: 2)
+                        )
+                } placeholder: {
+                    // Keep showing hero/event icon while loading
+                    EmptyView()
+                }
+                .transition(.opacity)
             }
         }
     }
@@ -653,8 +674,13 @@ struct ImprovedStoryCard: View {
     private var metadataRow: some View {
         HStack(spacing: 12) {
             EventBadge(eventTitle: story.eventTitle, color: eventColor)
-            
+
             Spacer()
+
+            // Illustration indicator
+            if !story.illustrations.isEmpty {
+                IllustrationBadge(count: story.illustrations.count)
+            }
 
             // Regenerate audio button
             if !isRegenerating && story.audioFileName != nil {
@@ -676,7 +702,7 @@ struct ImprovedStoryCard: View {
                     color: StoryLibraryDesign.Colors.primaryOrange
                 )
             }
-            
+
             if story.playCount > 0 {
                 MetadataItem(
                     icon: "play.circle.fill",
@@ -684,7 +710,7 @@ struct ImprovedStoryCard: View {
                     color: StoryLibraryDesign.Colors.primaryBlue
                 )
             }
-            
+
             MetadataItem(
                 icon: "calendar",
                 text: formatSmartDate(story.createdAt),
@@ -1113,6 +1139,48 @@ struct SelectionCircle: View {
         }
         .frame(width: 44, height: 44) // Larger tap target
         .contentShape(Circle())
+    }
+}
+
+// MARK: - Illustration Badge
+struct IllustrationBadge: View {
+    let count: Int
+    @State private var isAnimating = false
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "photo.stack.fill")
+                .font(.system(size: 12))
+                .rotationEffect(.degrees(isAnimating ? 5 : -5))
+                .animation(
+                    Animation.easeInOut(duration: 1.5)
+                        .repeatForever(autoreverses: true),
+                    value: isAnimating
+                )
+
+            Text("\(count)")
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+        }
+        .foregroundColor(.white)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            LinearGradient(
+                colors: [Color.purple, Color.pink],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
+        )
+        .shadow(color: Color.purple.opacity(0.3), radius: 4, y: 2)
+        .onAppear {
+            isAnimating = true
+        }
+        .accessibilityLabel("\(count) illustrations available")
     }
 }
 
