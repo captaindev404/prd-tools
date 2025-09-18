@@ -12,9 +12,9 @@ struct HeroCreationView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
-    
+
     let heroToEdit: Hero?
-    
+
     @State private var heroName: String = ""
     @State private var primaryTrait: CharacterTrait = .brave
     @State private var secondaryTrait: CharacterTrait = .kind
@@ -23,6 +23,11 @@ struct HeroCreationView: View {
     @State private var currentStep = 0
     @State private var showingAvatarGeneration = false
     @State private var skipAvatar = false
+
+    // Single hero instance to maintain throughout the creation flow
+    @State private var workingHero: Hero?
+    // Track if avatar was successfully generated
+    @State private var avatarGenerated = false
 
     private let totalSteps = 5
     
@@ -234,7 +239,8 @@ struct HeroCreationView: View {
                 primaryTrait: primaryTrait,
                 secondaryTrait: secondaryTrait,
                 appearance: appearance,
-                specialAbility: specialAbility
+                specialAbility: specialAbility,
+                hero: workingHero
             )
         }
     }
@@ -254,7 +260,7 @@ struct HeroCreationView: View {
 
             VStack(spacing: 20) {
                 // Avatar preview or placeholder
-                if let hero = createPreviewHero(), hero.hasAvatar, let avatarURL = hero.avatarURL {
+                if let hero = workingHero, hero.hasAvatar, let avatarURL = hero.avatarURL {
                     AsyncImage(url: avatarURL) { image in
                         image
                             .resizable()
@@ -265,6 +271,11 @@ struct HeroCreationView: View {
                     .frame(width: 200, height: 200)
                     .cornerRadius(16)
                     .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+
+                    Text("Avatar Generated!")
+                        .font(.caption)
+                        .foregroundColor(.green)
+                        .padding(.top, 4)
                 } else {
                     RoundedRectangle(cornerRadius: 16)
                         .fill(Color(.systemGray5))
@@ -284,21 +295,34 @@ struct HeroCreationView: View {
 
                 // Action buttons
                 HStack(spacing: 16) {
-                    Button("Skip for Now") {
-                        skipAvatar = true
-                    }
-                    .buttonStyle(.bordered)
+                    if workingHero?.hasAvatar == true {
+                        Button("Regenerate Avatar") {
+                            ensureWorkingHero()
+                            showingAvatarGeneration = true
+                        }
+                        .buttonStyle(.bordered)
+                    } else {
+                        Button("Skip for Now") {
+                            skipAvatar = true
+                        }
+                        .buttonStyle(.bordered)
 
-                    Button("Generate Avatar") {
-                        showingAvatarGeneration = true
+                        Button("Generate Avatar") {
+                            ensureWorkingHero()
+                            showingAvatarGeneration = true
+                        }
+                        .buttonStyle(.borderedProminent)
                     }
-                    .buttonStyle(.borderedProminent)
                 }
             }
         }
         .sheet(isPresented: $showingAvatarGeneration) {
-            if let hero = createPreviewHero() {
+            if let hero = workingHero {
                 AvatarGenerationView(hero: hero, isPresented: $showingAvatarGeneration)
+                    .onDisappear {
+                        // Check if avatar was actually generated
+                        avatarGenerated = workingHero?.hasAvatar ?? false
+                    }
             }
         }
     }
@@ -314,20 +338,20 @@ struct HeroCreationView: View {
         }
     }
 
-    private func createPreviewHero() -> Hero? {
-        guard !heroName.isEmpty else { return nil }
+    private func ensureWorkingHero() {
+        guard workingHero == nil else {
+            // Update existing working hero properties
+            updateWorkingHeroProperties()
+            return
+        }
 
         if let heroToEdit = heroToEdit {
-            // Update the existing hero's properties for preview
-            heroToEdit.name = heroName.trimmingCharacters(in: .whitespacesAndNewlines)
-            heroToEdit.primaryTrait = primaryTrait
-            heroToEdit.secondaryTrait = secondaryTrait
-            heroToEdit.appearance = appearance.trimmingCharacters(in: .whitespacesAndNewlines)
-            heroToEdit.specialAbility = specialAbility.trimmingCharacters(in: .whitespacesAndNewlines)
-            return heroToEdit
+            // Use the existing hero for editing
+            workingHero = heroToEdit
+            updateWorkingHeroProperties()
         } else {
-            // Create a temporary hero for preview/avatar generation
-            return Hero(
+            // Create a single working hero instance for new heroes
+            workingHero = Hero(
                 name: heroName.trimmingCharacters(in: .whitespacesAndNewlines),
                 primaryTrait: primaryTrait,
                 secondaryTrait: secondaryTrait,
@@ -336,22 +360,31 @@ struct HeroCreationView: View {
             )
         }
     }
+
+    private func updateWorkingHeroProperties() {
+        guard let workingHero = workingHero else { return }
+
+        workingHero.name = heroName.trimmingCharacters(in: .whitespacesAndNewlines)
+        workingHero.primaryTrait = primaryTrait
+        workingHero.secondaryTrait = secondaryTrait
+        workingHero.appearance = appearance.trimmingCharacters(in: .whitespacesAndNewlines)
+        workingHero.specialAbility = specialAbility.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
     
     private func saveHero() {
         if let heroToEdit = heroToEdit {
-            // Update existing hero
-            heroToEdit.name = heroName.trimmingCharacters(in: .whitespacesAndNewlines)
-            heroToEdit.primaryTrait = primaryTrait
-            heroToEdit.secondaryTrait = secondaryTrait
-            heroToEdit.appearance = appearance.trimmingCharacters(in: .whitespacesAndNewlines)
-            heroToEdit.specialAbility = specialAbility.trimmingCharacters(in: .whitespacesAndNewlines)
+            // Update existing hero (workingHero points to heroToEdit in this case)
+            updateWorkingHeroProperties()
+            // The hero is already in the model context, just need to save
         } else {
-            // Check if we have a preview hero with avatar data to preserve
-            if let previewHero = createPreviewHero(), previewHero.hasAvatar {
-                // Insert the preview hero which already has avatar data
-                modelContext.insert(previewHero)
+            // For new heroes, use the working hero that may have avatar data
+            if let workingHero = workingHero {
+                // This is the same instance that was used for avatar generation
+                // Update its properties one final time
+                updateWorkingHeroProperties()
+                modelContext.insert(workingHero)
             } else {
-                // Create new hero without avatar
+                // Fallback: Create new hero if somehow workingHero is nil
                 let hero = Hero(
                     name: heroName.trimmingCharacters(in: .whitespacesAndNewlines),
                     primaryTrait: primaryTrait,
@@ -365,6 +398,7 @@ struct HeroCreationView: View {
 
         do {
             try modelContext.save()
+            print("Hero saved successfully with avatar: \(workingHero?.hasAvatar ?? false)")
             dismiss()
         } catch {
             print("Failed to save hero: \(error)")
@@ -411,6 +445,7 @@ struct HeroPreviewCard: View {
     let secondaryTrait: CharacterTrait
     let appearance: String
     let specialAbility: String
+    let hero: Hero? // Optional hero for avatar display
     
     var body: some View {
         VStack(spacing: 15) {
@@ -420,10 +455,14 @@ struct HeroPreviewCard: View {
             
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    // Simple icon for preview - avatar will be generated in next step
-                    Image(systemName: "person.circle.fill")
-                        .font(.largeTitle)
-                        .foregroundColor(.purple)
+                    // Show avatar if available, otherwise show simple icon
+                    if let hero = hero, hero.hasAvatar {
+                        HeroAvatarImageView(hero: hero, size: 50)
+                    } else {
+                        Image(systemName: "person.circle.fill")
+                            .font(.largeTitle)
+                            .foregroundColor(.purple)
+                    }
                     
                     VStack(alignment: .leading, spacing: 4) {
                         Text(name)

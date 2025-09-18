@@ -19,9 +19,11 @@ struct AvatarGenerationView: View {
     @State private var showingSuggestions = false
     @State private var aiService: OpenAIService?
     @StateObject private var appSettings = AppSettings()
+    @State private var avatarSaved = false
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
 
     var body: some View {
         NavigationView {
@@ -215,9 +217,13 @@ struct AvatarGenerationView: View {
                         .cornerRadius(16)
                         .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
 
-                    Text("✨ Avatar Generated!")
-                        .font(.headline)
-                        .foregroundColor(.green)
+                    HStack(spacing: 8) {
+                        Image(systemName: avatarSaved ? "checkmark.circle.fill" : "sparkles")
+                            .foregroundColor(avatarSaved ? .green : .orange)
+                        Text(avatarSaved ? "Avatar Saved!" : "Avatar Generated!")
+                            .font(.headline)
+                            .foregroundColor(avatarSaved ? .green : .orange)
+                    }
                 }
 
             } else if let error = generationError {
@@ -256,11 +262,13 @@ struct AvatarGenerationView: View {
                 .buttonStyle(.bordered)
                 .disabled(isGenerating)
 
-                Button("Save Avatar") {
-                    saveAvatar()
+                Button(avatarSaved ? "Saved" : "Save Avatar") {
+                    if !avatarSaved {
+                        saveAvatar()
+                    }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(isGenerating)
+                .disabled(isGenerating || avatarSaved)
             } else {
                 Button("Generate Avatar") {
                     generateAvatar()
@@ -338,19 +346,45 @@ struct AvatarGenerationView: View {
                 let filename = "avatar_\(hero.name.replacingOccurrences(of: " ", with: "_"))_\(Date().timeIntervalSince1970).png"
                 let avatarsDirectory = getDocumentsDirectory().appendingPathComponent("Avatars")
 
+                // Ensure directory exists
                 try FileManager.default.createDirectory(at: avatarsDirectory, withIntermediateDirectories: true)
 
                 let fileURL = avatarsDirectory.appendingPathComponent(filename)
 
+                // Save image data to file
                 if let imageData = image.pngData() {
                     try imageData.write(to: fileURL)
+                    print("Avatar image saved to: \(fileURL.path)")
 
+                    // Update hero on main actor and ensure changes are saved
                     await MainActor.run {
+                        // Update hero properties
                         hero.avatarImagePath = filename
                         hero.avatarPrompt = customPrompt
                         hero.avatarGeneratedAt = Date()
-                        isPresented = false
+
+                        // Mark as saved
+                        avatarSaved = true
+
+                        // Try to save the context immediately if the hero is already in context
+                        // This ensures the avatar data is persisted
+                        do {
+                            if modelContext.hasChanges {
+                                try modelContext.save()
+                                print("Hero avatar data saved to database")
+                            }
+                        } catch {
+                            print("Warning: Could not save context immediately: \(error)")
+                            // Not critical as it will be saved when the hero is inserted
+                        }
+
+                        // Add a small delay before dismissing to ensure UI updates
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            isPresented = false
+                        }
                     }
+                } else {
+                    throw AIServiceError.fileSystemError
                 }
             } catch {
                 await MainActor.run {
