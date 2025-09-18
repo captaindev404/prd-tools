@@ -105,6 +105,12 @@ struct AudioPlayerView: View {
                                     Task {
                                         await viewModel.retryFailedIllustration(illustration)
                                     }
+                                },
+                                onSeekToIllustration: { timestamp in
+                                    // Only seek if audio is loaded and has duration
+                                    if viewModel.duration > 0 {
+                                        viewModel.seek(to: timestamp)
+                                    }
                                 }
                             )
                             .onAppear {
@@ -152,6 +158,12 @@ struct AudioPlayerView: View {
                                 onRetryIllustration: { illustration in
                                     Task {
                                         await viewModel.retryFailedIllustration(illustration)
+                                    }
+                                },
+                                onSeekToIllustration: { timestamp in
+                                    // Only seek if audio is loaded and has duration
+                                    if viewModel.duration > 0 {
+                                        viewModel.seek(to: timestamp)
                                     }
                                 }
                             )

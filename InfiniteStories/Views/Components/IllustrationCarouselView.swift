@@ -12,6 +12,7 @@ struct IllustrationCarouselView: View {
     let illustrations: [StoryIllustration]
     @Binding var currentTime: TimeInterval
     let onRetryIllustration: ((StoryIllustration) -> Void)?
+    let onSeekToIllustration: ((TimeInterval) -> Void)?
 
     @State private var selectedIndex: Int = 0
     @State private var isFullScreen: Bool = false
@@ -22,12 +23,16 @@ struct IllustrationCarouselView: View {
     @State private var zoomScale: CGFloat = 1.0
     @State private var lastZoomScale: CGFloat = 1.0
     @State private var failedIllustrations: Set<UUID> = []
+    @State private var showSeekFeedback: Bool = false
+    @State private var seekFeedbackOpacity: Double = 0
+    @State private var showTapToSeekHint: Bool = false
 
     // Animation timers
     @State private var kenBurnsTimer: Timer?
 
     // Haptic feedback
     private let hapticFeedback = UIImpactFeedbackGenerator(style: .light)
+    private let seekHapticFeedback = UIImpactFeedbackGenerator(style: .medium)
 
     // Settings
     @AppStorage("allowIllustrationFailures") private var allowFailures = true
@@ -36,11 +41,13 @@ struct IllustrationCarouselView: View {
     init(
         illustrations: [StoryIllustration],
         currentTime: Binding<TimeInterval>,
-        onRetryIllustration: ((StoryIllustration) -> Void)? = nil
+        onRetryIllustration: ((StoryIllustration) -> Void)? = nil,
+        onSeekToIllustration: ((TimeInterval) -> Void)? = nil
     ) {
         self.illustrations = illustrations
         self._currentTime = currentTime
         self.onRetryIllustration = onRetryIllustration
+        self.onSeekToIllustration = onSeekToIllustration
     }
 
     private var currentIllustration: StoryIllustration? {
@@ -79,6 +86,11 @@ struct IllustrationCarouselView: View {
                                 }
                                 hapticFeedback.impactOccurred()
                                 resetKenBurnsAnimation()
+
+                                // Also seek to this illustration's timestamp when thumbnail is tapped
+                                if index < illustrations.count {
+                                    seekToIllustration(illustrations[index])
+                                }
                             }
                         )
                         .frame(height: geometry.size.height * 0.15)
@@ -90,6 +102,25 @@ struct IllustrationCarouselView: View {
                             .padding(.horizontal)
                     }
                 }
+
+                // Tap to seek hint overlay
+                if showTapToSeekHint {
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Image(systemName: "hand.tap.fill")
+                                .font(.title2)
+                            Text("Tap any illustration to jump to that part of the story")
+                                .font(.subheadline)
+                        }
+                        .foregroundColor(.white)
+                        .padding()
+                        .background(Color.black.opacity(0.8))
+                        .cornerRadius(12)
+                        .padding()
+                    }
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                }
             }
         }
         .onAppear {
@@ -99,6 +130,21 @@ struct IllustrationCarouselView: View {
             }
             updateSelectedIndexForTime()
             startKenBurnsAnimation()
+
+            // Show tap to seek hint after a brief delay if we have a seek handler
+            if onSeekToIllustration != nil && !UserDefaults.standard.bool(forKey: "hasSeenTapToSeekHint") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                    withAnimation(.easeIn(duration: 0.3)) {
+                        showTapToSeekHint = true
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                        withAnimation(.easeOut(duration: 0.3)) {
+                            showTapToSeekHint = false
+                        }
+                        UserDefaults.standard.set(true, forKey: "hasSeenTapToSeekHint")
+                    }
+                }
+            }
         }
         .onDisappear {
             stopKenBurnsAnimation()
@@ -207,8 +253,32 @@ struct IllustrationCarouselView: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: isFullScreen ? 0 : 20))
         .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
+        .overlay(
+            // Seek feedback overlay
+            ZStack {
+                if showSeekFeedback {
+                    VStack {
+                        Image(systemName: "speaker.wave.2.fill")
+                            .font(.system(size: 40))
+                            .foregroundColor(.white)
+                        Text("Jumping to \(illustration.formattedTimestamp)")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                    }
+                    .padding()
+                    .background(Color.black.opacity(0.7))
+                    .cornerRadius(12)
+                    .opacity(seekFeedbackOpacity)
+                    .animation(.easeInOut(duration: 0.3), value: seekFeedbackOpacity)
+                }
+            }
+        )
         .onTapGesture(count: 2) {
             toggleFullScreen()
+        }
+        .onTapGesture(count: 1) {
+            // Single tap to seek to this illustration's timestamp
+            seekToIllustration(illustration)
         }
         .onLongPressGesture {
             withAnimation {
@@ -294,15 +364,28 @@ struct IllustrationCarouselView: View {
                         .fill(Color.gray.opacity(0.3))
                         .frame(height: 4)
 
-                    // Illustration markers
+                    // Illustration markers (clickable)
                     ForEach(Array(illustrations.enumerated()), id: \.element.id) { index, illustration in
                         Circle()
                             .fill(index == selectedIndex ? Color.orange : Color.gray)
-                            .frame(width: 8, height: 8)
+                            .frame(width: 12, height: 12)
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.white, lineWidth: 1)
+                                    .opacity(index == selectedIndex ? 1 : 0)
+                            )
                             .position(
                                 x: CGFloat(illustration.timestamp / 300.0) * geometry.size.width, // Assuming 5 min max duration
                                 y: geometry.size.height / 2
                             )
+                            .onTapGesture {
+                                // Jump to this illustration
+                                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                    selectedIndex = index
+                                }
+                                seekToIllustration(illustration)
+                                hapticFeedback.impactOccurred()
+                            }
                     }
 
                     // Current time indicator
@@ -449,6 +532,33 @@ struct IllustrationCarouselView: View {
         }
         stopKenBurnsAnimation()
         startKenBurnsAnimation()
+    }
+
+    // MARK: - Audio Sync Functions
+
+    private func seekToIllustration(_ illustration: StoryIllustration) {
+        // Check if we have a seek handler
+        guard let seekHandler = onSeekToIllustration else { return }
+
+        // Trigger haptic feedback
+        seekHapticFeedback.impactOccurred()
+
+        // Show feedback overlay
+        showSeekFeedback = true
+        seekFeedbackOpacity = 1.0
+
+        // Seek to the illustration's timestamp
+        seekHandler(illustration.timestamp)
+
+        // Hide feedback after a delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            withAnimation(.easeOut(duration: 0.3)) {
+                seekFeedbackOpacity = 0
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                showSeekFeedback = false
+            }
+        }
     }
 
     // MARK: - Helper Functions
