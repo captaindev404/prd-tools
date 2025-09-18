@@ -194,15 +194,11 @@ final class Story {
         return sortedIllustrations.first { $0.timestamp > timestamp && $0.isGenerated }
     }
 
-    /// Calculate total number of illustration slots based on story length
+    /// Get the number of illustrations for this story
     var recommendedIllustrationCount: Int {
-        // Estimate based on story duration - roughly one illustration per 30-45 seconds
-        let secondsPerIllustration = 40.0
-        let maxIllustrations = 8
-        let minIllustrations = 3
-
-        let count = Int(estimatedDuration / secondsPerIllustration)
-        return min(max(count, minIllustrations), maxIllustrations)
+        // Return the actual count of illustrations from AI-extracted scenes
+        // No artificial limits - let the AI determine the appropriate number
+        return illustrations.count
     }
 
     /// Import scenes from AI generation into story illustrations

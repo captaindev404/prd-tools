@@ -79,6 +79,29 @@ enum AIServiceError: Error {
     case contentPolicyViolation(String)
 }
 
+// JSON structures for scene extraction
+struct SceneExtractionRequest {
+    let storyContent: String
+    let storyDuration: TimeInterval
+    let hero: Hero
+    let eventContext: String
+}
+
+struct SceneExtractionJSONResponse: Codable {
+    let scenes: [SceneJSON]
+    let sceneCount: Int
+    let reasoning: String
+}
+
+struct SceneJSON: Codable {
+    let sceneNumber: Int
+    let textSegment: String
+    let timestamp: Double
+    let illustrationPrompt: String
+    let emotion: String
+    let importance: String
+}
+
 // Extension to convert StoryScene to StoryIllustration
 extension StoryScene {
     func toStoryIllustration() -> StoryIllustration {
@@ -111,6 +134,7 @@ extension StoryGenerationResponse {
 protocol AIServiceProtocol {
     func generateStory(request: StoryGenerationRequest) async throws -> StoryGenerationResponse
     func generateStoryWithCustomEvent(request: CustomStoryGenerationRequest) async throws -> StoryGenerationResponse
+    func extractScenesFromStory(request: SceneExtractionRequest) async throws -> [StoryScene]
     func generateSpeech(text: String, voice: String, language: String) async throws -> Data
     func generateAvatar(request: AvatarGenerationRequest) async throws -> AvatarGenerationResponse
     func generateSceneIllustration(prompt: String, hero: Hero) async throws -> Data
@@ -144,7 +168,7 @@ class OpenAIService: AIServiceProtocol {
             throw AIServiceError.invalidAPIKey
         }
         
-        let prompt = buildPrompt(for: request, includeScenes: enableSceneBasedGeneration)
+        let prompt = buildPrompt(for: request)
         print("🤖 📝 Generated Prompt:")
         print("🤖 \(prompt)")
         print("🤖 ==================")
@@ -266,7 +290,7 @@ class OpenAIService: AIServiceProtocol {
             throw AIServiceError.invalidAPIKey
         }
         
-        let prompt = buildPromptForCustomEvent(request: request, includeScenes: enableSceneBasedGeneration)
+        let prompt = buildPromptForCustomEvent(request: request)
         print("🤖 📝 Generated Custom Prompt:")
         print("🤖 \(prompt)")
         print("🤖 ==================")
@@ -363,15 +387,178 @@ class OpenAIService: AIServiceProtocol {
             throw AIServiceError.networkError(error)
         }
     }
-    
-    private func buildPrompt(for request: StoryGenerationRequest, includeScenes: Bool = true) -> String {
+
+    func extractScenesFromStory(request: SceneExtractionRequest) async throws -> [StoryScene] {
+        let requestId = UUID().uuidString.prefix(8).lowercased()
+        let startTime = Date()
+
+        AppLogger.shared.info("Scene extraction started", category: .illustration, requestId: String(requestId))
+        AppLogger.shared.debug("Story duration: \(Int(request.storyDuration)) seconds", category: .illustration, requestId: String(requestId))
+
+        guard !apiKey.isEmpty else {
+            AppLogger.shared.error("API key is empty", category: .api, requestId: String(requestId))
+            throw AIServiceError.invalidAPIKey
+        }
+
+        // Build the prompt for scene extraction
+        let heroAppearance = request.hero.appearance.isEmpty ? "a lovable character" : request.hero.appearance
+        let prompt = """
+        You are an expert at analyzing children's bedtime stories and identifying key visual moments for illustration.
+
+        Analyze the following story and identify the most important scenes for illustration. Consider:
+        - Natural narrative breaks and transitions
+        - Key emotional moments
+        - Visual variety (different settings, actions, moods)
+        - Story pacing (distribute scenes evenly throughout)
+
+        Story Context: \(request.eventContext)
+        Story Duration: \(Int(request.storyDuration)) seconds
+        Hero: \(request.hero.name) - \(heroAppearance)
+
+        STORY TEXT:
+        \(request.storyContent)
+
+        INSTRUCTIONS:
+        1. Identify the optimal number of scenes for this story (typically 1 scene per 15-20 seconds of narration)
+        2. Choose scenes that best represent the story arc
+        3. For each scene, provide:
+           - The exact text segment from the story
+           - A detailed illustration prompt for DALL-E
+           - Estimated timestamp when this scene would occur during audio playback
+           - The emotional tone and importance
+
+        The illustration prompts should:
+        - Always include \(request.hero.name) with appearance: \(heroAppearance)
+        - Be child-friendly and magical
+        - Use warm, watercolor or soft digital art style
+        - Be specific about colors, composition, and atmosphere
+        - Be under 150 words each
+
+        Return your analysis as a JSON object matching this structure:
+        {
+            "scenes": [
+                {
+                    "sceneNumber": 1,
+                    "textSegment": "exact text from story",
+                    "timestamp": 0.0,
+                    "illustrationPrompt": "detailed DALL-E prompt",
+                    "emotion": "joyful|peaceful|exciting|mysterious|heartwarming|adventurous|contemplative",
+                    "importance": "key|major|minor"
+                }
+            ],
+            "sceneCount": total_number,
+            "reasoning": "brief explanation of scene selection"
+        }
+        """
+
+        let requestBody: [String: Any] = [
+            "model": "gpt-4o",
+            "messages": [
+                [
+                    "role": "system",
+                    "content": "You are an expert at visual storytelling and scene analysis for children's books."
+                ],
+                [
+                    "role": "user",
+                    "content": prompt
+                ]
+            ],
+            "max_tokens": 2000,
+            "temperature": 0.7,
+            "response_format": ["type": "json_object"]
+        ]
+
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: requestBody) else {
+            AppLogger.shared.error("Failed to serialize request JSON", category: .api, requestId: String(requestId))
+            throw AIServiceError.invalidResponse
+        }
+
+        var urlRequest = URLRequest(url: URL(string: chatURL)!)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        urlRequest.httpBody = jsonData
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: urlRequest)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                AppLogger.shared.error("Invalid HTTP response", category: .api, requestId: String(requestId))
+                throw AIServiceError.invalidResponse
+            }
+
+            logHTTPResponse(
+                statusCode: httpResponse.statusCode,
+                headers: httpResponse.allHeaderFields,
+                dataSize: data.count,
+                responseTime: Date().timeIntervalSince(startTime),
+                requestId: String(requestId)
+            )
+
+            guard httpResponse.statusCode == 200 else {
+                if let errorString = String(data: data, encoding: .utf8) {
+                    AppLogger.shared.error("API Error: \(errorString)", category: .api, requestId: String(requestId))
+                }
+                throw AIServiceError.apiError("HTTP \(httpResponse.statusCode)")
+            }
+
+            // Parse the JSON response
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let choices = json["choices"] as? [[String: Any]],
+                  let firstChoice = choices.first,
+                  let message = firstChoice["message"] as? [String: Any],
+                  let content = message["content"] as? String else {
+                AppLogger.shared.error("Failed to parse API response", category: .api, requestId: String(requestId))
+                throw AIServiceError.invalidResponse
+            }
+
+            // Parse the JSON content
+            guard let jsonData = content.data(using: .utf8) else {
+                AppLogger.shared.error("Failed to convert content to data", category: .api, requestId: String(requestId))
+                throw AIServiceError.invalidResponse
+            }
+
+            let decoder = JSONDecoder()
+            let sceneResponse = try decoder.decode(SceneExtractionJSONResponse.self, from: jsonData)
+
+            // Convert JSON scenes to StoryScene objects
+            let scenes = sceneResponse.scenes.map { jsonScene in
+                StoryScene(
+                    sceneNumber: jsonScene.sceneNumber,
+                    textSegment: jsonScene.textSegment,
+                    illustrationPrompt: jsonScene.illustrationPrompt,
+                    timestamp: jsonScene.timestamp,
+                    emotion: SceneEmotion(rawValue: jsonScene.emotion) ?? .peaceful,
+                    importance: SceneImportance(rawValue: jsonScene.importance) ?? .major
+                )
+            }
+
+            AppLogger.shared.success("Extracted \(scenes.count) scenes from story", category: .illustration, requestId: String(requestId))
+            AppLogger.shared.debug("Scene selection reasoning: \(sceneResponse.reasoning)", category: .illustration, requestId: String(requestId))
+            AppLogger.shared.logPerformance(operation: "Scene Extraction", startTime: startTime, requestId: String(requestId))
+
+            return scenes
+
+        } catch let error as DecodingError {
+            AppLogger.shared.error("JSON decoding error: \(error)", category: .api, requestId: String(requestId))
+            throw AIServiceError.invalidResponse
+        } catch let error as AIServiceError {
+            AppLogger.shared.error("AI Service error: \(error)", category: .api, requestId: String(requestId))
+            throw error
+        } catch {
+            AppLogger.shared.error("Network error: \(error.localizedDescription)", category: .api, requestId: String(requestId))
+            throw AIServiceError.networkError(error)
+        }
+    }
+
+    private func buildPrompt(for request: StoryGenerationRequest) -> String {
         let targetMinutes = Int(request.targetDuration / 60)
 
         // Build trait description
         let traits = "\(request.hero.primaryTrait.description), \(request.hero.secondaryTrait.description), \(request.hero.appearance.isEmpty ? "lovable appearance" : request.hero.appearance), \(request.hero.specialAbility.isEmpty ? "warm heart" : request.hero.specialAbility)"
 
         // Get base prompt template
-        var prompt = PromptLocalizer.getPromptTemplate(
+        let prompt = PromptLocalizer.getPromptTemplate(
             for: request.language,
             storyLength: targetMinutes,
             hero: request.hero.name,
@@ -379,70 +566,22 @@ class OpenAIService: AIServiceProtocol {
             event: request.event.promptSeed
         )
 
-        // Add scene generation instructions if requested
-        if includeScenes {
-            prompt += buildSceneInstructions(for: request)
-        }
-
-        return prompt
-    }
-
-    private func buildSceneInstructions(for request: StoryGenerationRequest) -> String {
-        let sceneCount = calculateSceneCount(duration: request.targetDuration)
-        let heroAppearance = request.hero.appearance.isEmpty ? "a lovable character" : request.hero.appearance
-
-        return """
+        // Add clean story generation instructions
+        return prompt + """
 
 
-        IMPORTANT: Structure your response with scenes for illustration:
-
-        Identify \(sceneCount) KEY SCENES in the story that would make beautiful illustrations.
-
-        Format your response EXACTLY as follows:
-
-        TITLE: [Story Title]
-
-        STORY:
-        [Complete story text without scene markers]
-
-        SCENES:
-        Scene 1:
-        TEXT: [The specific text segment from the story this scene covers]
-        TIMESTAMP: [Estimated seconds from start, e.g., 0]
-        EMOTION: [One of: joyful, peaceful, exciting, mysterious, heartwarming, adventurous, contemplative]
-        IMPORTANCE: [One of: key, major, minor]
-        ILLUSTRATION: [A detailed visual description for DALL-E, including "\(request.hero.name)" who looks like \(heroAppearance), the setting, action, mood, and artistic style suitable for children's book illustration. Be specific about colors, composition, and atmosphere.]
-
-        Scene 2:
-        [Continue with same format...]
-
-        Guidelines for illustrations:
-        - Always include \(request.hero.name) with their specific appearance: \(heroAppearance)
-        - Use warm, child-friendly artistic styles (watercolor, soft digital painting, storybook illustration)
-        - Focus on key emotional or action moments
-        - Include relevant setting details and other characters
-        - Suggest lighting and color palettes that match the scene's mood
-        - Keep descriptions under 150 words but be visually specific
+        IMPORTANT INSTRUCTIONS:
+        - Write a complete, flowing story without any formatting markers
+        - Use natural, conversational language suitable for audio narration
+        - Include dialogue and sound effects naturally in the text
+        - Avoid special characters or formatting that would sound strange when read aloud
+        - Make the story engaging and immersive for bedtime listening
+        - DO NOT include scene markers, titles, or any meta-information
+        - Just tell the story from beginning to end
         """
     }
 
-    private func calculateSceneCount(duration: TimeInterval) -> Int {
-        // Calculate based on duration: roughly 1 scene per 30-45 seconds
-        let minutes = duration / 60
-        if minutes <= 3 {
-            return 4
-        } else if minutes <= 5 {
-            return 5
-        } else if minutes <= 7 {
-            return 6
-        } else if minutes <= 10 {
-            return 7
-        } else {
-            return 8
-        }
-    }
-    
-    private func buildPromptForCustomEvent(request: CustomStoryGenerationRequest, includeScenes: Bool = true) -> String {
+    private func buildPromptForCustomEvent(request: CustomStoryGenerationRequest) -> String {
         let targetMinutes = Int(request.targetDuration / 60)
         let event = request.customEvent
 
@@ -469,83 +608,29 @@ class OpenAIService: AIServiceProtocol {
         // Add age-appropriate guidance
         prompt += "\nMake sure the story is appropriate for children aged \(event.ageRange.rawValue)."
 
-        // Add scene generation instructions if requested
-        if includeScenes {
-            prompt += buildSceneInstructionsForCustomEvent(request: request)
-        }
+        // Add clean story generation instructions
+        prompt += """
+
+
+        IMPORTANT INSTRUCTIONS:
+        - Write a complete, flowing story without any formatting markers
+        - Use natural, conversational language suitable for audio narration
+        - Include dialogue and sound effects naturally in the text
+        - Avoid special characters or formatting that would sound strange when read aloud
+        - Make the story engaging and immersive for bedtime listening
+        - DO NOT include scene markers, titles, or any meta-information
+        - Just tell the story from beginning to end
+        """
 
         return prompt
     }
-
-    private func buildSceneInstructionsForCustomEvent(request: CustomStoryGenerationRequest) -> String {
-        let sceneCount = calculateSceneCount(duration: request.targetDuration)
-        let heroAppearance = request.hero.appearance.isEmpty ? "a lovable character" : request.hero.appearance
-
-        return """
-
-
-        IMPORTANT: Structure your response with scenes for illustration:
-
-        Identify \(sceneCount) KEY SCENES in the story that would make beautiful illustrations.
-
-        Format your response EXACTLY as follows:
-
-        TITLE: [Story Title]
-
-        STORY:
-        [Complete story text without scene markers]
-
-        SCENES:
-        Scene 1:
-        TEXT: [The specific text segment from the story this scene covers]
-        TIMESTAMP: [Estimated seconds from start, e.g., 0]
-        EMOTION: [One of: joyful, peaceful, exciting, mysterious, heartwarming, adventurous, contemplative]
-        IMPORTANCE: [One of: key, major, minor]
-        ILLUSTRATION: [A detailed visual description for DALL-E, including "\(request.hero.name)" who looks like \(heroAppearance), the setting, action, mood, and artistic style suitable for children's book illustration. Be specific about colors, composition, and atmosphere.]
-
-        Scene 2:
-        [Continue with same format...]
-
-        Guidelines for illustrations:
-        - Always include \(request.hero.name) with their specific appearance: \(heroAppearance)
-        - Match the \(request.customEvent.tone.rawValue.lowercased()) tone of the story
-        - Use warm, child-friendly artistic styles appropriate for \(request.customEvent.ageRange.rawValue) age range
-        - Focus on key emotional or action moments
-        - Include relevant setting details and other characters
-        - Suggest lighting and color palettes that match the scene's mood
-        - Keep descriptions under 150 words but be visually specific
-        """
-    }
     
     private func parseCustomStoryResponse(content: String, request: CustomStoryGenerationRequest) -> StoryGenerationResponse {
-        let lines = content.components(separatedBy: .newlines)
-        var title = request.customEvent.title
-        var storyContent = content
-        var scenes: [StoryScene]? = nil
+        // The content is now a clean story without any formatting
+        let storyContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // Try to extract title if formatted properly
-        for line in lines {
-            if line.hasPrefix("TITLE:") {
-                title = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
-                break
-            }
-        }
-
-        // Extract story content between STORY: and SCENES: (or end of content)
-        if let storyIndex = content.range(of: "STORY:")?.upperBound {
-            let afterStory = String(content[storyIndex...])
-            if let scenesIndex = afterStory.range(of: "SCENES:")?.lowerBound {
-                storyContent = String(afterStory[..<scenesIndex]).trimmingCharacters(in: .whitespacesAndNewlines)
-            } else {
-                storyContent = afterStory.trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-        }
-
-        // Extract scenes if present
-        if let scenesIndex = content.range(of: "SCENES:")?.upperBound {
-            let scenesContent = String(content[scenesIndex...])
-            scenes = parseScenes(from: scenesContent, storyDuration: request.targetDuration)
-        }
+        // Use the custom event title
+        let title = request.customEvent.title
 
         // Estimate duration based on word count (average 200 words per minute)
         let wordCount = storyContent.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.count
@@ -555,39 +640,16 @@ class OpenAIService: AIServiceProtocol {
             title: title,
             content: storyContent,
             estimatedDuration: estimatedDuration,
-            scenes: scenes
+            scenes: nil // Scenes will be extracted in a separate API call
         )
     }
     
     private func parseStoryResponse(content: String, request: StoryGenerationRequest) -> StoryGenerationResponse {
-        let lines = content.components(separatedBy: .newlines)
-        var title = "A Magical Adventure"
-        var storyContent = content
-        var scenes: [StoryScene]? = nil
+        // The content is now a clean story without any formatting
+        let storyContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // Try to extract title if formatted properly
-        for line in lines {
-            if line.hasPrefix("TITLE:") {
-                title = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
-                break
-            }
-        }
-
-        // Extract story content between STORY: and SCENES: (or end of content)
-        if let storyIndex = content.range(of: "STORY:")?.upperBound {
-            let afterStory = String(content[storyIndex...])
-            if let scenesIndex = afterStory.range(of: "SCENES:")?.lowerBound {
-                storyContent = String(afterStory[..<scenesIndex]).trimmingCharacters(in: .whitespacesAndNewlines)
-            } else {
-                storyContent = afterStory.trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-        }
-
-        // Extract scenes if present
-        if let scenesIndex = content.range(of: "SCENES:")?.upperBound {
-            let scenesContent = String(content[scenesIndex...])
-            scenes = parseScenes(from: scenesContent, storyDuration: request.targetDuration)
-        }
+        // Generate a title based on the hero and event
+        let title = "\(request.hero.name) and the \(request.event.rawValue)"
 
         // Estimate duration based on word count (average 200 words per minute)
         let wordCount = storyContent.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.count
@@ -597,96 +659,7 @@ class OpenAIService: AIServiceProtocol {
             title: title,
             content: storyContent,
             estimatedDuration: estimatedDuration,
-            scenes: scenes
-        )
-    }
-
-    private func parseScenes(from content: String, storyDuration: TimeInterval) -> [StoryScene]? {
-        var scenes: [StoryScene] = []
-        let scenePattern = "Scene (\\d+):"
-        let regex = try? NSRegularExpression(pattern: scenePattern, options: .caseInsensitive)
-
-        guard let regex = regex else { return nil }
-
-        let matches = regex.matches(in: content, options: [], range: NSRange(content.startIndex..., in: content))
-
-        for (index, match) in matches.enumerated() {
-            guard let sceneNumberRange = Range(match.range(at: 1), in: content),
-                  let sceneNumber = Int(content[sceneNumberRange]) else { continue }
-
-            // Get content for this scene (until next scene or end)
-            let sceneStartIndex = content.index(content.startIndex, offsetBy: match.range.upperBound)
-            let sceneEndIndex: String.Index
-            if index < matches.count - 1 {
-                let nextMatch = matches[index + 1]
-                sceneEndIndex = content.index(content.startIndex, offsetBy: nextMatch.range.lowerBound)
-            } else {
-                sceneEndIndex = content.endIndex
-            }
-
-            let sceneContent = String(content[sceneStartIndex..<sceneEndIndex])
-
-            // Parse scene details
-            if let scene = parseSceneDetails(from: sceneContent, sceneNumber: sceneNumber, storyDuration: storyDuration) {
-                scenes.append(scene)
-            }
-        }
-
-        return scenes.isEmpty ? nil : scenes
-    }
-
-    private func parseSceneDetails(from content: String, sceneNumber: Int, storyDuration: TimeInterval) -> StoryScene? {
-        var textSegment = ""
-        var timestamp: TimeInterval = 0
-        var emotion = SceneEmotion.peaceful
-        var importance = SceneImportance.major
-        var illustrationPrompt = ""
-
-        let lines = content.components(separatedBy: .newlines)
-
-        for i in 0..<lines.count {
-            let line = lines[i].trimmingCharacters(in: .whitespaces)
-
-            if line.hasPrefix("TEXT:") {
-                textSegment = String(line.dropFirst(5)).trimmingCharacters(in: .whitespaces)
-                // Continue reading multi-line text
-                var j = i + 1
-                while j < lines.count && !lines[j].contains(":") && !lines[j].hasPrefix("Scene") {
-                    textSegment += " " + lines[j].trimmingCharacters(in: .whitespaces)
-                    j += 1
-                }
-            } else if line.hasPrefix("TIMESTAMP:") {
-                let timestampStr = String(line.dropFirst(10)).trimmingCharacters(in: .whitespaces)
-                timestamp = TimeInterval(timestampStr) ?? TimeInterval((sceneNumber - 1) * Int(storyDuration / 8))
-            } else if line.hasPrefix("EMOTION:") {
-                let emotionStr = String(line.dropFirst(8)).trimmingCharacters(in: .whitespaces).lowercased()
-                emotion = SceneEmotion(rawValue: emotionStr) ?? .peaceful
-            } else if line.hasPrefix("IMPORTANCE:") {
-                let importanceStr = String(line.dropFirst(11)).trimmingCharacters(in: .whitespaces).lowercased()
-                importance = SceneImportance(rawValue: importanceStr) ?? .major
-            } else if line.hasPrefix("ILLUSTRATION:") {
-                illustrationPrompt = String(line.dropFirst(13)).trimmingCharacters(in: .whitespaces)
-                // Continue reading multi-line illustration prompt
-                var j = i + 1
-                while j < lines.count && !lines[j].contains(":") && !lines[j].hasPrefix("Scene") {
-                    illustrationPrompt += " " + lines[j].trimmingCharacters(in: .whitespaces)
-                    j += 1
-                }
-            }
-        }
-
-        // Only create scene if we have the minimum required information
-        guard !textSegment.isEmpty && !illustrationPrompt.isEmpty else {
-            return nil
-        }
-
-        return StoryScene(
-            sceneNumber: sceneNumber,
-            textSegment: textSegment,
-            illustrationPrompt: illustrationPrompt,
-            timestamp: timestamp,
-            emotion: emotion,
-            importance: importance
+            scenes: nil // Scenes will be extracted in a separate API call
         )
     }
     

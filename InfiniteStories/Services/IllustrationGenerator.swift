@@ -77,60 +77,78 @@ class IllustrationGenerator {
             throw GeneratorError.noHeroAvatar
         }
 
-        // Calculate number of illustrations based on story duration
-        let illustrationCount = story.recommendedIllustrationCount
-        AppLogger.shared.info("Planning to generate \(illustrationCount) illustrations", category: .illustration, requestId: String(requestId))
-
-        // Segment the story into parts for illustration
-        AppLogger.shared.info("Segmenting story into \(illustrationCount) parts", category: .illustration, requestId: String(requestId))
-        let segments = segmentStory(story.content, into: illustrationCount)
-
-        // Create illustration models and save to database
         var illustrations: [StoryIllustration] = []
 
-        for (index, segment) in segments.enumerated() {
-            // Calculate timestamp for this illustration
-            let timestamp = calculateTimestamp(
-                index: index,
-                total: illustrationCount,
-                duration: story.estimatedDuration
-            )
+        // Check if story already has imported scenes from AI
+        if !story.illustrations.isEmpty {
+            // Use the existing scenes that were imported from AI
+            illustrations = story.illustrations
+            AppLogger.shared.info("Using \(illustrations.count) scenes imported from AI", category: .illustration, requestId: String(requestId))
 
-            AppLogger.shared.debug("Scene \(index + 1): Timestamp=\(timestamp)s, Importance=\(segment.importance)", category: .illustration, requestId: String(requestId))
+            // Log the scenes for debugging
+            for (index, illustration) in illustrations.enumerated() {
+                AppLogger.shared.debug("Scene \(index + 1): Timestamp=\(illustration.timestamp)s, Order=\(illustration.displayOrder)", category: .illustration, requestId: String(requestId))
 
-            // Generate prompt for this segment
-            let prompt = generateIllustrationPrompt(
-                segment: segment.text,
-                heroDescription: avatarPrompt,
-                heroName: hero.name,
-                storyContext: story.eventTitle
-            )
+                #if DEBUG
+                AppLogger.shared.debug("Scene \(index + 1) using existing prompt", category: .illustration, requestId: String(requestId))
+                #endif
+            }
+        } else {
+            // Fallback: Use the old segmentation logic if no scenes were imported
+            AppLogger.shared.info("No imported scenes found, using fallback segmentation", category: .illustration, requestId: String(requestId))
 
-            // Note: The AI-based sanitization will be applied automatically
-            // when the prompt is sent to the generateAvatar method in AIService.
+            // Use a default count of 5 illustrations as fallback
+            let illustrationCount = 5
+            AppLogger.shared.info("Planning to generate \(illustrationCount) illustrations", category: .illustration, requestId: String(requestId))
 
-            // Log only in debug mode
-            #if DEBUG
-            AppLogger.shared.debug("Scene \(index + 1) prompt generated", category: .illustration, requestId: String(requestId))
-            #endif
+            // Segment the story into parts for illustration
+            AppLogger.shared.info("Segmenting story into \(illustrationCount) parts", category: .illustration, requestId: String(requestId))
+            let segments = segmentStory(story.content, into: illustrationCount)
 
-            // Create illustration model
-            let illustration = StoryIllustration(
-                timestamp: timestamp,
-                imagePrompt: prompt,
-                displayOrder: index,
-                textSegment: segment.text
-            )
+            for (index, segment) in segments.enumerated() {
+                // Calculate timestamp for this illustration
+                let timestamp = calculateTimestamp(
+                    index: index,
+                    total: illustrationCount,
+                    duration: story.estimatedDuration
+                )
 
-            illustration.story = story
-            illustrations.append(illustration)
+                AppLogger.shared.debug("Scene \(index + 1): Timestamp=\(timestamp)s, Importance=\(segment.importance)", category: .illustration, requestId: String(requestId))
 
-            // Insert into model context
-            modelContext.insert(illustration)
+                // Generate prompt for this segment
+                let prompt = generateIllustrationPrompt(
+                    segment: segment.text,
+                    heroDescription: avatarPrompt,
+                    heroName: hero.name,
+                    storyContext: story.eventTitle
+                )
+
+                // Note: The AI-based sanitization will be applied automatically
+                // when the prompt is sent to the generateAvatar method in AIService.
+
+                // Log only in debug mode
+                #if DEBUG
+                AppLogger.shared.debug("Scene \(index + 1) prompt generated", category: .illustration, requestId: String(requestId))
+                #endif
+
+                // Create illustration model
+                let illustration = StoryIllustration(
+                    timestamp: timestamp,
+                    imagePrompt: prompt,
+                    displayOrder: index,
+                    textSegment: segment.text
+                )
+
+                illustration.story = story
+                illustrations.append(illustration)
+
+                // Insert into model context
+                modelContext.insert(illustration)
+            }
+
+            // Save illustrations to database first
+            try modelContext.save()
         }
-
-        // Save illustrations to database first
-        try modelContext.save()
 
         AppLogger.shared.success("Created \(illustrations.count) illustration records in database", category: .illustration, requestId: String(requestId))
 

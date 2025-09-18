@@ -125,14 +125,14 @@ class StoryViewModel: ObservableObject {
                 language: appSettings.preferredLanguage
             )
             
-            print("📱 🚀 Calling AI service...")
+            print("📱 🚀 Calling AI service for story generation...")
             let response = try await aiService.generateStory(request: request)
-            
-            print("📱 ✅ AI service returned successfully")
+
+            print("📱 ✅ Story generated successfully")
             print("📱 📊 Response - Title: \(response.title)")
             print("📱 📊 Response - Content length: \(response.content.count) characters")
             print("📱 📊 Response - Duration: \(response.estimatedDuration) seconds")
-            
+
             // Create and save the story
             let story = Story(
                 title: response.title,
@@ -142,14 +142,33 @@ class StoryViewModel: ObservableObject {
             )
             story.estimatedDuration = response.estimatedDuration
 
-            // Import scenes if available for illustration
-            if let scenes = response.scenes, !scenes.isEmpty {
-                story.importScenes(from: scenes.map { scene in
-                    (sceneNumber: scene.sceneNumber,
-                     textSegment: scene.textSegment,
-                     illustrationPrompt: scene.illustrationPrompt,
-                     timestamp: scene.timestamp)
-                })
+            // Extract scenes in a separate API call
+            print("📱 🎨 Extracting scenes for illustrations...")
+            do {
+                let sceneRequest = SceneExtractionRequest(
+                    storyContent: response.content,
+                    storyDuration: response.estimatedDuration,
+                    hero: hero,
+                    eventContext: event.rawValue
+                )
+
+                let scenes = try await aiService.extractScenesFromStory(request: sceneRequest)
+
+                print("📱 ✅ Extracted \(scenes.count) scenes from story")
+
+                // Import scenes for illustration
+                if !scenes.isEmpty {
+                    story.importScenes(from: scenes.map { scene in
+                        (sceneNumber: scene.sceneNumber,
+                         textSegment: scene.textSegment,
+                         illustrationPrompt: scene.illustrationPrompt,
+                         timestamp: scene.timestamp)
+                    })
+                    print("📱 📊 Imported \(scenes.count) scenes into story")
+                }
+            } catch {
+                print("📱 ⚠️ Scene extraction failed (non-critical): \(error)")
+                // Scene extraction failure is non-critical - story still works without illustrations
             }
             
             print("📱 💾 Saving story to SwiftData...")
@@ -233,12 +252,12 @@ class StoryViewModel: ObservableObject {
             
             print("📱 🚀 Calling AI service with custom event...")
             let response = try await aiService.generateStoryWithCustomEvent(request: request)
-            
-            print("📱 ✅ AI service returned successfully")
+
+            print("📱 ✅ Custom story generated successfully")
             print("📱 📊 Response - Title: \(response.title)")
             print("📱 📊 Response - Content length: \(response.content.count) characters")
             print("📱 📊 Response - Duration: \(response.estimatedDuration) seconds")
-            
+
             // Create and save the story with custom event
             let story = Story(
                 title: response.title,
@@ -248,14 +267,33 @@ class StoryViewModel: ObservableObject {
             )
             story.estimatedDuration = response.estimatedDuration
 
-            // Import scenes if available for illustration
-            if let scenes = response.scenes, !scenes.isEmpty {
-                story.importScenes(from: scenes.map { scene in
-                    (sceneNumber: scene.sceneNumber,
-                     textSegment: scene.textSegment,
-                     illustrationPrompt: scene.illustrationPrompt,
-                     timestamp: scene.timestamp)
-                })
+            // Extract scenes in a separate API call
+            print("📱 🎨 Extracting scenes for illustrations...")
+            do {
+                let sceneRequest = SceneExtractionRequest(
+                    storyContent: response.content,
+                    storyDuration: response.estimatedDuration,
+                    hero: hero,
+                    eventContext: customEvent.title
+                )
+
+                let scenes = try await aiService.extractScenesFromStory(request: sceneRequest)
+
+                print("📱 ✅ Extracted \(scenes.count) scenes from story")
+
+                // Import scenes for illustration
+                if !scenes.isEmpty {
+                    story.importScenes(from: scenes.map { scene in
+                        (sceneNumber: scene.sceneNumber,
+                         textSegment: scene.textSegment,
+                         illustrationPrompt: scene.illustrationPrompt,
+                         timestamp: scene.timestamp)
+                    })
+                    print("📱 📊 Imported \(scenes.count) scenes into story")
+                }
+            } catch {
+                print("📱 ⚠️ Scene extraction failed (non-critical): \(error)")
+                // Scene extraction failure is non-critical - story still works without illustrations
             }
             
             print("📱 💾 Saving custom story to SwiftData...")
