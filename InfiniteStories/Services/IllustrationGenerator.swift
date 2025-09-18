@@ -14,6 +14,7 @@ class IllustrationGenerator {
 
     private let aiService: AIServiceProtocol
     private let modelContext: ModelContext
+    private let visualConsistencyService: HeroVisualConsistencyService?
 
     // Generation parameters
     private let imageSize = "1024x1024"
@@ -40,9 +41,10 @@ class IllustrationGenerator {
         }
     }
 
-    init(aiService: AIServiceProtocol, modelContext: ModelContext) {
+    init(aiService: AIServiceProtocol, modelContext: ModelContext, visualConsistencyService: HeroVisualConsistencyService? = nil) {
         self.aiService = aiService
         self.modelContext = modelContext
+        self.visualConsistencyService = visualConsistencyService ?? HeroVisualConsistencyService(aiService: aiService, modelContext: modelContext)
         createIllustrationsDirectory()
     }
 
@@ -202,12 +204,36 @@ class IllustrationGenerator {
             AppLogger.shared.debug("Generating scene #\(sceneNum)", category: .illustration, requestId: String(requestId))
             #endif
 
-            // Create avatar generation request
+            // Get the hero for this illustration
+            guard let hero = illustration.story?.hero else {
+                AppLogger.shared.error("No hero found for illustration", category: .illustration, requestId: String(requestId))
+                return false
+            }
+
+            // Enhance prompt with visual consistency
+            let enhancedPrompt: String
+            if let consistencyService = visualConsistencyService {
+                do {
+                    enhancedPrompt = try await consistencyService.enhanceIllustrationPrompt(
+                        originalPrompt: illustration.imagePrompt,
+                        hero: hero,
+                        sceneContext: "Scene \(sceneNum) of the story"
+                    )
+                    AppLogger.shared.info("Applied visual consistency to illustration prompt", category: .illustration, requestId: String(requestId))
+                } catch {
+                    AppLogger.shared.warning("Visual consistency enhancement failed, using original prompt", category: .illustration, requestId: String(requestId))
+                    enhancedPrompt = illustration.imagePrompt
+                }
+            } else {
+                enhancedPrompt = illustration.imagePrompt
+            }
+
+            // Create avatar generation request with enhanced prompt
             // Note: The prompt will undergo AI-based sanitization in AIService.generateAvatar
             // This ensures DALL-E policy compliance through dynamic GPT-4 rewriting
             let request = AvatarGenerationRequest(
-                hero: illustration.story!.hero!,
-                prompt: illustration.imagePrompt,
+                hero: hero,
+                prompt: enhancedPrompt,
                 size: imageSize,
                 quality: imageQuality
             )

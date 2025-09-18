@@ -400,8 +400,20 @@ class OpenAIService: AIServiceProtocol {
             throw AIServiceError.invalidAPIKey
         }
 
-        // Build the prompt for scene extraction
+        // Build the prompt for scene extraction with enhanced visual consistency
         let heroAppearance = request.hero.appearance.isEmpty ? "a lovable character" : request.hero.appearance
+
+        // Build detailed hero visual description for consistency
+        var heroVisualDescription = "\(request.hero.name)"
+        if !request.hero.appearance.isEmpty {
+            heroVisualDescription += " - \(request.hero.appearance)"
+        }
+
+        // Add avatar prompt details if available for maximum consistency
+        if let avatarPrompt = request.hero.avatarPrompt {
+            heroVisualDescription += ". IMPORTANT VISUAL REFERENCE: \(avatarPrompt)"
+        }
+
         let prompt = """
         You are an expert at analyzing children's bedtime stories and identifying key visual moments for illustration.
 
@@ -413,7 +425,12 @@ class OpenAIService: AIServiceProtocol {
 
         Story Context: \(request.eventContext)
         Story Duration: \(Int(request.storyDuration)) seconds
-        Hero: \(request.hero.name) - \(heroAppearance)
+
+        HERO VISUAL CONSISTENCY REQUIREMENTS:
+        Main Character: \(heroVisualDescription)
+
+        CRITICAL: Every illustration prompt MUST include the EXACT hero appearance described above.
+        The character must look IDENTICAL in every scene - same colors, features, clothing, and style.
 
         STORY TEXT:
         \(request.storyContent)
@@ -428,10 +445,12 @@ class OpenAIService: AIServiceProtocol {
            - The emotional tone and importance
 
         The illustration prompts should:
-        - Always include \(request.hero.name) with appearance: \(heroAppearance)
+        - ALWAYS start with the hero description: "\(heroVisualDescription)"
+        - Maintain EXACT visual consistency across all scenes
         - Be child-friendly and magical
         - Use warm, watercolor or soft digital art style
         - Be specific about colors, composition, and atmosphere
+        - Include the hero in every scene with consistent appearance
         - Be under 150 words each
 
         Return your analysis as a JSON object matching this structure:
@@ -1415,12 +1434,30 @@ class OpenAIService: AIServiceProtocol {
         Focus on creating a sense of wonder and joy.
         """
 
-        // Ensure hero consistency
-        let heroConsistency = """
-        The main character \(hero.name) should be clearly visible and match this description: \
-        \(hero.appearance.isEmpty ? "a lovable, friendly character" : hero.appearance). \
-        \(hero.primaryTrait.description) and \(hero.secondaryTrait.description) character traits \
+        // Build comprehensive hero consistency requirements
+        var heroConsistency = """
+        The main character \(hero.name) should be clearly visible and match this EXACT description: \
+        \(hero.appearance.isEmpty ? "a lovable, friendly character" : hero.appearance).
+        """
+
+        // Include avatar prompt for maximum consistency if available
+        if let avatarPrompt = hero.avatarPrompt {
+            heroConsistency += """
+
+
+            VISUAL REFERENCE (MUST MATCH EXACTLY): \(avatarPrompt)
+            """
+        }
+
+        // Add trait consistency
+        heroConsistency += """
+
+
+        Character traits: \(hero.primaryTrait.description) and \(hero.secondaryTrait.description) \
         should be reflected in their expression and posture.
+
+        CRITICAL: The character MUST look IDENTICAL to their established appearance. \
+        Same hair color, clothing, features, and overall design in every illustration.
         """
 
         return "\(prompt)\n\n\(heroConsistency)\n\n\(styleGuidance)"

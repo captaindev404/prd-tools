@@ -22,6 +22,7 @@ final class Hero {
     var avatarGeneratedAt: Date?
 
     @Relationship(deleteRule: .nullify) var stories: [Story] = []
+    @Relationship var visualProfile: HeroVisualProfile?
     
     init(name: String, primaryTrait: CharacterTrait, secondaryTrait: CharacterTrait, appearance: String = "", specialAbility: String = "") {
         self.name = name
