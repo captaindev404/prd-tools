@@ -1,14 +1,22 @@
 # iOS Permissions Guide for InfiniteStories
 
-## Current Status: NO PERMISSIONS REQUIRED ✅
+## Current Status: LIMITED PERMISSIONS REQUIRED ⚠️
 
-The InfiniteStories app currently works without requiring any user permissions because it only uses:
+The InfiniteStories app currently requires minimal permissions:
 
-- **SwiftData**: App's private database
+### Required Permissions (Currently in Info.plist):
+- **NSMicrophoneUsageDescription**: Currently listed but not actively used
+  - Description: "InfiniteStories needs microphone access for audio recording features."
+  - Status: Should be removed if not implementing voice features
+
+### Features That DON'T Require Permissions:
+- **SwiftData**: App's private database for heroes, stories, and illustrations
 - **AVAudioPlayer**: MP3 audio playback (OpenAI-generated)
-- **FileManager**: App's Documents directory for audio storage
+- **FileManager**: App's Documents directory for audio and illustration storage
 - **URLSession**: Network requests to OpenAI API (automatically granted)
 - **Keychain**: Secure storage for API keys (no permission needed)
+- **DALL-E Illustrations**: Generated images stored in app's Documents/StoryIllustrations folder
+- **Hero Avatars**: AI-generated avatars stored in app's private storage
 
 ## Future Permissions (if you add these features)
 
@@ -87,8 +95,72 @@ Add these for better App Store presentation:
 <string>public.app-category.education</string>
 ```
 
+## Visual Storytelling & Illustration Features
+
+### Current Implementation
+The app includes AI-generated illustrations using DALL-E 3:
+
+1. **Story Illustrations**:
+   - Generated via OpenAI's DALL-E 3 API
+   - Stored in `Documents/StoryIllustrations/` directory
+   - No photo library access needed (internal storage only)
+   - Image files managed by `StoryIllustration` model
+
+2. **Hero Avatars**:
+   - AI-generated character images (1024x1024)
+   - Stored in app's Documents directory
+   - Referenced by URL in Hero model
+
+### Storage Management
+- **Location**: All images stored in app's sandboxed Documents directory
+- **Format**: PNG/JPEG files saved locally
+- **Access**: No external permissions required
+- **Cleanup**: Handled automatically when stories/heroes are deleted
+
+### Network Implications
+- **API Usage**: Increased network requests for DALL-E generation
+- **Data Transfer**: ~1-2MB per illustration download
+- **Caching**: Images cached locally after first download
+- **No cellular data restrictions**: Standard iOS cellular settings apply
+
+### Privacy Considerations
+- **No Photo Library Access**: Images stay within app sandbox
+- **No Camera Access**: No photo capture features
+- **No iCloud Sync**: Images stored locally only
+- **User Control**: Parents can delete stories/heroes to remove images
+
+### What Permissions Are NOT Needed
+✅ **Photo Library**: No saving to or reading from Photos app
+✅ **Camera**: No photo capture functionality
+✅ **iCloud**: No cloud storage or sync
+✅ **Files App**: No document sharing or export
+
+### Potential Future Permissions
+If you add these features, you'll need permissions:
+
+1. **Export Illustrations to Photos**:
+   ```xml
+   <key>NSPhotoLibraryAddUsageDescription</key>
+   <string>Save your child's story illustrations to your photo library.</string>
+   ```
+
+2. **Share Illustrations**:
+   - No permission needed for UIActivityViewController
+   - Built-in iOS share sheet handles permissions
+
+## Action Required
+
+⚠️ **Remove Unused Microphone Permission**:
+The Info.plist currently includes NSMicrophoneUsageDescription but the app doesn't use microphone features. This should be removed to avoid App Store review issues:
+
+```xml
+<!-- Remove this from Info.plist -->
+<key>NSMicrophoneUsageDescription</key>
+<string>InfiniteStories needs microphone access for audio recording features.</string>
+```
+
 ## Summary
 
-🎉 **Your app is ready to ship without any permission dialogs!** 
+✅ **Your app works without permission dialogs** (after removing unused microphone permission)
 
-This provides a great user experience since parents can immediately start using the app without any permission barriers.
+The visual storytelling features (illustrations and avatars) are fully implemented without requiring any additional iOS permissions. All generated images are stored in the app's private sandbox, ensuring privacy and security while maintaining a friction-free user experience.

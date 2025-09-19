@@ -176,7 +176,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "817"
             endingLineNumber = "817"
-            landmarkName = "basicPromptSanitization(_:)"
+            landmarkName = "enhancedBasicSanitization(_:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -272,8 +272,8 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "67"
             endingLineNumber = "67"
-            landmarkName = "generateIllustrations(for:)"
-            landmarkType = "7">
+            landmarkName = "IllustrationGenerator"
+            landmarkType = "3">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -306,36 +306,6 @@
             endingLineNumber = "111"
             landmarkName = "generateStory(for:event:)"
             landmarkType = "7">
-            <Locations>
-               <Location
-                  uuid = "91E9490E-7AAA-441F-B094-1D3104F64901 - a6c65df2f4c86dc7"
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "(3) suspend resume partial function for InfiniteStories.StoryGenerationViewModel.generateStory(for: InfiniteStories.Hero, event: InfiniteStories.StoryEvent) async -&gt; Swift.Optional&lt;InfiniteStories.Story&gt;"
-                  moduleName = "InfiniteStories.debug.dylib"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/captaindev404/Code/Github/infinite-stories/InfiniteStories/InfiniteStories/ViewModels/StoryGenerationViewModel.swift"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "111"
-                  endingLineNumber = "111">
-               </Location>
-               <Location
-                  uuid = "91E9490E-7AAA-441F-B094-1D3104F64901 - a6c65df2f4c86dc7"
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "(3) suspend resume partial function for InfiniteStories.StoryGenerationViewModel.generateStory(for: InfiniteStories.Hero, event: InfiniteStories.StoryEvent) async -&gt; Swift.Optional&lt;InfiniteStories.Story&gt;"
-                  moduleName = "InfiniteStories.debug.dylib"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/captaindev404/Code/Github/infinite-stories/InfiniteStories/InfiniteStories/ViewModels/StoryGenerationViewModel.swift"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "111"
-                  endingLineNumber = "111">
-               </Location>
-            </Locations>
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -438,7 +408,7 @@
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
             uuid = "C22F48C4-8BB5-46CA-BF17-9D7B010B719A"
-            shouldBeEnabled = "Yes"
+            shouldBeEnabled = "No"
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "InfiniteStories/ViewModels/StoryViewModel.swift"
