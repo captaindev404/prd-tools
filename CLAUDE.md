@@ -10,30 +10,71 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Core Data Models (SwiftData)
 - **Hero**: Character with name, personality traits, appearance, special abilities, and AI-generated avatar
-  - Avatar images stored in Documents directory with URL reference in model
-  - Fallback to icon-based avatar when no image available
-- **Story**: Generated story content linked to a hero with audio file reference
-  - Auto-regenerates audio when content changes
-  - Supports custom events and multi-language generation
-  - Tracks play count, favorites, and listening time
-- **CustomStoryEvent**: User-defined story scenarios with AI enhancement
-  - Categories, age ranges, and tone settings
+  - Avatar images stored in Documents/Avatars directory with URL reference in model
+  - File existence validation with fallback to icon-based avatar
+  - Relationships: stories (one-to-many), visualProfile (one-to-one)
+  - Computed properties: avatarURL, hasAvatar, traitsDescription, fullDescription
+- **Story**: Enhanced story content with comprehensive illustration support
+  - Auto-regenerates audio when content changes via didSet observers
+  - Supports both built-in and custom events with dual relationship pattern
+  - Advanced illustration management with timeline synchronization
+  - Progress tracking, error handling, and retry mechanisms for illustrations
+  - Computed properties: eventTitle, eventPromptSeed, hasIllustrations, illustrationProgress
+  - Methods: importScenes, updateIllustration, resetFailedIllustrations
+- **StoryIllustration**: NEW - Visual storytelling system
+  - Audio-synced illustrations with precise timestamps
+  - DALL-E prompt storage and image path management
+  - Comprehensive error tracking with retry mechanisms
+  - Display order management for carousel navigation
+  - File existence validation and cleanup support
+- **HeroVisualProfile**: NEW - Character consistency system
+  - Detailed visual characteristics (hair, eyes, skin, clothing)
+  - Canonical and simplified prompts for consistent generation
+  - Art style and color palette definitions
+  - Methods: generateSceneCharacterDescription, generateStyleConsistencyPrompt
+- **CustomStoryEvent**: Enhanced user-defined scenarios
+  - Categories, age ranges, and tone settings with comprehensive enums
   - AI-powered prompt enhancement and keyword generation
-- **CharacterTrait**: Enum defining personality options (brave, kind, curious, etc.)
-- **StoryEvent**: Enum for story contexts (bedtime, school day, birthday, etc.)
+  - Usage tracking and favorite management
+  - Methods: incrementUsage, updateWithAIEnhancement, toggleFavorite
+- **CharacterTrait**: Enum defining personality options (brave, kind, curious, etc.) with descriptions
+- **StoryEvent**: Enum for story contexts (bedtime, school day, birthday, etc.) with icons and prompts
 
 ### Services Layer
 
 #### AI Integration (OpenAI Exclusive)
-- **AIService**: Centralized OpenAI API integration
+- **AIService**: Centralized OpenAI API integration with enhanced scene extraction
   - **Story Generation**: GPT-4o model (temperature: 0.8, max tokens: 2000)
+  - **Scene Extraction**: AI-powered story segmentation for illustration timing
   - **Audio Synthesis**: gpt-4o-mini-tts model with 7 specialized children's voices
-  - **Avatar Generation**: DALL-E 3 (1024x1024, standard quality)
+  - **Avatar Generation**: DALL-E 3 (1024x1024, standard quality) with prompt optimization
+  - **Illustration Generation**: Multi-scene DALL-E integration with consistency
   - Multi-language support (English, Spanish, French, German, Italian)
   - Secure API key storage in iOS Keychain
+  - Comprehensive error handling with typed errors
   - No mock services or fallbacks - OpenAI API required
 
-- **AudioService**: Advanced MP3 audio management
+- **IllustrationGenerator**: NEW - Multi-illustration generation service
+  - Scene-based illustration creation with audio timestamp synchronization
+  - Hero visual consistency using HeroVisualProfile integration
+  - Error-tolerant generation with retry mechanisms
+  - File system management for illustration storage
+  - Progress tracking and status reporting
+
+- **HeroVisualConsistencyService**: NEW - Character appearance management
+  - AI-powered visual characteristic extraction from avatar prompts
+  - Consistent character descriptions for scene illustrations
+  - Visual profile creation and enhancement with GPT-4
+  - Canonical prompt management for character consistency
+
+- **ContentPolicyFilter**: NEW - Child safety and content filtering
+  - Comprehensive DALL-E prompt filtering for content policy compliance
+  - Multi-language safety term replacement (English, French, Spanish, German, Italian)
+  - Isolation term filtering critical for child safety
+  - Pre-validation with risk level assessment
+  - Detailed logging and replacement tracking
+
+- **AudioService**: Advanced MP3 audio management with comprehensive media controls
   - Lock screen integration via MPNowPlayingInfoCenter and MPRemoteCommandCenter
   - Background audio session management with interruption handling
   - Automatic idle timer management during playback
@@ -41,6 +82,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - Playback speed control (0.5x to 2.0x) and seeking capabilities
   - Audio route change detection (headphones disconnection)
   - Navigation delegate for story queue management
+  - Protocol-based design (AIServiceProtocol, AudioServiceProtocol) for testability
+
+- **IllustrationSyncManager**: NEW - Audio-illustration synchronization
+  - Real-time illustration switching based on audio timestamp
+  - Smooth transitions between story scenes
+  - Progress tracking for illustration display
+  - Performance optimization for large illustration sets
 
 - **CustomEventAIAssistant**: AI-powered helper for custom events
   - Title generation from descriptions
@@ -56,16 +104,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **BackgroundTaskManager**: Manages iOS background tasks for audio and story processing
 - **NetworkService**: Monitors network connectivity and handles network-dependent operations
 - **ThemeSettings**: Manages dark/light/system theme preferences
-- **AppSettings**: User preferences and API configuration with secure keychain storage
+- **Logger**: NEW - Comprehensive logging system
+  - Structured logging with categories (story, audio, avatar, illustration, api, cache, ui)
+  - Log levels (debug, info, warning, error, success, network)
+  - Session tracking and request ID correlation
+  - Optional file logging with performance considerations
+  - Production-ready with verbose mode controls
 
 ### View Architecture (MVVM)
 
 #### Main Views
-- **ImprovedContentView**: Enhanced magical UI with floating action button
-  - **FloatingCreateStoryButton**: Bottom-right FAB (64x64pt) with animations
-  - **ReadingJourneyTopButton**: Compact stats button in navigation bar
+- **ImprovedContentView**: Enhanced magical UI with integrated floating action button
+  - **Floating Action Button**: Inline implementation (64x64pt orange gradient) with continuous animations
+  - **Reading Journey Button**: Integrated compact stats button in navigation bar
   - Removed Quick Actions section for cleaner layout
   - Bottom padding (100pt) for floating button clearance
+  - Support for magical UI elements (floating clouds, rotating stars, sparkle animations)
 
 - **ContentView**: Original dashboard (deprecated, use ImprovedContentView)
 
@@ -77,13 +131,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **AdaptiveHeroGridView**: Responsive hero display grid
 
 #### Story Features
-- **StoryGenerationView**: Event selection and story generation interface
+- **StoryGenerationView**: Event selection and story generation interface with illustration support
 - **StoryEditView**: In-app story editor with auto-formatting
   - Character/word count tracking
   - Automatic audio regeneration on save
 - **ImprovedStoryLibraryView**: Enhanced story list with filtering and sorting
 - **HeroSelectionForStoryView**: Hero picker for story generation
 - **EnhancedEventPickerView**: Improved event selection with custom events
+
+#### NEW: Illustration Components
+- **IllustrationCarouselView**: Visual story display with Ken Burns effect
+- **IllustrationSyncView**: Audio-synced illustration viewer with timeline
+- **IllustrationLoadingView**: Generation progress with detailed status
+- **IllustrationPlaceholderView**: Error handling with retry mechanisms
+- **IllustrationThumbnailStrip**: Quick navigation between story scenes
 
 #### Reading Journey
 - **ReadingJourneyView**: Comprehensive reading statistics and progress
@@ -137,25 +198,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Key Features
 
 1. **Hero Creation**: Step-by-step character building with AI-generated avatars
-2. **Story Generation**: AI-powered stories using OpenAI GPT-4o
-3. **Custom Events**: User-defined scenarios with AI enhancement
-4. **Multi-Language Support**: 5 languages with localized prompts and voices
-5. **Audio Generation**: High-quality MP3 synthesis via gpt-4o-mini-tts
-6. **Story Editing**: In-app editing with automatic audio regeneration
-7. **Reading Journey**: Comprehensive statistics and progress tracking
-8. **Advanced Audio Playback**: Full-featured player with lock screen controls
-9. **Theme Support**: Light, dark, and system theme preferences
-10. **Accessibility**: Full VoiceOver and Dynamic Type support
-11. **Hero Management**: Complete CRUD operations with avatar support
-12. **Background Processing**: Continued operation when app is backgrounded
+2. **Story Generation**: AI-powered stories using OpenAI GPT-4o with scene extraction
+3. **Visual Storytelling**: NEW - AI-generated illustrations synchronized with audio
+4. **Visual Consistency**: NEW - Character appearance maintained across all illustrations
+5. **Custom Events**: User-defined scenarios with AI enhancement and usage tracking
+6. **Multi-Language Support**: 5 languages with localized prompts and voices
+7. **Audio Generation**: High-quality MP3 synthesis via gpt-4o-mini-tts
+8. **Story Editing**: In-app editing with automatic audio regeneration
+9. **Reading Journey**: Comprehensive statistics and progress tracking with charts
+10. **Advanced Audio Playback**: Full-featured player with lock screen controls and queue management
+11. **Content Safety**: NEW - Comprehensive child-safe content filtering
+12. **Error Resilience**: NEW - Graceful failure handling with retry mechanisms
+13. **Theme Support**: Light, dark, and system theme preferences
+14. **Accessibility**: Full VoiceOver and Dynamic Type support (WCAG AA)
+15. **Hero Management**: Complete CRUD operations with avatar and visual profile support
+16. **Background Processing**: Continued operation when app is backgrounded
+17. **Performance Optimization**: Device-specific adaptations for smooth operation
 
 ## Recent UI Changes
 
 ### Floating Action Button (FAB)
+- **Implementation**: Integrated directly in ImprovedContentView (not separate component)
 - **Position**: Bottom-right corner (20pt right, 30pt bottom from safe area)
-- **Design**: Orange gradient circle (64x64pt) with shadow
-- **Animation**: Continuous rotation and scale feedback on press
+- **Design**: Orange gradient circle (64x64pt) with shadow and blur effects
+- **Animation**: Continuous rotation and scale feedback on press with haptic feedback
 - **Visibility**: Only shown when heroes exist
+- **Performance**: Conditional rendering based on device capabilities
 
 ### Navigation Updates
 - **Reading Journey Button**: Moved to top navigation bar (right side)
@@ -165,10 +233,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - Inline button placement for better context
 
 ### Layout Improvements
-- Removed Quick Actions section entirely
+- Removed Quick Actions section entirely for cleaner interface
 - Removed Compact Journey Card from main view
 - Increased bottom padding (100pt) for FAB clearance
 - Expanded Recent Stories to show 6 items (up from 3)
+- Enhanced magical UI elements with ambient animations
+- Responsive grid layouts for different device sizes
+- Illustration carousel integration in story views
 
 ## OpenAI API Integration Details
 
@@ -177,10 +248,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 #### Story Generation (GPT-4o)
 - **Temperature**: 0.8 for creative but coherent output
 - **Max Tokens**: 2000 for stories, varies for other uses
+- **Enhanced Features**: Scene extraction with timestamps for illustration synchronization
 - **Use Cases**:
   - Main story generation with character traits
   - Custom event story generation
   - AI-powered content enhancement
+  - Scene segmentation for visual storytelling
+  - Visual characteristic extraction for character consistency
 
 #### Audio Synthesis (gpt-4o-mini-tts)
 - **Format**: MP3 exclusively (no fallback TTS)
@@ -194,7 +268,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Resolution**: 1024x1024 pixels
 - **Quality**: Standard
 - **Response**: Base64 encoded
-- **Storage**: Documents directory with URL reference
+- **Storage**: Documents/Avatars directory with URL reference
+- **Content Filtering**: Comprehensive safety filtering before API calls
+- **Visual Profiles**: Automatic extraction of character characteristics for consistency
+
+#### NEW: Illustration Generation (DALL-E 3)
+- **Multi-Scene Support**: Generate multiple illustrations per story
+- **Audio Synchronization**: Timestamp-based illustration display
+- **Visual Consistency**: Character appearance maintained across scenes
+- **Error Handling**: Retry mechanisms with graceful failure modes
+- **Content Safety**: Child-safe content filtering with multi-language support
+- **Storage**: Documents/StoryIllustrations directory with organized file management
 
 ### Security and Best Practices
 - API keys stored in iOS Keychain (never hardcoded)
@@ -210,10 +294,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Avatar Generation**: $0.04 per image
 
 ### Areas for Improvement
-- Implement exponential backoff for rate limiting
-- Add request queuing and batching
+- Implement exponential backoff for rate limiting (partially addressed with error handling)
+- Add request queuing and batching for illustration generation
 - Implement usage monitoring and cost tracking
-- Develop content caching strategy
+- Develop content caching strategy for illustrations
+- Optimize illustration file size and compression
+- Add illustration preloading for better performance
 
 ## Development Commands
 
@@ -255,10 +341,12 @@ xcodebuild -project InfiniteStories.xcodeproj -scheme InfiniteStories \
 ```
 InfiniteStories/
 ├── Models/
-│   ├── Hero.swift                  # Character model with avatar support
-│   ├── Story.swift                 # Story model with audio management
-│   ├── CustomStoryEvent.swift      # Custom event model with AI fields
-│   └── CharacterTraits.swift       # Enums for traits/events
+│   ├── Hero.swift                  # Character model with avatar and visual profile support
+│   ├── HeroVisualProfile.swift     # NEW - Character consistency model
+│   ├── Story.swift                 # Enhanced story model with illustration management
+│   ├── StoryIllustration.swift     # NEW - Visual storytelling model
+│   ├── CustomStoryEvent.swift      # Enhanced custom event model with usage tracking
+│   └── CharacterTraits.swift       # Enums for traits/events with descriptions
 ├── Views/
 │   ├── HeroCreation/
 │   │   └── HeroCreationView.swift  # Hero creation wizard
@@ -268,8 +356,11 @@ InfiniteStories/
 │   │   └── AvatarGenerationView.swift # AI avatar creation
 │   ├── Components/
 │   │   ├── HeroAvatarImageView.swift  # Avatar display component
-│   │   ├── FloatingCreateStoryButton.swift # FAB component
-│   │   └── ReadingJourneyTopButton.swift   # Journey nav button
+│   │   ├── IllustrationCarouselView.swift # NEW - Visual story display
+│   │   ├── IllustrationSyncView.swift # NEW - Audio-synced illustration viewer
+│   │   ├── IllustrationLoadingView.swift # NEW - Generation progress
+│   │   ├── IllustrationPlaceholderView.swift # NEW - Error handling
+│   │   └── IllustrationThumbnailStrip.swift # NEW - Quick navigation
 │   ├── ReadingJourney/
 │   │   └── ReadingJourneyView.swift   # Statistics and progress
 │   ├── StoryGeneration/
@@ -291,8 +382,13 @@ InfiniteStories/
 │   ├── ContentView.swift           # Original dashboard (deprecated)
 │   └── ImprovedContentView.swift   # Enhanced magical UI with FAB
 ├── Services/
-│   ├── AIService.swift             # OpenAI integration
-│   ├── AudioService.swift          # Audio generation/playback
+│   ├── AIService.swift             # Enhanced OpenAI integration with scene extraction
+│   ├── IllustrationGenerator.swift # NEW - Multi-illustration generation
+│   ├── HeroVisualConsistencyService.swift # NEW - Character consistency
+│   ├── ContentPolicyFilter.swift   # NEW - Child safety filtering
+│   ├── IllustrationSyncManager.swift # NEW - Audio-illustration sync
+│   ├── Logger.swift                # NEW - Comprehensive logging system
+│   ├── AudioService.swift          # Audio generation/playback with protocol design
 │   ├── CustomEventAIAssistant.swift # AI event enhancement
 │   ├── AvatarPromptAssistant.swift # Avatar prompt generation
 │   ├── IdleTimerManager.swift      # Screen sleep prevention
@@ -321,6 +417,12 @@ InfiniteStories/
 - `maxRecentStories`: Number of stories on home screen (default: 6)
 - `enableHapticFeedback`: Haptic feedback for interactions
 - `showStatsDashboard`: Display statistics on home screen
+
+### UserDefaults Settings (NEW)
+- `allowIllustrationFailures: true`: Graceful illustration failure handling
+- `showIllustrationErrors: false`: Error visibility control
+- `maxIllustrationRetries: 3`: Retry attempt limits for failed illustrations
+- `enableDetailedLogging: true`: Comprehensive logging for debugging
 
 ### Theme Preferences
 - System: Follow device appearance
@@ -393,15 +495,21 @@ InfiniteStories/
 ## Recent Updates
 
 ### Latest Features
-- **Floating Action Button**: Primary CTA at bottom-right
-- **Reading Journey**: Comprehensive statistics dashboard
-- **AI Avatars**: DALL-E generated hero illustrations
-- **Enhanced UI**: Magical interface with animations
-- **Navigation Updates**: Streamlined button placement
-- **Multi-Language**: 5 language support
-- **Custom Events**: AI-enhanced story scenarios
-- **Story Editing**: In-app editor with auto-audio
-- **Advanced Audio**: Lock screen controls and queue
+- **Story Illustrations**: NEW - AI-generated visual storytelling with audio synchronization
+- **Visual Consistency**: NEW - Character appearance maintained across all story scenes
+- **Content Safety**: NEW - Comprehensive child-safe content filtering system
+- **Enhanced Logging**: NEW - Structured logging with categories and request tracking
+- **Error Resilience**: NEW - Graceful failure handling with retry mechanisms
+- **Performance Optimization**: Device-specific adaptations for smooth operation
+- **Floating Action Button**: Primary CTA at bottom-right with haptic feedback
+- **Reading Journey**: Comprehensive statistics dashboard with charts
+- **AI Avatars**: DALL-E generated hero illustrations with visual profiles
+- **Enhanced UI**: Magical interface with ambient animations
+- **Navigation Updates**: Streamlined button placement and inline components
+- **Multi-Language**: 5 language support with safety filtering
+- **Custom Events**: AI-enhanced story scenarios with usage tracking
+- **Story Editing**: In-app editor with auto-audio regeneration
+- **Advanced Audio**: Lock screen controls and queue management
 
 ### App Info.plist Configuration
 - Background modes: audio, processing, fetch
@@ -411,10 +519,12 @@ InfiniteStories/
 ### Known Limitations
 - OpenAI API required (no offline mode)
 - Network required for generation
-- Local MP3 storage consumption
+- Local MP3 and illustration storage consumption
 - iOS scheduling for background tasks
-- No retry logic for rate limits (TODO)
-- Limited caching strategy (TODO)
+- Limited retry logic for rate limits (partial implementation)
+- Limited caching strategy for illustrations (TODO)
+- Illustration generation can be slow for complex scenes
+- Device storage requirements increased with visual storytelling
 
 ## Important Instructions for Development
 
@@ -431,11 +541,13 @@ InfiniteStories/
 
 ## Cost and Usage Guidelines
 
-- Monitor API usage to control costs
-- Implement caching where appropriate
+- Monitor API usage to control costs (increased with illustration generation)
+- Implement caching where appropriate (especially for illustrations)
 - Consider batch operations for efficiency
 - Track user usage patterns for optimization
-- Plan for ~$0.50-0.60 per active user monthly
+- Plan for ~$0.75-1.00 per active user monthly (increased due to illustrations)
+- Illustration generation adds ~$0.20-0.30 per story with visual content
+- Content filtering reduces API rejections and associated costs
 
 ## Important Instruction Reminders
 

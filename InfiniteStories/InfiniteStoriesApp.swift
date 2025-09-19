@@ -12,16 +12,40 @@ import BackgroundTasks
 @main
 struct InfiniteStoriesApp: App {
     @StateObject private var themeSettings = ThemeSettings.shared
+    private func loadRocketSimConnect() {
+        #if DEBUG
+        guard (Bundle(path: "/Applications/RocketSim.app/Contents/Frameworks/RocketSimConnectLinker.nocache.framework")?.load() == true) else {
+            print("Failed to load linker framework")
+            return
+        }
+        print("RocketSim Connect successfully linked")
+        #endif
+    }
     
     init() {
+        loadRocketSimConnect()
         // Register background tasks when app launches
         BackgroundTaskManager.shared.registerBackgroundTasks()
+
+        // Initialize illustration failure handling defaults
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: "allowIllustrationFailures") == nil {
+            defaults.set(true, forKey: "allowIllustrationFailures")
+        }
+        if defaults.object(forKey: "showIllustrationErrors") == nil {
+            defaults.set(false, forKey: "showIllustrationErrors")
+        }
+        if defaults.object(forKey: "maxIllustrationRetries") == nil {
+            defaults.set(3, forKey: "maxIllustrationRetries")
+        }
     }
     
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Hero.self,
             Story.self,
+            StoryIllustration.self,
+            CustomStoryEvent.self
         ])
         
         // Get the application support directory for SwiftData storage

@@ -22,6 +22,7 @@ final class Hero {
     var avatarGeneratedAt: Date?
 
     @Relationship(deleteRule: .nullify) var stories: [Story] = []
+    @Relationship var visualProfile: HeroVisualProfile?
     
     init(name: String, primaryTrait: CharacterTrait, secondaryTrait: CharacterTrait, appearance: String = "", specialAbility: String = "") {
         self.name = name
@@ -56,11 +57,22 @@ final class Hero {
 
     var avatarURL: URL? {
         guard let avatarImagePath = avatarImagePath else { return nil }
-        return getDocumentsDirectory().appendingPathComponent("Avatars").appendingPathComponent(avatarImagePath)
+        let url = getDocumentsDirectory().appendingPathComponent("Avatars").appendingPathComponent(avatarImagePath)
+
+        // Verify file actually exists
+        if FileManager.default.fileExists(atPath: url.path) {
+            return url
+        } else {
+            print("Warning: Avatar file not found at \(url.path)")
+            return nil
+        }
     }
 
     var hasAvatar: Bool {
-        return avatarImagePath != nil
+        // Check both that we have a path and the file exists
+        guard let avatarImagePath = avatarImagePath else { return false }
+        let url = getDocumentsDirectory().appendingPathComponent("Avatars").appendingPathComponent(avatarImagePath)
+        return FileManager.default.fileExists(atPath: url.path)
     }
 
     private func getDocumentsDirectory() -> URL {

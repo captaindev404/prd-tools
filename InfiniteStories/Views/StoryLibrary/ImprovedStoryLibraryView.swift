@@ -480,7 +480,14 @@ struct ImprovedStoryLibraryView: View {
                     regeneratingStories.remove(story.id)
                 }
             },
-            isRegenerating: isRegenerating
+            onRetryFailedIllustrations: {
+                Task {
+                    await viewModel.retryAllFailedIllustrations(for: story)
+                }
+            },
+            isRegenerating: isRegenerating,
+            hasFailedIllustrations: viewModel.hasRetryableFailedIllustrations(story),
+            failedIllustrationCount: viewModel.failedIllustrationCount(for: story)
         )
         .transition(.asymmetric(
             insertion: .scale(scale: 0.9).combined(with: .opacity),
@@ -506,7 +513,10 @@ struct ImprovedStoryCard: View {
     var onDelete: (() -> Void)? = nil
     var onEdit: (() -> Void)? = nil
     var onRegenerateAudio: (() -> Void)? = nil
+    var onRetryFailedIllustrations: (() -> Void)? = nil
     var isRegenerating: Bool = false
+    var hasFailedIllustrations: Bool = false
+    var failedIllustrationCount: Int = 0
     
     @State private var isPressed = false
     @State private var showingActions = false
@@ -586,25 +596,46 @@ struct ImprovedStoryCard: View {
     
     @ViewBuilder
     private var thumbnailView: some View {
-        if let hero = story.hero {
-            // Show hero avatar
-            HeroAvatarImageView(hero: hero, size: 60)
-        } else {
-            // Fallback to event icon
-            ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(
-                        LinearGradient(
-                            colors: [eventColor.opacity(0.3), eventColor.opacity(0.1)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+        ZStack {
+            if let hero = story.hero {
+                // Show hero avatar
+                HeroAvatarImageView(hero: hero, size: 60)
+            } else {
+                // Fallback to event icon
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(
+                            LinearGradient(
+                                colors: [eventColor.opacity(0.3), eventColor.opacity(0.1)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
-                    )
-                    .frame(width: 60, height: 60)
+                        .frame(width: 60, height: 60)
 
-                Image(systemName: story.eventIcon)
-                    .font(.system(size: 24))
-                    .foregroundColor(eventColor)
+                    Image(systemName: story.eventIcon)
+                        .font(.system(size: 24))
+                        .foregroundColor(eventColor)
+                }
+            }
+
+            // Show first illustration as preview thumbnail if available
+            if let firstIllustration = story.illustrations.first {
+                AsyncImage(url: firstIllustration.imageURL) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 60, height: 60)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.purple.opacity(0.3), lineWidth: 2)
+                        )
+                } placeholder: {
+                    // Keep showing hero/event icon while loading
+                    EmptyView()
+                }
+                .transition(.opacity)
             }
         }
     }
@@ -653,8 +684,16 @@ struct ImprovedStoryCard: View {
     private var metadataRow: some View {
         HStack(spacing: 12) {
             EventBadge(eventTitle: story.eventTitle, color: eventColor)
-            
+
             Spacer()
+
+            // Illustration indicator
+            if !story.illustrations.isEmpty {
+                IllustrationBadge(
+                    count: story.illustrations.count,
+                    generatedCount: story.generatedIllustrations.count
+                )
+            }
 
             // Regenerate audio button
             if !isRegenerating && story.audioFileName != nil {
@@ -676,7 +715,7 @@ struct ImprovedStoryCard: View {
                     color: StoryLibraryDesign.Colors.primaryOrange
                 )
             }
-            
+
             if story.playCount > 0 {
                 MetadataItem(
                     icon: "play.circle.fill",
@@ -684,7 +723,7 @@ struct ImprovedStoryCard: View {
                     color: StoryLibraryDesign.Colors.primaryBlue
                 )
             }
-            
+
             MetadataItem(
                 icon: "calendar",
                 text: formatSmartDate(story.createdAt),
@@ -804,14 +843,24 @@ struct ImprovedStoryCard: View {
                     systemImage: story.isFavorite ? "heart.slash" : "heart"
                 )
             }
-            
+
             Button(action: { onShare?() }) {
                 Label("Share Story", systemImage: "square.and.arrow.up")
             }
-            
+
             if story.hasAudio {
                 Button(action: { /* Download functionality can be added later */ }) {
                     Label("Download Audio", systemImage: "arrow.down.circle")
+                }
+            }
+
+            // Add retry failed illustrations option
+            if hasFailedIllustrations {
+                Button(action: { onRetryFailedIllustrations?() }) {
+                    Label(
+                        "Retry Failed Illustrations (\(failedIllustrationCount))",
+                        systemImage: "arrow.clockwise.circle"
+                    )
                 }
             }
             
@@ -1113,6 +1162,58 @@ struct SelectionCircle: View {
         }
         .frame(width: 44, height: 44) // Larger tap target
         .contentShape(Circle())
+    }
+}
+
+// MARK: - Illustration Badge
+struct IllustrationBadge: View {
+    let count: Int
+    let generatedCount: Int
+    @State private var isAnimating = false
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: generatedCount == count ? "photo.stack.fill" : "photo.stack")
+                .font(.system(size: 12))
+                .rotationEffect(.degrees(isAnimating ? 5 : -5))
+                .animation(
+                    Animation.easeInOut(duration: 1.5)
+                        .repeatForever(autoreverses: true),
+                    value: isAnimating
+                )
+
+            if generatedCount == count {
+                Text("\(count)")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+            } else {
+                Text("\(generatedCount)/\(count)")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+            }
+        }
+        .foregroundColor(.white)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            LinearGradient(
+                colors: generatedCount == count ?
+                    [Color.purple, Color.pink] :
+                    [Color.orange, Color.yellow],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
+        )
+        .shadow(color: generatedCount == count ?
+            Color.purple.opacity(0.3) :
+            Color.orange.opacity(0.3), radius: 4, y: 2)
+        .onAppear {
+            isAnimating = true
+        }
+        .accessibilityLabel("\(generatedCount) of \(count) illustrations generated")
     }
 }
 

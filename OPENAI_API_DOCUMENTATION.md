@@ -27,9 +27,13 @@ InfiniteStories exclusively uses OpenAI's API for all AI-powered features. The a
 
 ### Key Integration Points
 - **Story Generation**: GPT-4o model for creating personalized bedtime stories
+- **Scene Extraction**: NEW - GPT-4o for extracting illustration scenes from stories
+- **Illustration Generation**: NEW - DALL-E 3 for multiple story illustrations with visual consistency
 - **Audio Synthesis**: gpt-4o-mini-tts model for high-quality voice generation
 - **Avatar Creation**: DALL-E 3 for generating hero illustrations
 - **Content Enhancement**: GPT-4o for custom event optimization
+- **Visual Consistency**: NEW - GPT-4o for extracting and maintaining hero appearance
+- **Content Safety**: NEW - Multi-language content filtering for DALL-E compliance
 
 ---
 
@@ -43,9 +47,30 @@ Models: gpt-4o
 ```
 Used for:
 - Story generation (main and custom events)
+- Scene extraction from stories for illustration timing
+- Visual consistency analysis and character description extraction
 - Custom event title generation
-- Prompt enhancement
+- Prompt enhancement and content policy compliance
 - Keyword generation
+
+#### New Scene Extraction Usage
+```swift
+// Extract scenes for illustration generation
+func extractScenesFromStory(request: SceneExtractionRequest) async throws -> [StoryScene]
+
+// Request structure for scene extraction
+struct SceneExtractionRequest {
+    let storyContent: String
+    let storyDuration: TimeInterval
+    let hero: Hero
+    let eventContext: String
+}
+
+// Structured JSON response format
+{
+    "response_format": { "type": "json_object" }
+}
+```
 
 ### 2. Text-to-Speech Endpoint
 ```
@@ -66,7 +91,31 @@ Model: dall-e-3
 ```
 Used for:
 - Generating hero avatar illustrations
-- Creating story-related artwork
+- Creating multiple story illustrations per story (3-8 scenes)
+- Scene-specific artwork with visual consistency
+- All prompts filtered through ContentPolicyFilter for compliance
+
+#### New Illustration Generation Features
+```swift
+// Generate multiple illustrations per story
+class IllustrationGenerator {
+    func generateIllustrations(for story: Story) async throws
+    func regenerateIllustration(_ illustration: StoryIllustration) async throws
+    func retryFailedIllustrations(for story: Story) async
+}
+
+// Enhanced request with content filtering
+struct AvatarGenerationRequest {
+    let hero: Hero
+    let prompt: String           // Automatically filtered for policy compliance
+    let size: String            // "1024x1024" for consistency
+    let quality: String         // "standard" for cost optimization
+}
+
+// Batch processing with rate limiting
+private let batchSize = 3      // Process 3 illustrations at a time
+private let delayBetween = 2.0 // 2 seconds between requests
+```
 
 ---
 
@@ -90,11 +139,55 @@ class OpenAIService: AIServiceProtocol {
     // Custom event story generation
     func generateStoryWithCustomEvent(request: CustomStoryGenerationRequest) async throws -> StoryGenerationResponse
 
+    // NEW: Scene extraction for illustration timing
+    func extractScenesFromStory(request: SceneExtractionRequest) async throws -> [StoryScene]
+
     // Audio generation with gpt-4o-mini-tts
     func generateSpeech(text: String, voice: String, language: String) async throws -> Data
 
-    // Avatar generation with DALL-E 3
+    // Enhanced avatar generation with content filtering
     func generateAvatar(request: AvatarGenerationRequest) async throws -> AvatarGenerationResponse
+
+    // NEW: Scene-specific illustration generation
+    func generateSceneIllustration(prompt: String, hero: Hero) async throws -> Data
+}
+```
+
+#### New Supporting Services
+
+```swift
+// NEW: Illustration generation service
+class IllustrationGenerator {
+    private let aiService: AIServiceProtocol
+    private let visualConsistencyService: HeroVisualConsistencyService
+
+    func generateIllustrations(for story: Story) async throws
+    func regenerateIllustration(_ illustration: StoryIllustration) async throws
+    func retryFailedIllustrations(for story: Story) async
+}
+
+// NEW: Visual consistency service
+class HeroVisualConsistencyService {
+    func extractVisualProfile(for hero: Hero) async throws -> HeroVisualProfile
+    func enhanceIllustrationPrompt(originalPrompt: String, hero: Hero, sceneContext: String) async throws -> String
+}
+
+// NEW: Content policy filter
+class ContentPolicyFilter {
+    static let shared = ContentPolicyFilter()
+
+    func filterPrompt(_ prompt: String) -> String
+    func preValidatePrompt(_ prompt: String) -> ValidationResult
+    func detectProblematicContent(_ prompt: String) -> [String]
+}
+
+// NEW: Structured logging system
+class AppLogger {
+    static let shared = AppLogger()
+
+    func log(_ message: String, level: LogLevel, category: LogCategory, requestId: String?)
+    func info(_ message: String, category: LogCategory, requestId: String?)
+    func error(_ message: String, category: LogCategory, requestId: String?, error: Error?)
 }
 ```
 
@@ -162,6 +255,33 @@ enum AIServiceError: Error {
     case rateLimitExceeded
     case imageGenerationFailed
     case fileSystemError
+    case invalidPrompt                    // NEW: For content policy violations
+    case contentPolicyViolation(String)   // NEW: DALL-E content filtering
+}
+
+// NEW: Illustration-specific error types
+enum IllustrationErrorType: String {
+    case network = "network"
+    case rateLimit = "rate_limit"
+    case apiError = "api_error"
+    case invalidPrompt = "invalid_prompt"
+    case fileSystem = "file_system"
+    case timeout = "timeout"
+    case unknown = "unknown"
+}
+
+// NEW: Content validation result
+struct ValidationResult {
+    let isValid: Bool
+    let riskLevel: RiskLevel
+    let problematicTerms: [String]
+    let recommendations: [String]
+}
+
+enum RiskLevel {
+    case low      // Safe for DALL-E API
+    case medium   // Requires filtering before API call
+    case high     // High risk - review prompt before proceeding
 }
 ```
 
@@ -434,6 +554,244 @@ guard let b64Json = firstImage["b64_json"] as? String,
 
 // Access revised prompt (DALL-E 3 feature)
 let revisedPrompt = firstImage["revised_prompt"] as? String
+```
+
+---
+
+## Scene Extraction & Illustration Generation
+
+### Scene Extraction API
+
+#### Purpose
+Extract optimal illustration scenes from completed stories using GPT-4o analysis. This identifies key visual moments for illustration timing and content.
+
+#### Implementation
+```swift
+func extractScenesFromStory(request: SceneExtractionRequest) async throws -> [StoryScene] {
+    let prompt = """
+    You are an expert at analyzing children's bedtime stories and identifying key visual moments for illustration.
+
+    Analyze the following story and identify the most important scenes for illustration. Consider:
+    - Natural narrative breaks and transitions
+    - Key emotional moments
+    - Visual variety (different settings, actions, moods)
+    - Story pacing (distribute scenes evenly throughout)
+
+    HERO VISUAL CONSISTENCY REQUIREMENTS:
+    Main Character: \(heroVisualDescription)
+
+    CRITICAL: Every illustration prompt MUST include the EXACT hero appearance described above.
+    The character must look IDENTICAL in every scene - same colors, features, clothing, and style.
+
+    Return your analysis as a JSON object matching this structure:
+    {
+        "scenes": [
+            {
+                "sceneNumber": 1,
+                "textSegment": "exact text from story",
+                "timestamp": 0.0,
+                "illustrationPrompt": "detailed DALL-E prompt",
+                "emotion": "joyful|peaceful|exciting|mysterious|heartwarming|adventurous|contemplative",
+                "importance": "key|major|minor"
+            }
+        ],
+        "sceneCount": total_number,
+        "reasoning": "brief explanation of scene selection"
+    }
+    """
+
+    // Use structured JSON response format
+    let requestBody = [
+        "model": "gpt-4o",
+        "messages": [...],
+        "response_format": ["type": "json_object"]
+    ]
+}
+```
+
+#### Scene Selection Criteria
+- **Optimal Count**: 1 scene per 15-20 seconds of narration (3-8 scenes typical)
+- **Story Arc**: Opening, climax/key moments, resolution
+- **Visual Variety**: Different settings, emotions, and character interactions
+- **Timestamp Distribution**: Evenly spaced throughout story duration
+- **Character Consistency**: Hero appearance maintained across all scenes
+
+### Illustration Generation Workflow
+
+#### 1. Content Filtering
+All prompts pass through `ContentPolicyFilter` before API calls:
+
+```swift
+// Multi-language content safety
+let filteredPrompt = ContentPolicyFilter.shared.filterPrompt(originalPrompt)
+let validation = ContentPolicyFilter.shared.preValidatePrompt(filteredPrompt)
+
+guard validation.isValid else {
+    throw AIServiceError.contentPolicyViolation(validation.problematicTerms.joined())
+}
+```
+
+#### 2. Visual Consistency Enhancement
+```swift
+// Extract or use existing hero visual profile
+let profile = try await visualConsistencyService.extractVisualProfile(for: hero)
+
+// Enhance prompt with consistent character description
+let enhancedPrompt = try await visualConsistencyService.enhanceIllustrationPrompt(
+    originalPrompt: filteredPrompt,
+    hero: hero,
+    sceneContext: "Scene \(sceneNumber) of the story"
+)
+```
+
+#### 3. Batch Generation with Rate Limiting
+```swift
+// Process illustrations in batches to avoid rate limits
+let batchSize = 3
+let delayBetween = 2.0 // seconds
+
+for batch in illustrations.chunked(into: batchSize) {
+    for (index, illustration) in batch.enumerated() {
+        if index > 0 {
+            try await Task.sleep(nanoseconds: UInt64(delayBetween * 1_000_000_000))
+        }
+
+        let success = await generateSingleIllustration(illustration)
+        // Handle failures with exponential backoff
+    }
+}
+```
+
+#### 4. Error Handling & Retry Logic
+```swift
+// Retry failed illustrations with exponential backoff
+private func generateSingleIllustration(_ illustration: StoryIllustration) async -> Bool {
+    let maxRetries = 3
+
+    for attempt in 1...maxRetries {
+        do {
+            let response = try await aiService.generateAvatar(request: request)
+            // Save and mark as successful
+            return true
+
+        } catch AIServiceError.rateLimitExceeded {
+            let backoffSeconds = pow(2.0, Double(attempt)) * 2.0
+            try await Task.sleep(nanoseconds: UInt64(backoffSeconds * 1_000_000_000))
+
+        } catch AIServiceError.contentPolicyViolation(let details) {
+            // Use ultra-simple fallback prompt
+            illustration.imagePrompt = "Colorful happy cartoon characters playing in a bright sunny garden with butterflies. Safe children's illustration."
+            illustration.retryCount += 1
+
+        } catch {
+            illustration.markAsFailed(error: error.localizedDescription, type: .apiError)
+            return false
+        }
+    }
+
+    return false
+}
+```
+
+### Visual Consistency Service
+
+#### Character Profile Extraction
+```swift
+class HeroVisualConsistencyService {
+    // Extract visual characteristics from hero's avatar using AI
+    func extractVisualProfile(for hero: Hero) async throws -> HeroVisualProfile {
+        let extractionPrompt = """
+        Analyze this character description and extract specific visual characteristics.
+
+        Character: \(hero.name)
+        Description: \(hero.avatarPrompt ?? "")
+        Appearance: \(hero.appearance)
+
+        Extract and return ONLY a JSON object with these fields (use null if not specified):
+        {
+            "hairColor": "specific color",
+            "hairStyle": "style description",
+            "eyeColor": "specific color",
+            "skinTone": "skin tone description",
+            "clothingStyle": "clothing description",
+            "clothingColors": "color scheme",
+            "distinctiveFeatures": "unique visual traits",
+            "bodyType": "build description",
+            "ageAppearance": "apparent age",
+            "colorPalette": "dominant colors",
+            "artStyle": "recommended art style"
+        }
+        """
+
+        // Call GPT-4o for extraction
+        // Parse and create HeroVisualProfile
+    }
+
+    // Enhance illustration prompts with consistent character description
+    func enhanceIllustrationPrompt(
+        originalPrompt: String,
+        hero: Hero,
+        sceneContext: String
+    ) async throws -> String {
+        let profile = try await extractVisualProfile(for: hero)
+        let characterDescription = profile.generateSceneCharacterDescription(heroName: hero.name)
+
+        return """
+        \(sceneContext)
+
+        MAIN CHARACTER: \(characterDescription)
+
+        VISUAL CONSISTENCY: This character MUST match exactly the appearance described above.
+        Maintain consistent colors, features, and clothing throughout.
+
+        SCENE: \(originalPrompt)
+
+        IMPORTANT: Ensure the character \(hero.name) looks EXACTLY the same as described.
+        Child-friendly, bright, cheerful illustration suitable for ages 4-10.
+        """
+    }
+}
+```
+
+### Content Policy Filter
+
+#### Multi-Language Safety
+```swift
+class ContentPolicyFilter {
+    // Comprehensive term replacement for safety
+    private let termReplacements: [String: String] = [
+        // Isolation terms (critical for child safety)
+        "alone": "with friends",
+        "lonely": "seeking friends",
+        "seul": "avec des amis",        // French
+        "aislado": "explorando",        // Spanish
+        "allein": "mit Freunden",       // German
+        "isolato": "esplorando",        // Italian
+
+        // Violence/weapons
+        "weapon": "magical tool",
+        "sword": "magical wand",
+        "fight": "play",
+
+        // Scary/negative terms
+        "scary": "magical",
+        "monster": "friendly creature",
+        "nightmare": "dream"
+    ]
+
+    // Multi-language phrase filtering
+    private let phraseReplacements: [String: String] = [
+        // Critical isolation phrases
+        "all alone": "with friends",
+        "tout seul": "avec des amis",
+        "completamente solo": "explorando felizmente",
+        "ganz allein": "mit Freunden",
+
+        // Scary content
+        "dark and scary": "bright and magical",
+        "terrifying monster": "amazing creature"
+    ]
+}
 ```
 
 ---
@@ -775,15 +1133,169 @@ struct APIUsageTracker {
 
 ## Testing & Debugging
 
-### Debug Logging
+### Structured Logging System
+
+#### New AppLogger Implementation
 ```swift
-// Comprehensive logging throughout the service
-print("🤖 === OpenAI Story Generation Started ===")
-print("🤖 Hero: \(request.hero.name)")
-print("🤖 Event: \(request.event.rawValue)")
-print("🤖 Target Duration: \(Int(request.targetDuration/60)) minutes")
-print("🤖 📝 Generated Prompt:")
-print("🤖 \(prompt)")
+class AppLogger {
+    static let shared = AppLogger()
+
+    // Log categories for organized debugging
+    enum LogCategory: String {
+        case story = "📚 STORY"
+        case audio = "🎙️ AUDIO"
+        case avatar = "🎨 AVATAR"
+        case illustration = "🖼️ ILLUST"
+        case api = "🔌 API"
+        case cache = "💾 CACHE"
+        case ui = "📱 UI"
+    }
+
+    enum LogLevel: String {
+        case debug = "🔍 DEBUG"
+        case info = "ℹ️ INFO"
+        case warning = "⚠️ WARN"
+        case error = "❌ ERROR"
+        case success = "✅ SUCCESS"
+        case network = "🌐 NETWORK"
+    }
+
+    func log(
+        _ message: String,
+        level: LogLevel = .info,
+        category: LogCategory? = nil,
+        requestId: String? = nil,
+        metadata: [String: Any]? = nil
+    )
+}
+
+// Usage throughout the API services
+func generateStory(request: StoryGenerationRequest) async throws -> StoryGenerationResponse {
+    let requestId = UUID().uuidString.prefix(8).lowercased()
+    let startTime = Date()
+
+    AppLogger.shared.info("Story generation started", category: .story, requestId: String(requestId))
+    AppLogger.shared.debug("Parameters - Hero: \(request.hero.name), Event: \(request.event.rawValue)", category: .story, requestId: String(requestId))
+
+    // ... implementation
+
+    AppLogger.shared.success("Story generated in \(Date().timeIntervalSince(startTime))s", category: .story, requestId: String(requestId))
+}
+```
+
+#### Request ID Tracking
+Every API operation gets a unique 8-character request ID for tracing:
+```swift
+let requestId = UUID().uuidString.prefix(8).lowercased()
+AppLogger.shared.info("Operation started", category: .illustration, requestId: String(requestId))
+
+// All logs for this operation include the same requestId
+AppLogger.shared.debug("Processing batch 1", category: .illustration, requestId: String(requestId))
+AppLogger.shared.error("Failed step", category: .illustration, requestId: String(requestId), error: error)
+```
+
+#### Illustration-Specific Logging
+```swift
+// Detailed illustration generation logging
+AppLogger.shared.info("Illustration Generation Started", category: .illustration, requestId: String(requestId))
+AppLogger.shared.info("Story: \(story.title)", category: .illustration, requestId: String(requestId))
+AppLogger.shared.info("Planning to generate \(illustrationCount) illustrations", category: .illustration, requestId: String(requestId))
+
+// Per-scene logging
+AppLogger.shared.debug("Scene \(index + 1): Timestamp=\(timestamp)s, Importance=\(segment.importance)", category: .illustration, requestId: String(requestId))
+
+// Success/failure tracking
+AppLogger.shared.success("Generated illustration #\(sceneNum) successfully", category: .illustration, requestId: String(requestId))
+AppLogger.shared.warning("Failed to generate illustration #\(sceneNum), will continue with others", category: .illustration, requestId: String(requestId))
+```
+
+### Enhanced Error Handling
+
+#### Comprehensive Error Recovery
+```swift
+do {
+    let response = try await aiService.generateAvatar(request: request)
+    return true
+
+} catch AIServiceError.rateLimitExceeded {
+    AppLogger.shared.warning("Rate limit hit - will retry with exponential backoff", category: .illustration, requestId: String(requestId))
+
+    let backoffSeconds = pow(2.0, Double(illustration.retryCount)) * 2.0
+    AppLogger.shared.info("Waiting \(backoffSeconds) seconds before retry...", category: .illustration, requestId: String(requestId))
+    try? await Task.sleep(nanoseconds: UInt64(backoffSeconds * 1_000_000_000))
+
+} catch AIServiceError.contentPolicyViolation(let details) {
+    AppLogger.shared.error("Content policy violation - will use simpler prompt on retry", category: .illustration, requestId: String(requestId))
+
+    // Automatic fallback to ultra-safe prompt
+    let fallbackPrompt = "Colorful happy cartoon characters playing in a bright sunny garden with butterflies. Safe children's illustration."
+    illustration.imagePrompt = fallbackPrompt
+    illustration.retryCount += 1
+
+} catch AIServiceError.apiError(let message) {
+    AppLogger.shared.error("API Error details: \(message)", category: .illustration, requestId: String(requestId))
+
+} catch {
+    AppLogger.shared.error("Unexpected error: \(error)", category: .illustration, requestId: String(requestId), error: error)
+}
+```
+
+#### Timeout Protection
+```swift
+// Protect against hanging requests
+private func withTimeout<T>(seconds: TimeInterval, operation: @escaping () async throws -> T) async throws -> T {
+    try await withThrowingTaskGroup(of: T.self) { group in
+        group.addTask {
+            try await operation()
+        }
+
+        group.addTask {
+            try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            throw CancellationError()
+        }
+
+        let result = try await group.next()!
+        group.cancelAll()
+        return result
+    }
+}
+
+// Usage in illustration generation
+let response: AvatarGenerationResponse
+do {
+    response = try await withTimeout(seconds: 30) {
+        try await self.aiService.generateAvatar(request: request)
+    }
+} catch {
+    illustration.markAsFailed(error: "Request timed out after 30 seconds", type: .timeout)
+    throw error
+}
+```
+
+#### Smart Retry Logic with State Tracking
+```swift
+// Track retry attempts and error types in the model
+extension StoryIllustration {
+    func markAsFailed(error: String, type: IllustrationErrorType) {
+        self.errorMessage = error
+        self.errorType = type.rawValue
+        self.retryCount += 1
+        self.lastAttempt = Date()
+        self.isGenerated = false
+    }
+
+    func resetError() {
+        self.errorMessage = nil
+        self.errorType = nil
+        self.lastAttempt = Date()
+    }
+
+    var hasReachedRetryLimit: Bool {
+        let maxRetries = UserDefaults.standard.integer(forKey: "maxIllustrationRetries")
+        let effectiveMaxRetries = maxRetries > 0 ? maxRetries : 3
+        return retryCount >= effectiveMaxRetries
+    }
+}
 ```
 
 ### Testing Strategies
@@ -942,19 +1454,71 @@ do {
 
 ### Estimated Costs (as of 2025)
 
-| Feature | Model | Input Cost | Output Cost | Avg Request |
-|---------|-------|------------|-------------|-------------|
-| Story Generation | GPT-4o | $0.0025/1K tokens | $0.01/1K tokens | ~$0.02-0.03 |
-| Audio Generation | gpt-4o-mini-tts | $0.015/1M chars | - | ~$0.01-0.02 |
-| Avatar Generation | DALL-E 3 | $0.04/image (standard) | - | $0.04 |
-| Event Enhancement | GPT-4o | $0.0025/1K tokens | $0.01/1K tokens | ~$0.01 |
+| Feature | Model | Input Cost | Output Cost | Avg Request | Notes |
+|---------|-------|------------|-------------|-------------|--------|
+| Story Generation | GPT-4o | $0.0025/1K tokens | $0.01/1K tokens | ~$0.02-0.03 | Per story |
+| Scene Extraction | GPT-4o | $0.0025/1K tokens | $0.01/1K tokens | ~$0.01-0.02 | NEW: Per story |
+| Visual Profile Extraction | GPT-4o | $0.0025/1K tokens | $0.01/1K tokens | ~$0.005-0.01 | NEW: Per hero (one-time) |
+| Audio Generation | gpt-4o-mini-tts | $0.015/1M chars | - | ~$0.01-0.02 | Per story |
+| Avatar Generation | DALL-E 3 | $0.04/image (standard) | - | $0.04 | Per hero (one-time) |
+| Story Illustrations | DALL-E 3 | $0.04/image (standard) | - | $0.12-0.32 | NEW: 3-8 images per story |
+| Content Filtering | GPT-4o | $0.0025/1K tokens | $0.01/1K tokens | ~$0.002-0.005 | NEW: Per illustration |
+| Event Enhancement | GPT-4o | $0.0025/1K tokens | $0.01/1K tokens | ~$0.01 | Per custom event |
 
 ### Monthly Cost Estimation
-For average usage (10 stories/month per user):
+For average usage (10 stories/month per user with illustrations):
+
+#### Basic Story Generation (without illustrations)
 - Story Generation: $0.30
 - Audio Generation: $0.20
+- Scene Extraction: $0.15
 - Avatar (one-time): $0.04
-- Total: ~$0.50-0.60 per user/month
+- **Total: ~$0.65-0.70 per user/month**
+
+#### Enhanced Visual Stories (with illustrations)
+- Story Generation: $0.30
+- Scene Extraction: $0.15
+- Visual Profile Extraction: $0.01 (amortized)
+- Audio Generation: $0.20
+- Story Illustrations (5 avg per story): $2.00
+- Content Filtering: $0.05
+- Avatar (one-time): $0.04
+- **Total: ~$2.70-2.80 per user/month**
+
+### Cost Optimization Strategies
+
+#### Illustration Cost Management
+```swift
+// 1. Configurable illustration count based on user tier
+let illustrationCount = user.isPremium ? 8 : 3
+
+// 2. Batch processing to reduce API overhead
+let batchSize = 3
+let delayBetween = 2.0 // Avoid rate limits
+
+// 3. Smart retry logic to minimize failed requests
+let maxRetries = UserDefaults.standard.integer(forKey: "maxIllustrationRetries")
+let effectiveMaxRetries = maxRetries > 0 ? maxRetries : 3
+
+// 4. Content caching for repeated visual profiles
+if let existingProfile = hero.visualProfile {
+    // Use cached profile, no API call needed
+}
+
+// 5. Quality optimization based on use case
+let imageQuality = isHeroAvatar ? "hd" : "standard" // $0.08 vs $0.04
+```
+
+#### Content Filtering Benefits
+- **Reduces API Rejections**: Fewer failed DALL-E requests (saves $0.04 per failure)
+- **Multi-language Support**: Prevents policy violations across 5 languages
+- **Automatic Recovery**: Fallback prompts reduce manual intervention
+
+#### Rate Limiting & Efficiency
+- **Exponential Backoff**: Automatic retry with 2^attempt * 2 second delays
+- **Batch Processing**: 3 illustrations per batch with 2-second spacing
+- **Timeout Protection**: 30-second timeouts prevent stuck requests
+- **Smart Fallbacks**: Ultra-safe prompts for policy violations
 
 ---
 
@@ -1025,6 +1589,43 @@ For InfiniteStories implementation:
 
 ---
 
-*Last Updated: January 2025*
+## Summary of Major Updates
+
+### New Features Added
+1. **Scene Extraction API**: GPT-4o analyzes stories to identify optimal illustration moments
+2. **Multi-Illustration Generation**: 3-8 illustrations per story with batch processing
+3. **Visual Consistency Service**: Hero appearance maintained across all illustrations
+4. **Content Policy Filter**: Multi-language safety filtering for DALL-E compliance
+5. **Structured Logging**: Request ID tracking and categorized debugging
+6. **Enhanced Error Handling**: Timeout protection, retry logic, and state tracking
+
+### API Usage Expansion
+- **Story Generation**: Enhanced with scene extraction capabilities
+- **Chat Completions**: Now used for visual analysis and content filtering
+- **Image Generation**: Batch processing with rate limiting and error recovery
+- **Multi-language Support**: Content filtering across English, Spanish, French, German, Italian
+
+### Cost Impact
+- **Basic Stories**: ~$0.65-0.70 per user/month (up from $0.50-0.60)
+- **Visual Stories**: ~$2.70-2.80 per user/month (new tier with illustrations)
+- **Optimization**: Content filtering reduces failed API calls and costs
+
+### Implementation Benefits
+- **User Experience**: Rich visual storytelling with consistent characters
+- **Content Safety**: Comprehensive filtering prevents policy violations
+- **Reliability**: Robust error handling and automatic recovery
+- **Debugging**: Detailed logging for troubleshooting and optimization
+- **Scalability**: Batch processing and rate limiting for production use
+
+### Future Considerations
+- **Usage Monitoring**: Implement cost tracking dashboard
+- **Caching Strategy**: Store visual profiles and filtered prompts
+- **Performance**: Consider illustration preloading and compression
+- **Quality**: HD illustration tier for premium users ($0.08 vs $0.04 per image)
+
+---
+
+*Last Updated: September 2025*
 *OpenAI API Version: v1*
 *Models: GPT-4o, gpt-4o-mini-tts, DALL-E 3*
+*New Features: Scene Extraction, Visual Storytelling, Content Safety*
