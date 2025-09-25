@@ -99,7 +99,7 @@ struct AvatarGenerationView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     ForEach(AvatarStyle.allCases, id: \.self) { style in
-                        StyleCard(
+                        AvatarStyleCard(
                             style: style,
                             isSelected: selectedStyle == style,
                             onSelect: {
@@ -400,7 +400,7 @@ struct AvatarGenerationView: View {
     }
 }
 
-struct StyleCard: View {
+struct AvatarStyleCard: View {
     let style: AvatarStyle
     let isSelected: Bool
     let onSelect: () -> Void

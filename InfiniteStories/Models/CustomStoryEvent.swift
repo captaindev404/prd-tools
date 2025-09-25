@@ -80,7 +80,7 @@ enum StoryTone: String, Codable, CaseIterable {
     case inspiring = "Inspiring"
     case mysterious = "Mysterious"
     case balanced = "Balanced"
-    
+
     var description: String {
         switch self {
         case .calming: return "Peaceful and soothing, perfect for bedtime"
@@ -90,6 +90,51 @@ enum StoryTone: String, Codable, CaseIterable {
         case .inspiring: return "Uplifting and motivational"
         case .mysterious: return "Intriguing puzzles and discoveries"
         case .balanced: return "A mix of everything"
+        }
+    }
+}
+
+// MARK: - Pictogram Style
+
+enum PictogramStyle: String, Codable, CaseIterable {
+    case playful = "playful"
+    case minimalist = "minimalist"
+    case storybook = "storybook"
+    case geometric = "geometric"
+    case watercolor = "watercolor"
+
+    var displayName: String {
+        switch self {
+        case .playful: return "Playful"
+        case .minimalist: return "Minimalist"
+        case .storybook: return "Storybook"
+        case .geometric: return "Geometric"
+        case .watercolor: return "Watercolor"
+        }
+    }
+
+    var stylePrompt: String {
+        switch self {
+        case .playful:
+            return "playful, colorful, child-friendly icon style with rounded shapes and bright colors"
+        case .minimalist:
+            return "simple, clean, minimalist icon design with solid colors and clear symbolism"
+        case .storybook:
+            return "whimsical storybook illustration style with magical elements and soft edges"
+        case .geometric:
+            return "modern geometric shapes and patterns with bold colors and clean lines"
+        case .watercolor:
+            return "soft watercolor artistic style with gentle brushstrokes and pastel colors"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .playful: return "face.smiling.fill"
+        case .minimalist: return "square.fill"
+        case .storybook: return "book.fill"
+        case .geometric: return "hexagon.fill"
+        case .watercolor: return "paintbrush.fill"
         }
     }
 }
@@ -113,7 +158,15 @@ final class CustomStoryEvent {
     var usageCount: Int
     var isAIEnhanced: Bool
     var isFavorite: Bool
-    
+
+    // Pictogram properties
+    var pictogramPath: String?
+    var pictogramPrompt: String?
+    var pictogramGeneratedAt: Date?
+    var pictogramStyle: PictogramStyle?
+    var pictogramFailureCount: Int
+    var lastPictogramError: String?
+
     // Relationships
     @Relationship(deleteRule: .nullify, inverse: \Story.customEvent)
     var stories: [Story]?
@@ -141,6 +194,7 @@ final class CustomStoryEvent {
         self.usageCount = 0
         self.isAIEnhanced = false
         self.isFavorite = false
+        self.pictogramFailureCount = 0
     }
     
     // Convenience properties
@@ -166,7 +220,27 @@ final class CustomStoryEvent {
         }
         return keywords.prefix(3).joined(separator: ", ") + (keywords.count > 3 ? "..." : "")
     }
-    
+
+    // Pictogram computed properties
+    var hasPictogram: Bool {
+        guard let path = pictogramPath else { return false }
+        let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("EventPictograms")
+            .appendingPathComponent(path)
+        return FileManager.default.fileExists(atPath: url.path)
+    }
+
+    var pictogramURL: URL? {
+        guard let path = pictogramPath, hasPictogram else { return nil }
+        return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("EventPictograms")
+            .appendingPathComponent(path)
+    }
+
+    var needsPictogramRegeneration: Bool {
+        return !hasPictogram && pictogramFailureCount > 0 && pictogramFailureCount < 3
+    }
+
     // Methods
     func incrementUsage() {
         usageCount += 1

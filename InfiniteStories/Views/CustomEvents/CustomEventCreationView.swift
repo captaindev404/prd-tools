@@ -27,8 +27,15 @@ struct CustomEventCreationView: View {
     @State private var errorMessage = ""
     
     @StateObject private var aiAssistant = CustomEventAIAssistant()
-    
-    private let totalSteps = 4
+    @StateObject private var pictogramGenerator = EventPictogramGenerator()
+
+    // Pictogram state
+    @State private var shouldGeneratePictogram = true
+    @State private var selectedPictogramStyle: PictogramStyle = .playful
+    @State private var generatedPictogramImage: UIImage?
+    @State private var isGeneratingPictogram = false
+
+    private let totalSteps = 5
     
     var body: some View {
         NavigationStack {
@@ -62,12 +69,24 @@ struct CustomEventCreationView: View {
                         onGenerateKeywords: generateKeywordsWithAI
                     )
                     .tag(2)
-                    
-                    PreviewStepView(
-                        event: buildPreviewEvent(),
-                        onSave: saveCustomEvent
+
+                    PictogramStepView(
+                        shouldGenerate: $shouldGeneratePictogram,
+                        selectedStyle: $selectedPictogramStyle,
+                        generatedImage: $generatedPictogramImage,
+                        isGenerating: isGeneratingPictogram,
+                        eventTitle: eventTitle,
+                        eventDescription: eventDescription,
+                        onGenerate: generatePictogram
                     )
                     .tag(3)
+
+                    PreviewStepView(
+                        event: buildPreviewEvent(),
+                        pictogramImage: generatedPictogramImage,
+                        onSave: saveCustomEvent
+                    )
+                    .tag(4)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .animation(.easeInOut, value: currentStep)
@@ -230,18 +249,67 @@ struct CustomEventCreationView: View {
             ageRange: selectedAgeRange,
             tone: selectedTone
         )
-        
+
         event.keywords = keywords
         event.isAIEnhanced = !promptSeed.isEmpty && promptSeed != eventDescription
-        
+
         modelContext.insert(event)
-        
+
         do {
             try modelContext.save()
+
+            // Generate pictogram if user opted in and we have an image
+            if shouldGeneratePictogram && generatedPictogramImage != nil {
+                Task {
+                    _ = try? await pictogramGenerator.generatePictogram(
+                        for: event,
+                        style: selectedPictogramStyle,
+                        regenerate: false
+                    )
+                }
+            }
+
             dismiss()
         } catch {
             errorMessage = "Failed to save custom event: \(error.localizedDescription)"
             showingError = true
+        }
+    }
+
+    private func generatePictogram() {
+        isGeneratingPictogram = true
+
+        Task {
+            // Create a temporary event for preview generation
+            let tempEvent = CustomStoryEvent(
+                title: eventTitle.trimmingCharacters(in: .whitespacesAndNewlines),
+                description: eventDescription.trimmingCharacters(in: .whitespacesAndNewlines),
+                promptSeed: promptSeed.isEmpty ? eventDescription : promptSeed,
+                category: selectedCategory,
+                ageRange: selectedAgeRange,
+                tone: selectedTone
+            )
+
+            do {
+                let url = try await pictogramGenerator.generatePictogram(
+                    for: tempEvent,
+                    style: selectedPictogramStyle,
+                    regenerate: true
+                )
+
+                if let image = UIImage(contentsOfFile: url.path) {
+                    await MainActor.run {
+                        self.generatedPictogramImage = image
+                        self.isGeneratingPictogram = false
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    self.errorMessage = "Failed to generate pictogram: \(error.localizedDescription)"
+                    self.showingError = true
+                    self.isGeneratingPictogram = false
+                }
+            }
         }
     }
 }
@@ -559,7 +627,7 @@ struct AIEnhancementStepView: View {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack {
                                 ForEach(keywords, id: \.self) { keyword in
-                                    KeywordChip(
+                                    CreationKeywordChip(
                                         keyword: keyword,
                                         onDelete: {
                                             withAnimation {
@@ -584,8 +652,202 @@ struct AIEnhancementStepView: View {
     }
 }
 
+struct PictogramStepView: View {
+    @Binding var shouldGenerate: Bool
+    @Binding var selectedStyle: PictogramStyle
+    @Binding var generatedImage: UIImage?
+    let isGenerating: Bool
+    let eventTitle: String
+    let eventDescription: String
+    let onGenerate: () -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                // Header
+                VStack(spacing: 12) {
+                    Image(systemName: "photo.badge.plus")
+                        .font(.system(size: 60))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [.purple, .blue],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+
+                    Text("Create a Pictogram")
+                        .font(.title)
+                        .fontWeight(.bold)
+
+                    Text("Generate a unique visual icon for your custom event")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding()
+
+                // Toggle for generation
+                Toggle(isOn: $shouldGenerate) {
+                    HStack {
+                        Image(systemName: "wand.and.stars")
+                            .foregroundColor(.purple)
+                        Text("Generate AI Pictogram")
+                            .font(.headline)
+                    }
+                }
+                .toggleStyle(SwitchToggleStyle(tint: .purple))
+                .padding()
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(12)
+
+                if shouldGenerate {
+                    // Style selection
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Select Style")
+                            .font(.headline)
+
+                        LazyVGrid(columns: [
+                            GridItem(.flexible()),
+                            GridItem(.flexible())
+                        ], spacing: 12) {
+                            ForEach(PictogramStyle.allCases, id: \.self) { style in
+                                StyleSelectionCard(
+                                    style: style,
+                                    isSelected: selectedStyle == style,
+                                    action: {
+                                        withAnimation(.spring(duration: 0.3)) {
+                                            selectedStyle = style
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    .padding()
+
+                    // Preview area
+                    VStack(spacing: 16) {
+                        Text("Preview")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 20)
+                                .fill(Color.gray.opacity(0.1))
+                                .frame(height: 200)
+
+                            if let image = generatedImage {
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(width: 150, height: 150)
+                                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                                    .shadow(radius: 5)
+                            } else if isGenerating {
+                                VStack(spacing: 12) {
+                                    ProgressView()
+                                        .scaleEffect(1.5)
+                                    Text("Generating pictogram...")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            } else {
+                                VStack(spacing: 12) {
+                                    Image(systemName: "photo.badge.plus")
+                                        .font(.system(size: 50))
+                                        .foregroundColor(.gray)
+                                    Text("No pictogram generated yet")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        }
+
+                        // Generate button
+                        Button(action: onGenerate) {
+                            HStack {
+                                Image(systemName: "sparkles")
+                                Text(generatedImage != nil ? "Regenerate" : "Generate Pictogram")
+                            }
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(
+                                LinearGradient(
+                                    colors: [.purple, .blue],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .cornerRadius(12)
+                        }
+                        .disabled(isGenerating)
+                        .opacity(isGenerating ? 0.6 : 1)
+                    }
+                    .padding()
+                } else {
+                    // Skip message
+                    VStack(spacing: 12) {
+                        Image(systemName: "checkmark.circle")
+                            .font(.system(size: 50))
+                            .foregroundColor(.green)
+
+                        Text("Skipping pictogram generation")
+                            .font(.headline)
+
+                        Text("You can always generate a pictogram later from the event management screen")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding()
+                    .background(Color.green.opacity(0.1))
+                    .cornerRadius(12)
+                    .padding()
+                }
+            }
+        }
+        .padding()
+    }
+}
+
+struct StyleSelectionCard: View {
+    let style: PictogramStyle
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(isSelected ? Color.purple.opacity(0.2) : Color.gray.opacity(0.1))
+                        .frame(height: 50)
+
+                    Image(systemName: style.icon)
+                        .font(.title3)
+                        .foregroundColor(isSelected ? .purple : .secondary)
+                }
+
+                Text(style.displayName)
+                    .font(.caption)
+                    .fontWeight(isSelected ? .semibold : .regular)
+                    .foregroundColor(isSelected ? .purple : .primary)
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? Color.purple : Color.clear, lineWidth: 2)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 struct PreviewStepView: View {
     let event: CustomStoryEvent
+    let pictogramImage: UIImage?
     let onSave: () -> Void
     
     var body: some View {
@@ -593,16 +855,26 @@ struct PreviewStepView: View {
             VStack(spacing: 24) {
                 // Header
                 VStack(spacing: 12) {
-                    Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 60))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.green, .blue],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
+                    // Show pictogram if available, otherwise default icon
+                    if let pictogramImage = pictogramImage {
+                        Image(uiImage: pictogramImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 100, height: 100)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                            .shadow(radius: 5)
+                    } else {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 60))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [.green, .blue],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
                             )
-                        )
-                    
+                    }
+
                     Text("Review Your Event")
                         .font(.title2)
                         .fontWeight(.semibold)
@@ -628,32 +900,32 @@ struct PreviewStepView: View {
                     
                     // Details
                     VStack(alignment: .leading, spacing: 12) {
-                        DetailRow(
+                        CreationDetailRow(
                             icon: "text.alignleft",
                             label: "Description",
                             value: event.eventDescription
                         )
                         
-                        DetailRow(
+                        CreationDetailRow(
                             icon: "folder",
                             label: "Category",
                             value: event.category.rawValue
                         )
                         
-                        DetailRow(
+                        CreationDetailRow(
                             icon: "person.2",
                             label: "Age Range",
                             value: event.ageRange.rawValue
                         )
                         
-                        DetailRow(
+                        CreationDetailRow(
                             icon: "waveform",
                             label: "Tone",
                             value: event.tone.rawValue
                         )
                         
                         if event.isAIEnhanced {
-                            DetailRow(
+                            CreationDetailRow(
                                 icon: "sparkles",
                                 label: "AI Enhanced",
                                 value: "Yes"
@@ -809,7 +1081,7 @@ struct ToneChip: View {
     }
 }
 
-struct KeywordChip: View {
+struct CreationKeywordChip: View {
     let keyword: String
     let onDelete: () -> Void
     
@@ -830,7 +1102,7 @@ struct KeywordChip: View {
     }
 }
 
-struct DetailRow: View {
+struct CreationDetailRow: View {
     let icon: String
     let label: String
     let value: String

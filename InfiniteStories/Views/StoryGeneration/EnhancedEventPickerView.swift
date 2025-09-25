@@ -17,6 +17,7 @@ struct EnhancedEventPickerView: View {
     @Binding var selectedCustomEvent: CustomStoryEvent?
     
     @State private var showingCustomEventCreation = false
+    @State private var showingCustomEventManagement = false
     @State private var searchText = ""
     @State private var selectedCategory: EventCategory? = nil
     
@@ -105,9 +106,25 @@ struct EnhancedEventPickerView: View {
                             HStack {
                                 Text("Your Custom Events")
                                     .font(.headline)
-                                
+
                                 Spacer()
-                                
+
+                                // Manage button
+                                Button(action: { showingCustomEventManagement = true }) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "square.grid.2x2")
+                                            .font(.caption)
+                                        Text("Manage")
+                                            .font(.caption)
+                                            .fontWeight(.medium)
+                                    }
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(Color.purple.opacity(0.15))
+                                    .foregroundColor(.purple)
+                                    .cornerRadius(8)
+                                }
+
                                 Text("\(filteredCustomEvents.count)")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
@@ -194,6 +211,9 @@ struct EnhancedEventPickerView: View {
             }
             .sheet(isPresented: $showingCustomEventCreation) {
                 CustomEventCreationView()
+            }
+            .sheet(isPresented: $showingCustomEventManagement) {
+                CustomEventManagementView()
             }
         }
     }
@@ -318,34 +338,53 @@ struct CustomEventCard: View {
     let isSelected: Bool
     let action: () -> Void
     let onDelete: () -> Void
-    
+
     @State private var showingDeleteConfirmation = false
-    
+    @State private var showingManagementView = false
+
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Image(systemName: event.iconName)
-                        .font(.title2)
-                        .foregroundColor(Color(hex: event.colorHex))
-                        .frame(width: 40)
-                    
+                    // Display pictogram if available, otherwise show icon
+                    if event.hasPictogram {
+                        CachedPictogramImage(event: event)
+                            .frame(width: 50, height: 50)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
+                    } else {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color(hex: event.colorHex).opacity(0.15))
+                            .frame(width: 50, height: 50)
+                            .overlay(
+                                Image(systemName: event.iconName)
+                                    .font(.title2)
+                                    .foregroundColor(Color(hex: event.colorHex))
+                            )
+                    }
+
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Text(event.title)
                                 .font(.headline)
                                 .foregroundColor(.primary)
-                            
+
                             if event.isFavorite {
                                 Image(systemName: "star.fill")
                                     .font(.caption)
                                     .foregroundColor(.yellow)
                             }
-                            
+
                             if event.isAIEnhanced {
                                 Image(systemName: "sparkles")
                                     .font(.caption)
                                     .foregroundColor(.purple)
+                            }
+
+                            if event.hasPictogram {
+                                Image(systemName: "photo")
+                                    .font(.caption)
+                                    .foregroundColor(.green)
                             }
                         }
                         
@@ -418,13 +457,33 @@ struct CustomEventCard: View {
                     systemImage: event.isFavorite ? "star.slash" : "star"
                 )
             }
-            
+
+            Button(action: {
+                showingManagementView = true
+            }) {
+                Label(
+                    event.hasPictogram ? "Regenerate Pictogram" : "Generate Pictogram",
+                    systemImage: "photo.badge.plus"
+                )
+            }
+
+            Button(action: {
+                showingManagementView = true
+            }) {
+                Label("View Details", systemImage: "info.circle")
+            }
+
             Divider()
-            
+
             Button(role: .destructive, action: {
                 showingDeleteConfirmation = true
             }) {
                 Label("Delete", systemImage: "trash")
+            }
+        }
+        .sheet(isPresented: $showingManagementView) {
+            NavigationStack {
+                CustomEventDetailView(event: event)
             }
         }
         .confirmationDialog(

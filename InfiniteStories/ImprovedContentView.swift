@@ -29,6 +29,7 @@ struct ImprovedContentView: View {
     @State private var errorMessage: String?
     @State private var showingError = false
     @State private var showingFullJourney = false
+    @State private var showingCustomEventManagement = false
     
     // Performance optimization: Limit floating elements on older devices
     private var shouldShowFloatingElements: Bool {
@@ -117,6 +118,19 @@ struct ImprovedContentView: View {
                         }
                     }
                 }
+
+                // Floating Custom Event Management Button
+                VStack {
+                    Spacer()
+                    HStack {
+                        FloatingCustomEventButton(
+                            showingCustomEventManagement: $showingCustomEventManagement
+                        )
+                        .padding(.leading, 20)
+                        .padding(.bottom, 30)
+                        Spacer()
+                    }
+                }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -188,6 +202,9 @@ struct ImprovedContentView: View {
             }
             .fullScreenCover(isPresented: $showingFullJourney) {
                 ReadingJourneyView()
+            }
+            .sheet(isPresented: $showingCustomEventManagement) {
+                CustomEventManagementView()
             }
             .onAppear {
                 startAnimations()
@@ -427,6 +444,65 @@ struct FloatingCreateStoryButton: View {
         }
         .accessibilityLabel("Create new story")
         .accessibilityHint("Generate a new magical story")
+    }
+}
+
+// MARK: - Floating Custom Event Button
+struct FloatingCustomEventButton: View {
+    @Binding var showingCustomEventManagement: Bool
+    @State private var isPressed = false
+    @State private var isPulsing = false
+
+    var body: some View {
+        Button(action: {
+            // Haptic feedback
+            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+            impactFeedback.impactOccurred()
+
+            showingCustomEventManagement = true
+        }) {
+            ZStack {
+                // Shadow layer
+                Circle()
+                    .fill(Color.purple.opacity(0.3))
+                    .frame(width: 60, height: 60)
+                    .blur(radius: 8)
+                    .offset(y: 3)
+
+                // Main button
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.purple,
+                                Color.purple.opacity(0.8)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 56, height: 56)
+
+                // Icon
+                Image(systemName: "square.grid.2x2.fill")
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundColor(.white)
+                    .scaleEffect(isPulsing ? 1.1 : 1.0)
+            }
+        }
+        .scaleEffect(isPressed ? 0.9 : 1.0)
+        .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                isPressed = pressing
+            }
+        }, perform: {})
+        .onAppear {
+            withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
+                isPulsing = true
+            }
+        }
+        .accessibilityLabel("Manage custom events")
+        .accessibilityHint("Open custom event management screen")
     }
 }
 

@@ -311,10 +311,10 @@ xcodebuild -project InfiniteStories.xcodeproj -scheme InfiniteStories build
 # Run tests
 xcodebuild -project InfiniteStories.xcodeproj -scheme InfiniteStories test
 
-# Run on simulator
-xcrun simctl boot "iPhone 15 Pro"
+# Run on simulator (default: iPhone 17)
+xcrun simctl boot "iPhone 17"
 xcodebuild -project InfiniteStories.xcodeproj -scheme InfiniteStories \
-  -destination 'platform=iOS Simulator,name=iPhone 15 Pro' run
+  -destination 'platform=iOS Simulator,name=iPhone 17' run
 ```
 
 ### API Configuration
@@ -558,3 +558,4 @@ NEVER proactively create documentation files (*.md) or README files. Only create
 
 IMPORTANT: this context may or may not be relevant to your tasks. You should not respond to this context unless it is highly relevant to your task.
 - AppStore validation preparation
+- Always fix the build

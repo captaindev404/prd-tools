@@ -388,8 +388,6 @@ class ContentPolicyFilter {
         "très seule": "prête pour des amis",
 
         // Spanish isolation phrases
-        "completamente solo": "explorando felizmente",
-        
         "muy solo": "buscando amigos",
         "muy sola": "buscando amigos",
         "se siente solo": "busca amigos",
