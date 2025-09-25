@@ -32,11 +32,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - Canonical and simplified prompts for consistent generation
   - Art style and color palette definitions
   - Methods: generateSceneCharacterDescription, generateStyleConsistencyPrompt
-- **CustomStoryEvent**: Enhanced user-defined scenarios
+- **CustomStoryEvent**: Enhanced user-defined scenarios with pictogram support
   - Categories, age ranges, and tone settings with comprehensive enums
   - AI-powered prompt enhancement and keyword generation
+  - Visual pictogram generation for event representation
   - Usage tracking and favorite management
-  - Methods: incrementUsage, updateWithAIEnhancement, toggleFavorite
+  - Methods: incrementUsage, updateWithAIEnhancement, toggleFavorite, generatePictogram
 - **CharacterTrait**: Enum defining personality options (brave, kind, curious, etc.) with descriptions
 - **StoryEvent**: Enum for story contexts (bedtime, school day, birthday, etc.) with icons and prompts
 
@@ -94,6 +95,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - Title generation from descriptions
   - Prompt seed enhancement based on context
   - Keyword and similar event suggestions
+
+- **EventPictogramGenerator**: NEW - Visual pictogram creation for custom events
+  - AI-powered emoji and symbol generation
+  - Smart pictogram combinations for complex concepts
+  - Fallback system for graceful error handling
+  - Context-aware symbol selection based on event metadata
+
+- **PictogramCacheManager**: NEW - Efficient pictogram storage and retrieval
+  - In-memory and persistent caching strategies
+  - Automatic cache invalidation and cleanup
+  - Performance optimization for frequently used pictograms
+  - Thread-safe operations for concurrent access
 
 - **AvatarPromptAssistant**: DALL-E prompt generation for hero avatars
   - Automatic prompt enhancement based on hero traits
@@ -168,6 +181,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **CustomEventCreationView**: Multi-step wizard for custom scenarios
   - AI-powered enhancement options
   - Category and tone customization
+  - Integrated pictogram generation
+- **CustomEventManagementView**: NEW - Comprehensive event organization
+  - Grid/list view toggle for event display
+  - Search and filter capabilities
+  - Batch operations for event management
+  - Usage statistics visualization
+- **CustomEventDetailView**: NEW - Detailed event information display
+  - Full event metadata and statistics
+  - Pictogram display with regeneration option
+  - Event editing and deletion controls
+  - Related events and suggestions
+- **PictogramGenerationView**: NEW - Visual pictogram creation workflow
+  - Real-time AI generation with progress indicators
+  - Multiple pictogram suggestions
+  - Manual selection and customization
+  - Fallback emoji picker for edge cases
 
 #### Settings
 - **SettingsView**: API configuration, theme selection, and language preferences
@@ -201,7 +230,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 2. **Story Generation**: AI-powered stories using OpenAI GPT-4o with scene extraction
 3. **Visual Storytelling**: NEW - AI-generated illustrations synchronized with audio
 4. **Visual Consistency**: NEW - Character appearance maintained across all illustrations
-5. **Custom Events**: User-defined scenarios with AI enhancement and usage tracking
+5. **Custom Events**: User-defined scenarios with AI enhancement, pictograms, and usage tracking
 6. **Multi-Language Support**: 5 languages with localized prompts and voices
 7. **Audio Generation**: High-quality MP3 synthesis via gpt-4o-mini-tts
 8. **Story Editing**: In-app editing with automatic audio regeneration
@@ -368,7 +397,10 @@ InfiniteStories/
 │   │   ├── HeroSelectionForStoryView.swift # Hero picker
 │   │   └── EnhancedEventPickerView.swift  # Event selection
 │   ├── CustomEvents/
-│   │   └── CustomEventCreationView.swift  # Custom event wizard
+│   │   ├── CustomEventCreationView.swift  # Custom event wizard
+│   │   ├── CustomEventManagementView.swift # NEW - Event organization
+│   │   ├── CustomEventDetailView.swift    # NEW - Event details
+│   │   └── PictogramGenerationView.swift  # NEW - Pictogram creation
 │   ├── StoryEdit/
 │   │   └── StoryEditView.swift     # Story content editor
 │   ├── StoryLibrary/
@@ -390,6 +422,8 @@ InfiniteStories/
 │   ├── Logger.swift                # NEW - Comprehensive logging system
 │   ├── AudioService.swift          # Audio generation/playback with protocol design
 │   ├── CustomEventAIAssistant.swift # AI event enhancement
+│   ├── EventPictogramGenerator.swift # NEW - Visual pictogram generation
+│   ├── PictogramCacheManager.swift # NEW - Pictogram caching system
 │   ├── AvatarPromptAssistant.swift # Avatar prompt generation
 │   ├── IdleTimerManager.swift      # Screen sleep prevention
 │   ├── BackgroundTaskManager.swift # Background processing
@@ -495,11 +529,14 @@ InfiniteStories/
 ## Recent Updates
 
 ### Latest Features
-- **Story Illustrations**: NEW - AI-generated visual storytelling with audio synchronization
-- **Visual Consistency**: NEW - Character appearance maintained across all story scenes
-- **Content Safety**: NEW - Comprehensive child-safe content filtering system
-- **Enhanced Logging**: NEW - Structured logging with categories and request tracking
-- **Error Resilience**: NEW - Graceful failure handling with retry mechanisms
+- **Custom Event Pictograms**: NEW - AI-generated visual representations for custom events
+- **Event Management System**: NEW - Comprehensive event organization and statistics
+- **Pictogram Caching**: NEW - Efficient storage and retrieval of generated pictograms
+- **Story Illustrations**: AI-generated visual storytelling with audio synchronization
+- **Visual Consistency**: Character appearance maintained across all story scenes
+- **Content Safety**: Comprehensive child-safe content filtering system
+- **Enhanced Logging**: Structured logging with categories and request tracking
+- **Error Resilience**: Graceful failure handling with retry mechanisms
 - **Performance Optimization**: Device-specific adaptations for smooth operation
 - **Floating Action Button**: Primary CTA at bottom-right with haptic feedback
 - **Reading Journey**: Comprehensive statistics dashboard with charts
