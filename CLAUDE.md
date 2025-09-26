@@ -293,21 +293,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - Multi-language support (5 languages)
   - Background generation support
 
-#### Avatar Generation (DALL-E 3)
-- **Resolution**: 1024x1024 pixels
-- **Quality**: Standard
-- **Response**: Base64 encoded
+#### Avatar Generation (GPT-Image-1)
+- **Resolution**: 1024x1024, 1024x1536, or 1536x1024 pixels
+- **Quality**: Low, medium, or high (mapped from standard/hd)
+- **Response**: Base64 encoded (always)
 - **Storage**: Documents/Avatars directory with URL reference
 - **Content Filtering**: Comprehensive safety filtering before API calls
 - **Visual Profiles**: Automatic extraction of character characteristics for consistency
+- **New Features**: Background control (auto/transparent/opaque), output format selection (PNG/JPEG)
 
-#### NEW: Illustration Generation (DALL-E 3)
+#### NEW: Illustration Generation (GPT-Image-1)
 - **Multi-Scene Support**: Generate multiple illustrations per story
 - **Audio Synchronization**: Timestamp-based illustration display
 - **Visual Consistency**: Character appearance maintained across scenes
 - **Error Handling**: Retry mechanisms with graceful failure modes
 - **Content Safety**: Child-safe content filtering with multi-language support
 - **Storage**: Documents/StoryIllustrations directory with organized file management
+- **Enhanced Quality**: Improved instruction following and text rendering capabilities
 
 ### Security and Best Practices
 - API keys stored in iOS Keychain (never hardcoded)
@@ -317,10 +319,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Rate limit detection (HTTP 429) - needs retry logic implementation
 
 ### Cost Optimization
-- **Average Monthly Cost**: ~$0.50-0.60 per user (10 stories)
+- **Average Monthly Cost**: ~$0.45-0.55 per user (10 stories) - reduced with GPT-Image-1
 - **Story Generation**: ~$0.02-0.03 per story
 - **Audio Generation**: ~$0.01-0.02 per story
-- **Avatar Generation**: $0.04 per image
+- **Avatar Generation**: $0.02-0.19 per image (low/medium/high quality with GPT-Image-1)
+- **Illustration Generation**: $0.02-0.19 per image (token-based pricing)
 
 ### Areas for Improvement
 - Implement exponential backoff for rate limiting (partially addressed with error handling)
@@ -582,9 +585,10 @@ InfiniteStories/
 - Implement caching where appropriate (especially for illustrations)
 - Consider batch operations for efficiency
 - Track user usage patterns for optimization
-- Plan for ~$0.75-1.00 per active user monthly (increased due to illustrations)
-- Illustration generation adds ~$0.20-0.30 per story with visual content
+- Plan for ~$0.65-0.85 per active user monthly (reduced with GPT-Image-1 migration)
+- Illustration generation adds ~$0.15-0.25 per story with visual content (reduced costs)
 - Content filtering reduces API rejections and associated costs
+- Token-based pricing provides better cost predictability
 
 ## Important Instruction Reminders
 

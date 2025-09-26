@@ -59,7 +59,7 @@ struct AvatarGenerationRequest {
     let hero: Hero
     let prompt: String
     let size: String // "1024x1024", "1792x1024", or "1024x1792"
-    let quality: String // "standard" or "hd"
+    let quality: String // "low", "medium", or "high" for GPT-Image-1
 }
 
 struct AvatarGenerationResponse {
@@ -401,7 +401,7 @@ class OpenAIService: AIServiceProtocol {
         }
 
         // Build the prompt for scene extraction with enhanced visual consistency
-        let heroAppearance = request.hero.appearance.isEmpty ? "a lovable character" : request.hero.appearance
+        let _ = request.hero.appearance.isEmpty ? "a lovable character" : request.hero.appearance
 
         // Build detailed hero visual description for consistency
         var heroVisualDescription = "\(request.hero.name)"
@@ -440,7 +440,7 @@ class OpenAIService: AIServiceProtocol {
         2. Choose scenes that best represent the story arc
         3. For each scene, provide:
            - The exact text segment from the story
-           - A detailed illustration prompt for DALL-E
+           - A detailed illustration prompt for GPT-Image-1
            - Estimated timestamp when this scene would occur during audio playback
            - The emotional tone and importance
 
@@ -460,7 +460,7 @@ class OpenAIService: AIServiceProtocol {
                     "sceneNumber": 1,
                     "textSegment": "exact text from story",
                     "timestamp": 0.0,
-                    "illustrationPrompt": "detailed DALL-E prompt",
+                    "illustrationPrompt": "detailed GPT-Image-1 prompt",
                     "emotion": "joyful|peaceful|exciting|mysterious|heartwarming|adventurous|contemplative",
                     "importance": "key|major|minor"
                 }
@@ -805,10 +805,10 @@ class OpenAIService: AIServiceProtocol {
         }
     }
 
-    /// Basic fallback sanitization for DALL-E prompts when AI sanitization is not available
-    /// Enhanced basic sanitization that ensures DALL-E compliance
+    /// Basic fallback sanitization for GPT-Image-1 prompts when AI sanitization is not available
+    /// Enhanced basic sanitization that ensures GPT-Image-1 compliance
     /// - Parameter prompt: The prompt to sanitize
-    /// - Returns: A fully sanitized prompt safe for DALL-E
+    /// - Returns: A fully sanitized prompt safe for GPT-Image-1
     private func enhancedBasicSanitization(_ prompt: String) -> String {
         // First, remove all non-ASCII characters to avoid foreign language issues
         let asciiOnly = prompt.unicodeScalars
@@ -947,9 +947,9 @@ class OpenAIService: AIServiceProtocol {
         return sanitized
     }
 
-    /// Dynamically sanitize DALL-E prompts using OpenAI GPT-4 to ensure policy compliance
-    /// - Parameter originalPrompt: The original DALL-E prompt that needs sanitization
-    /// - Returns: A sanitized prompt that is safe for DALL-E API
+    /// Dynamically sanitize GPT-Image-1 prompts using OpenAI GPT-4 to ensure policy compliance
+    /// - Parameter originalPrompt: The original GPT-Image-1 prompt that needs sanitization
+    /// - Returns: A sanitized prompt that is safe for GPT-Image-1 API
     func sanitizePromptWithAI(_ originalPrompt: String) async throws -> String {
         let requestId = UUID().uuidString.prefix(8).lowercased()
         AppLogger.shared.info("🧹 AI-based prompt sanitization started", category: .illustration, requestId: String(requestId))
@@ -967,9 +967,9 @@ class OpenAIService: AIServiceProtocol {
 
         // Create a comprehensive sanitization prompt for GPT-4
         let sanitizationPrompt = """
-        You are a DALL-E prompt sanitizer specializing in children's content. Your task is to rewrite the following image generation prompt to be 100% compliant with OpenAI's DALL-E content policy while preserving the creative intent.
+        You are a GPT-Image-1 prompt sanitizer specializing in children's content. Your task is to rewrite the following image generation prompt to be 100% compliant with OpenAI's GPT-Image-1 content policy while preserving the creative intent.
 
-        CRITICAL DALL-E POLICY VIOLATIONS TO AVOID:
+        CRITICAL GPT-IMAGE-1 POLICY VIOLATIONS TO AVOID:
         1. NEVER depict children in isolation, distress, danger, or negative situations
         2. NEVER show children alone, lonely, abandoned, lost, scared, crying, or sad
         3. NEVER include darkness, shadows, scary elements, or anything frightening
@@ -1006,7 +1006,7 @@ class OpenAIService: AIServiceProtocol {
             "messages": [
                 [
                     "role": "system",
-                    "content": "You are a strict DALL-E content policy enforcer. You MUST rewrite prompts to be 100% safe for children. ALWAYS ensure children are shown with companions, NEVER alone. ALWAYS make scenes bright and positive. Remove ALL negative or scary elements. Output ONLY the sanitized prompt."
+                    "content": "You are a strict GPT-Image-1 content policy enforcer. You MUST rewrite prompts to be 100% safe for children. ALWAYS ensure children are shown with companions, NEVER alone. ALWAYS make scenes bright and positive. Remove ALL negative or scary elements. Output ONLY the sanitized prompt."
                 ],
                 [
                     "role": "user",
@@ -1122,33 +1122,48 @@ class OpenAIService: AIServiceProtocol {
             AppLogger.shared.debug("Original: \(request.prompt.count) → Sanitized: \(filteredPrompt.count) chars", category: .avatar, requestId: String(requestId))
         }
 
+        // Map quality parameter from DALL-E 3 format to GPT-Image-1 format
+        let gptImageQuality: String
+        switch request.quality.lowercased() {
+        case "standard":
+            gptImageQuality = "medium"
+        case "hd":
+            gptImageQuality = "high"
+        case "low", "medium", "high":
+            gptImageQuality = request.quality // Already in GPT-Image-1 format
+        default:
+            gptImageQuality = "high" // Default to high quality
+        }
+
         // Log the final sanitized avatar generation prompt
         AppLogger.shared.info("=== AVATAR GENERATION PROMPT (FULLY SANITIZED) ===", category: .avatar, requestId: String(requestId))
         AppLogger.shared.logDALLERequest(
             prompt: filteredPrompt,
             size: request.size,
-            quality: request.quality,
+            quality: gptImageQuality,
             requestId: String(requestId)
         )
 
         let requestBody: [String: Any] = [
-            "model": "dall-e-3",
+            "model": "gpt-image-1",
             "prompt": filteredPrompt,
             "n": 1,
             "size": request.size,
-            "quality": request.quality,
-            "response_format": "b64_json"
+            "quality": gptImageQuality, // GPT-Image-1 uses low/medium/high instead of standard/hd
+            "background": "auto",
+            "output_format": "png",
+            "moderation": "auto"
         ]
 
         // Log complete request body
-        AppLogger.shared.info("=== DALL-E AVATAR REQUEST BODY ===", category: .avatar, requestId: String(requestId))
+        AppLogger.shared.info("=== GPT-IMAGE-1 AVATAR REQUEST BODY ===", category: .avatar, requestId: String(requestId))
         if let jsonData = try? JSONSerialization.data(withJSONObject: requestBody, options: .prettyPrinted),
            let jsonString = String(data: jsonData, encoding: .utf8) {
             AppLogger.shared.debug("Request JSON: \(jsonString)", category: .avatar, requestId: String(requestId))
 
             // Log only in debug mode
             #if DEBUG
-            AppLogger.shared.debug("DALL-E Avatar Request - Model: dall-e-3, Size: \(request.size)", category: .avatar, requestId: String(requestId))
+            AppLogger.shared.debug("GPT-Image-1 Avatar Request - Model: gpt-image-1, Size: \(request.size)", category: .avatar, requestId: String(requestId))
             #endif
         }
 
@@ -1179,7 +1194,7 @@ class OpenAIService: AIServiceProtocol {
             guard httpResponse.statusCode == 200 else {
                 // Log error response details
                 if let errorString = String(data: data, encoding: .utf8) {
-                    AppLogger.shared.error("DALL-E Error Response: \(errorString)", category: .avatar, requestId: String(requestId))
+                    AppLogger.shared.error("GPT-Image-1 Error Response: \(errorString)", category: .avatar, requestId: String(requestId))
 
                     // Try to parse error JSON for more details
                     if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -1205,10 +1220,10 @@ class OpenAIService: AIServiceProtocol {
             }
 
             // Log successful response
-            AppLogger.shared.info("=== DALL-E AVATAR RESPONSE ===", category: .avatar, requestId: String(requestId))
+            AppLogger.shared.info("=== GPT-IMAGE-1 AVATAR RESPONSE ===", category: .avatar, requestId: String(requestId))
 
             // Log the full request/response for debugging
-            AppLogger.shared.info("✅ DALL-E Request Successful - Full Payload:", category: .avatar, requestId: String(requestId))
+            AppLogger.shared.info("✅ GPT-Image-1 Request Successful - Full Payload:", category: .avatar, requestId: String(requestId))
             AppLogger.shared.info("URL: \(imageURL)", category: .avatar, requestId: String(requestId))
             AppLogger.shared.info("Method: POST", category: .avatar, requestId: String(requestId))
             AppLogger.shared.info("Headers: Content-Type: application/json, Authorization: Bearer [REDACTED]", category: .avatar, requestId: String(requestId))
@@ -1241,6 +1256,14 @@ class OpenAIService: AIServiceProtocol {
                 requestId: String(requestId)
             )
 
+            // Extract GPT-Image-1 specific response fields for cost tracking
+            if let usage = json["usage"] as? [String: Any],
+               let totalTokens = usage["total_tokens"] as? Int,
+               let inputTokens = usage["input_tokens"] as? Int,
+               let outputTokens = usage["output_tokens"] as? Int {
+                AppLogger.shared.info("GPT-Image-1 avatar token usage - Input: \(inputTokens), Output: \(outputTokens), Total: \(totalTokens)", category: .avatar, requestId: String(requestId))
+            }
+
             AppLogger.shared.logPerformance(operation: "Avatar Generation", startTime: startTime, requestId: String(requestId))
 
             return AvatarGenerationResponse(
@@ -1272,7 +1295,7 @@ class OpenAIService: AIServiceProtocol {
 
         // Log original prompt
         AppLogger.shared.info("=== ORIGINAL SCENE PROMPT ===", category: .illustration, requestId: String(requestId))
-        AppLogger.shared.logPrompt(prompt, type: "DALL-E-Scene-Original", requestId: String(requestId), hero: hero.name)
+        AppLogger.shared.logPrompt(prompt, type: "GPT-Image-1-Scene-Original", requestId: String(requestId), hero: hero.name)
 
         // Enhance the prompt with child-friendly artistic style
         let enhancedPrompt = enhanceIllustrationPrompt(prompt, hero: hero)
@@ -1298,23 +1321,25 @@ class OpenAIService: AIServiceProtocol {
         )
 
         let requestBody: [String: Any] = [
-            "model": "dall-e-3",
+            "model": "gpt-image-1",
             "prompt": filteredPrompt,
             "n": 1,
             "size": "1024x1024",
-            "quality": "standard",
-            "response_format": "b64_json"
+            "quality": "high", // GPT-Image-1 uses low/medium/high instead of standard
+            "background": "auto",
+            "output_format": "png",
+            "moderation": "auto"
         ]
 
         // Log complete request body
-        AppLogger.shared.info("=== DALL-E REQUEST BODY ===", category: .illustration, requestId: String(requestId))
+        AppLogger.shared.info("=== GPT-IMAGE-1 REQUEST BODY ===", category: .illustration, requestId: String(requestId))
         if let jsonData = try? JSONSerialization.data(withJSONObject: requestBody, options: .prettyPrinted),
            let jsonString = String(data: jsonData, encoding: .utf8) {
             AppLogger.shared.debug("Request JSON: \(jsonString)", category: .illustration, requestId: String(requestId))
 
             // Log only in debug mode
             #if DEBUG
-            AppLogger.shared.debug("DALL-E Scene Request - Model: dall-e-3, Size: 1024x1024", category: .illustration, requestId: String(requestId))
+            AppLogger.shared.debug("GPT-Image-1 Scene Request - Model: gpt-image-1, Size: 1024x1024", category: .illustration, requestId: String(requestId))
             #endif
         }
 
@@ -1345,7 +1370,7 @@ class OpenAIService: AIServiceProtocol {
             guard httpResponse.statusCode == 200 else {
                 // Log error response details
                 if let errorString = String(data: data, encoding: .utf8) {
-                    AppLogger.shared.error("DALL-E Error Response: \(errorString)", category: .illustration, requestId: String(requestId))
+                    AppLogger.shared.error("GPT-Image-1 Error Response: \(errorString)", category: .illustration, requestId: String(requestId))
 
                     // Try to parse error JSON for more details
                     if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -1371,10 +1396,10 @@ class OpenAIService: AIServiceProtocol {
             }
 
             // Log successful response
-            AppLogger.shared.info("=== DALL-E RESPONSE ===", category: .illustration, requestId: String(requestId))
+            AppLogger.shared.info("=== GPT-IMAGE-1 RESPONSE ===", category: .illustration, requestId: String(requestId))
 
             // Log the full request/response for debugging
-            AppLogger.shared.info("✅ DALL-E Request Successful - Full Payload:", category: .illustration, requestId: String(requestId))
+            AppLogger.shared.info("✅ GPT-Image-1 Request Successful - Full Payload:", category: .illustration, requestId: String(requestId))
             AppLogger.shared.info("URL: \(imageURL)", category: .illustration, requestId: String(requestId))
             AppLogger.shared.info("Method: POST", category: .illustration, requestId: String(requestId))
             AppLogger.shared.info("Headers: Content-Type: application/json, Authorization: Bearer [REDACTED]", category: .illustration, requestId: String(requestId))
@@ -1407,6 +1432,14 @@ class OpenAIService: AIServiceProtocol {
                 imageSize: imageData.count,
                 requestId: String(requestId)
             )
+
+            // Extract GPT-Image-1 specific response fields for cost tracking
+            if let usage = json["usage"] as? [String: Any],
+               let totalTokens = usage["total_tokens"] as? Int,
+               let inputTokens = usage["input_tokens"] as? Int,
+               let outputTokens = usage["output_tokens"] as? Int {
+                AppLogger.shared.info("GPT-Image-1 illustration token usage - Input: \(inputTokens), Output: \(outputTokens), Total: \(totalTokens)", category: .illustration, requestId: String(requestId))
+            }
 
             AppLogger.shared.logPerformance(operation: "Scene Illustration Generation", startTime: startTime, requestId: String(requestId))
 
