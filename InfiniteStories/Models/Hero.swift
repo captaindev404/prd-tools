@@ -20,6 +20,7 @@ final class Hero {
     var avatarImagePath: String?
     var avatarPrompt: String?
     var avatarGeneratedAt: Date?
+    var avatarGenerationId: String? // GPT-Image-1 generation ID for multi-turn consistency
 
     @Relationship(deleteRule: .nullify) var stories: [Story] = []
     @Relationship var visualProfile: HeroVisualProfile?
@@ -35,6 +36,7 @@ final class Hero {
         self.avatarImagePath = nil
         self.avatarPrompt = nil
         self.avatarGeneratedAt = nil
+        self.avatarGenerationId = nil
     }
     
     var traitsDescription: String {

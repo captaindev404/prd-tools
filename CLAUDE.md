@@ -229,20 +229,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 1. **Hero Creation**: Step-by-step character building with AI-generated avatars
 2. **Story Generation**: AI-powered stories using OpenAI GPT-4o with scene extraction
 3. **Visual Storytelling**: NEW - AI-generated illustrations synchronized with audio
-4. **Visual Consistency**: NEW - Character appearance maintained across all illustrations
-5. **Custom Events**: User-defined scenarios with AI enhancement, pictograms, and usage tracking
-6. **Multi-Language Support**: 5 languages with localized prompts and voices
-7. **Audio Generation**: High-quality MP3 synthesis via gpt-4o-mini-tts
-8. **Story Editing**: In-app editing with automatic audio regeneration
-9. **Reading Journey**: Comprehensive statistics and progress tracking with charts
-10. **Advanced Audio Playback**: Full-featured player with lock screen controls and queue management
-11. **Content Safety**: NEW - Comprehensive child-safe content filtering
-12. **Error Resilience**: NEW - Graceful failure handling with retry mechanisms
-13. **Theme Support**: Light, dark, and system theme preferences
-14. **Accessibility**: Full VoiceOver and Dynamic Type support (WCAG AA)
-15. **Hero Management**: Complete CRUD operations with avatar and visual profile support
-16. **Background Processing**: Continued operation when app is backgrounded
-17. **Performance Optimization**: Device-specific adaptations for smooth operation
+4. **Visual Consistency**: NEW - Character appearance maintained across all illustrations using GPT-Image-1 multi-turn generation
+5. **Multi-Turn Image Generation**: NEW - Each illustration references the previous image for perfect visual consistency
+6. **Custom Events**: User-defined scenarios with AI enhancement, pictograms, and usage tracking
+7. **Multi-Language Support**: 5 languages with localized prompts and voices
+8. **Audio Generation**: High-quality MP3 synthesis via gpt-4o-mini-tts
+9. **Story Editing**: In-app editing with automatic audio regeneration
+10. **Reading Journey**: Comprehensive statistics and progress tracking with charts
+11. **Advanced Audio Playback**: Full-featured player with lock screen controls and queue management
+12. **Content Safety**: NEW - Comprehensive child-safe content filtering
+13. **Error Resilience**: NEW - Graceful failure handling with retry mechanisms
+14. **Theme Support**: Light, dark, and system theme preferences
+15. **Accessibility**: Full VoiceOver and Dynamic Type support (WCAG AA)
+16. **Hero Management**: Complete CRUD operations with avatar and visual profile support
+17. **Background Processing**: Continued operation when app is backgrounded
+18. **Performance Optimization**: Device-specific adaptations for smooth operation
 
 ## Recent UI Changes
 
@@ -302,11 +303,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Visual Profiles**: Automatic extraction of character characteristics for consistency
 - **New Features**: Background control (auto/transparent/opaque), output format selection (PNG/JPEG)
 
-#### NEW: Illustration Generation (GPT-Image-1)
+#### NEW: Illustration Generation (GPT-Image-1 with Multi-Turn)
 - **Multi-Scene Support**: Generate multiple illustrations per story
 - **Audio Synchronization**: Timestamp-based illustration display
-- **Visual Consistency**: Character appearance maintained across scenes
-- **Error Handling**: Retry mechanisms with graceful failure modes
+- **Visual Consistency**: Character appearance maintained across scenes using generation ID chaining
+- **Multi-Turn Generation**: Each illustration references the previous image for consistency
+- **Sequential Processing**: Illustrations generated one by one to maintain generation chain
+- **Generation ID Storage**: Persistent generation IDs for future consistency
+- **Error Handling**: Retry mechanisms with graceful failure modes and chain recovery
 - **Content Safety**: Child-safe content filtering with multi-language support
 - **Storage**: Documents/StoryIllustrations directory with organized file management
 - **Enhanced Quality**: Improved instruction following and text rendering capabilities
@@ -325,10 +329,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Avatar Generation**: $0.02-0.19 per image (low/medium/high quality with GPT-Image-1)
 - **Illustration Generation**: $0.02-0.19 per image (token-based pricing)
 
+### Multi-Turn Image Generation Implementation
+- **Generation ID Chaining**: Each illustration references the previous image's generation ID
+- **Avatar Integration**: First illustration uses hero avatar's generation ID for consistency
+- **Sequential Processing**: Illustrations generated one-by-one to maintain visual chain
+- **Error Recovery**: Graceful fallback to previous generation IDs when chain breaks
+- **Persistent Storage**: Generation IDs stored in Hero and StoryIllustration models
+- **API Integration**: `previous_generation_id` parameter added to GPT-Image-1 requests
+
 ### Areas for Improvement
 - Implement exponential backoff for rate limiting (partially addressed with error handling)
-- Add request queuing and batching for illustration generation
-- Implement usage monitoring and cost tracking
+- Add request queuing and batching for non-chained generation scenarios
+- Implement usage monitoring and cost tracking with token-based pricing
 - Develop content caching strategy for illustrations
 - Optimize illustration file size and compression
 - Add illustration preloading for better performance

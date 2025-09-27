@@ -20,6 +20,7 @@ struct AvatarGenerationView: View {
     @State private var aiService: OpenAIService?
     @StateObject private var appSettings = AppSettings()
     @State private var avatarSaved = false
+    @State private var generatedGenerationId: String? // Store generation ID for chaining
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
@@ -314,7 +315,8 @@ struct AvatarGenerationView: View {
             hero: hero,
             prompt: finalPrompt,
             size: "1024x1024",
-            quality: "standard"
+            quality: "standard",
+            previousGenerationId: nil // No previous generation for initial avatar
         )
 
         Task {
@@ -324,6 +326,16 @@ struct AvatarGenerationView: View {
                 await MainActor.run {
                     generatedImage = UIImage(data: response.imageData)
                     isGenerating = false
+
+                    // Store generation ID for future illustration chaining
+                    generatedGenerationId = response.generationId
+                    if let generationId = response.generationId {
+                        print("✅ Avatar generation ID received: \(generationId)")
+                        print("🔗 This ID will be used for illustration chaining")
+                    } else {
+                        print("⚠️ Warning: No generation ID received from GPT-Image-1 - illustration consistency may be reduced")
+                        print("🔍 Check GPT-Image-1 API response format for generation_id field")
+                    }
 
                     if generatedImage == nil {
                         generationError = "Failed to create image from data"
@@ -362,6 +374,16 @@ struct AvatarGenerationView: View {
                         hero.avatarImagePath = filename
                         hero.avatarPrompt = customPrompt
                         hero.avatarGeneratedAt = Date()
+                        hero.avatarGenerationId = generatedGenerationId // Store for illustration chaining
+
+                        // Debug generation ID storage
+                        if let genId = generatedGenerationId {
+                            print("💾 Storing avatar generation ID in Hero model: \(genId)")
+                            print("🎭 Hero '\(hero.name)' now has generation ID: \(genId)")
+                        } else {
+                            print("⚠️ Warning: No generation ID to store in Hero model")
+                            print("🔗 This will break the illustration generation chain")
+                        }
 
                         // Mark as saved
                         avatarSaved = true

@@ -40,6 +40,10 @@ final class StoryIllustration {
     var retryCount: Int
     var failedAt: Date?
 
+    /// GPT-Image-1 generation IDs for multi-turn consistency
+    var generationId: String? // This illustration's generation ID
+    var previousGenerationId: String? // Referenced previous image generation ID
+
     /// Relationship to the parent story
     @Relationship(inverse: \Story.illustrations) var story: Story?
 
@@ -47,7 +51,8 @@ final class StoryIllustration {
         timestamp: Double,
         imagePrompt: String,
         displayOrder: Int,
-        textSegment: String
+        textSegment: String,
+        previousGenerationId: String? = nil
     ) {
         self.id = UUID()
         self.timestamp = timestamp
@@ -61,6 +66,8 @@ final class StoryIllustration {
         self.errorType = nil
         self.retryCount = 0
         self.failedAt = nil
+        self.generationId = nil
+        self.previousGenerationId = previousGenerationId
     }
 
     /// Computed property to get the full URL for the image

@@ -94,6 +94,18 @@ class IllustrationGenerator {
                 #if DEBUG
                 AppLogger.shared.debug("Scene \(index + 1) using existing prompt", category: .illustration, requestId: String(requestId))
                 #endif
+
+                // CRITICAL FIX: Initialize previousGenerationId for imported scenes
+                // This ensures the generation chain works even when scenes were imported from AI
+                if index == 0 {
+                    // First illustration should use hero's avatar generation ID
+                    illustration.previousGenerationId = hero.avatarGenerationId
+                    if let avatarGenId = hero.avatarGenerationId {
+                        AppLogger.shared.info("Set first imported scene to use avatar generation ID: \(avatarGenId)", category: .illustration, requestId: String(requestId))
+                    } else {
+                        AppLogger.shared.warning("Hero has no avatar generation ID for first imported scene", category: .illustration, requestId: String(requestId))
+                    }
+                }
             }
         } else {
             // Fallback: Use the old segmentation logic if no scenes were imported
@@ -154,35 +166,69 @@ class IllustrationGenerator {
 
         AppLogger.shared.success("Created \(illustrations.count) illustration records in database", category: .illustration, requestId: String(requestId))
 
-        // Generate images in parallel batches (to avoid rate limits)
-        let batchSize = 3
-        AppLogger.shared.info("Generating illustrations in batches of \(batchSize)", category: .illustration, requestId: String(requestId))
+        // Generate images sequentially with generation ID chaining for visual consistency
+        AppLogger.shared.info("Generating illustrations sequentially with generation ID chaining", category: .illustration, requestId: String(requestId))
 
-        for (batchIndex, batch) in illustrations.chunked(into: batchSize).enumerated() {
-            AppLogger.shared.info("Processing batch \(batchIndex + 1) with \(batch.count) illustrations", category: .illustration, requestId: String(requestId))
-            await generateBatch(batch)
+        // Start with hero's avatar generation ID for first illustration
+        var previousGenerationId = hero.avatarGenerationId
+        if let avatarGenId = previousGenerationId {
+            AppLogger.shared.info("Starting illustration chain with avatar generation ID: \(avatarGenId)", category: .illustration, requestId: String(requestId))
+        } else {
+            AppLogger.shared.warning("Hero has no avatar generation ID - visual consistency may be reduced", category: .illustration, requestId: String(requestId))
+        }
+
+        // Sort illustrations by displayOrder to ensure correct sequential processing
+        let sortedIllustrations = illustrations.sorted { $0.displayOrder < $1.displayOrder }
+        AppLogger.shared.info("Processing \(sortedIllustrations.count) illustrations in correct display order", category: .illustration, requestId: String(requestId))
+
+        for (index, illustration) in sortedIllustrations.enumerated() {
+            // Add delay between requests to avoid rate limiting (except for first)
+            if index > 0 {
+                let delaySeconds = 2.0
+                AppLogger.shared.debug("Waiting \(delaySeconds)s before next request to avoid rate limits", category: .illustration)
+                try? await Task.sleep(nanoseconds: UInt64(delaySeconds * 1_000_000_000))
+            }
+
+            // CRITICAL FIX: Set previousGenerationId BEFORE generation
+            // For imported scenes, this might already be set in the previous loop
+            if illustration.previousGenerationId == nil {
+                illustration.previousGenerationId = previousGenerationId
+                AppLogger.shared.info("Setting previousGenerationId for illustration #\(index + 1): \(previousGenerationId ?? "nil")", category: .illustration)
+            } else {
+                AppLogger.shared.info("Illustration #\(index + 1) already has previousGenerationId: \(illustration.previousGenerationId ?? "nil")", category: .illustration)
+            }
+
+            // Generate illustration and update chain
+            let success = await generateSingleIllustration(illustration)
+
+            if success, let newGenerationId = illustration.generationId {
+                // Update chain for next illustration
+                previousGenerationId = newGenerationId
+                AppLogger.shared.info("Updated generation chain: illustration #\(index + 1) → \(newGenerationId)", category: .illustration)
+
+                // CRITICAL FIX: Set next illustration's previousGenerationId if it exists
+                if index + 1 < sortedIllustrations.count {
+                    sortedIllustrations[index + 1].previousGenerationId = newGenerationId
+                    AppLogger.shared.info("Pre-set next illustration #\(index + 2) previousGenerationId: \(newGenerationId)", category: .illustration)
+                }
+            } else if success {
+                // Generation succeeded but no generation ID received - log warning but continue
+                AppLogger.shared.warning("Illustration #\(index + 1) generated successfully but no generation ID received", category: .illustration)
+                // Keep using the same previousGenerationId for consistency
+            } else {
+                // Generation failed completely - try to continue with previous generation ID
+                AppLogger.shared.error("Failed to generate illustration #\(index + 1), continuing with previous generation ID", category: .illustration)
+                // Optionally fall back to avatar generation ID if we're early in the chain
+                if index == 0 || index == 1, let avatarGenId = hero.avatarGenerationId {
+                    AppLogger.shared.info("Falling back to avatar generation ID for chain recovery: \(avatarGenId)", category: .illustration)
+                    previousGenerationId = avatarGenId
+                }
+            }
         }
 
         AppLogger.shared.success("Illustration Generation Completed", category: .illustration, requestId: String(requestId))
     }
 
-    /// Generate images for a batch of illustrations
-    private func generateBatch(_ batch: [StoryIllustration]) async {
-        // Process illustrations sequentially with delay to avoid rate limits
-        for (index, illustration) in batch.enumerated() {
-            // Add delay between requests to avoid rate limiting (except for first)
-            if index > 0 {
-                let delaySeconds = 2.0 // 2 seconds between requests
-                AppLogger.shared.debug("Waiting \(delaySeconds)s before next request to avoid rate limits", category: .illustration)
-                try? await Task.sleep(nanoseconds: UInt64(delaySeconds * 1_000_000_000))
-            }
-
-            let success = await generateSingleIllustration(illustration)
-            if !success {
-                AppLogger.shared.warning("Failed to generate illustration #\(illustration.displayOrder + 1), will continue with others", category: .illustration)
-            }
-        }
-    }
 
     /// Generate a single illustration
     private func generateSingleIllustration(_ illustration: StoryIllustration) async -> Bool {
@@ -228,27 +274,29 @@ class IllustrationGenerator {
                 enhancedPrompt = illustration.imagePrompt
             }
 
-            // Create avatar generation request with enhanced prompt
-            // Note: The prompt will undergo AI-based sanitization in AIService.generateAvatar
-            // This ensures DALL-E policy compliance through dynamic GPT-4 rewriting
-            let request = AvatarGenerationRequest(
-                hero: hero,
-                prompt: enhancedPrompt,
-                size: imageSize,
-                quality: imageQuality
-            )
+            // Generate scene illustration with generation ID chaining for visual consistency
+            AppLogger.shared.info("Calling AI service for scene #\(sceneNum) with generation chain (attempt \(illustration.retryCount + 1)/\(effectiveMaxRetries))", category: .illustration, requestId: String(requestId))
 
-            // Generate the image with timeout
-            AppLogger.shared.info("Calling AI service for scene #\(sceneNum) (with AI sanitization) (attempt \(illustration.retryCount + 1)/\(effectiveMaxRetries))", category: .illustration, requestId: String(requestId))
+            if let prevGenId = illustration.previousGenerationId {
+                AppLogger.shared.info("🔗 Using previous generation ID for visual consistency: \(prevGenId)", category: .illustration, requestId: String(requestId))
+                AppLogger.shared.debug("Chain link: Previous illustration → Scene #\(sceneNum)", category: .illustration, requestId: String(requestId))
+            } else {
+                AppLogger.shared.warning("⚠️ No previous generation ID available for scene #\(sceneNum)", category: .illustration, requestId: String(requestId))
+                AppLogger.shared.debug("This will reduce visual consistency between illustrations", category: .illustration, requestId: String(requestId))
+            }
 
-            let response: AvatarGenerationResponse
+            let response: SceneIllustrationResponse
             do {
-                response = try await withTimeout(seconds: 30) {
-                    try await self.aiService.generateAvatar(request: request)
+                response = try await withTimeout(seconds: 120) {
+                    try await self.aiService.generateSceneIllustration(
+                        prompt: enhancedPrompt,
+                        hero: hero,
+                        previousGenerationId: illustration.previousGenerationId
+                    )
                 }
             } catch {
                 // Handle timeout specifically
-                illustration.markAsFailed(error: "Request timed out after 30 seconds", type: .timeout)
+                illustration.markAsFailed(error: "Request timed out after 2 minutes", type: .timeout)
                 try? modelContext.save()
                 throw error
             }
@@ -268,9 +316,18 @@ class IllustrationGenerator {
                 throw GeneratorError.fileSystemError
             }
 
-            // Update illustration with file path
+            // Update illustration with file path and generation ID
             illustration.setImagePath(filename)
+            illustration.generationId = response.generationId // Store for next illustration in chain
             illustration.resetError() // Clear any previous errors
+
+            if let generationId = response.generationId {
+                AppLogger.shared.info("✅ Stored generation ID for scene #\(sceneNum): \(generationId)", category: .illustration, requestId: String(requestId))
+                AppLogger.shared.debug("🔗 This ID will be used for next illustration in the chain", category: .illustration, requestId: String(requestId))
+            } else {
+                AppLogger.shared.warning("⚠️ No generation ID returned for scene #\(sceneNum)", category: .illustration, requestId: String(requestId))
+                AppLogger.shared.debug("🔗 Chain may be broken for subsequent illustrations", category: .illustration, requestId: String(requestId))
+            }
 
             // Save to database
             try modelContext.save()

@@ -60,11 +60,19 @@ struct AvatarGenerationRequest {
     let prompt: String
     let size: String // "1024x1024", "1792x1024", or "1024x1792"
     let quality: String // "low", "medium", or "high" for GPT-Image-1
+    let previousGenerationId: String? // Optional previous generation ID for consistency
 }
 
 struct AvatarGenerationResponse {
     let imageData: Data
     let revisedPrompt: String?
+    let generationId: String? // GPT-Image-1 generation ID for multi-turn consistency
+}
+
+struct SceneIllustrationResponse {
+    let imageData: Data
+    let revisedPrompt: String?
+    let generationId: String? // GPT-Image-1 generation ID for multi-turn consistency
 }
 
 enum AIServiceError: Error {
@@ -104,12 +112,13 @@ struct SceneJSON: Codable {
 
 // Extension to convert StoryScene to StoryIllustration
 extension StoryScene {
-    func toStoryIllustration() -> StoryIllustration {
+    func toStoryIllustration(previousGenerationId: String? = nil) -> StoryIllustration {
         return StoryIllustration(
             timestamp: timestamp,
             imagePrompt: illustrationPrompt,
             displayOrder: sceneNumber - 1, // Convert to 0-based index
-            textSegment: textSegment
+            textSegment: textSegment,
+            previousGenerationId: previousGenerationId // Pass through generation ID for chaining
         )
     }
 }
@@ -125,9 +134,13 @@ extension StoryGenerationResponse {
         return content
     }
 
-    func createIllustrations() -> [StoryIllustration] {
+    func createIllustrations(heroAvatarGenerationId: String? = nil) -> [StoryIllustration] {
         guard let scenes = scenes else { return [] }
-        return scenes.map { $0.toStoryIllustration() }
+        return scenes.enumerated().map { (index, scene) in
+            // First illustration should use hero's avatar generation ID for chaining
+            let previousGenId = index == 0 ? heroAvatarGenerationId : nil
+            return scene.toStoryIllustration(previousGenerationId: previousGenId)
+        }
     }
 }
 
@@ -137,7 +150,7 @@ protocol AIServiceProtocol {
     func extractScenesFromStory(request: SceneExtractionRequest) async throws -> [StoryScene]
     func generateSpeech(text: String, voice: String, language: String) async throws -> Data
     func generateAvatar(request: AvatarGenerationRequest) async throws -> AvatarGenerationResponse
-    func generateSceneIllustration(prompt: String, hero: Hero) async throws -> Data
+    func generateSceneIllustration(prompt: String, hero: Hero, previousGenerationId: String?) async throws -> SceneIllustrationResponse
     func cancelCurrentTask()
     var currentTask: URLSessionDataTask? { get set }
 }
@@ -400,20 +413,7 @@ class OpenAIService: AIServiceProtocol {
             throw AIServiceError.invalidAPIKey
         }
 
-        // Build the prompt for scene extraction with enhanced visual consistency
-        let _ = request.hero.appearance.isEmpty ? "a lovable character" : request.hero.appearance
-
-        // Build detailed hero visual description for consistency
-        var heroVisualDescription = "\(request.hero.name)"
-        if !request.hero.appearance.isEmpty {
-            heroVisualDescription += " - \(request.hero.appearance)"
-        }
-
-        // Add avatar prompt details if available for maximum consistency
-        if let avatarPrompt = request.hero.avatarPrompt {
-            heroVisualDescription += ". IMPORTANT VISUAL REFERENCE: \(avatarPrompt)"
-        }
-
+        // Build the prompt for scene extraction
         let prompt = """
         You are an expert at analyzing children's bedtime stories and identifying key visual moments for illustration.
 
@@ -425,12 +425,6 @@ class OpenAIService: AIServiceProtocol {
 
         Story Context: \(request.eventContext)
         Story Duration: \(Int(request.storyDuration)) seconds
-
-        HERO VISUAL CONSISTENCY REQUIREMENTS:
-        Main Character: \(heroVisualDescription)
-
-        CRITICAL: Every illustration prompt MUST include the EXACT hero appearance described above.
-        The character must look IDENTICAL in every scene - same colors, features, clothing, and style.
 
         STORY TEXT:
         \(request.storyContent)
@@ -445,12 +439,10 @@ class OpenAIService: AIServiceProtocol {
            - The emotional tone and importance
 
         The illustration prompts should:
-        - ALWAYS start with the hero description: "\(heroVisualDescription)"
-        - Maintain EXACT visual consistency across all scenes
         - Be child-friendly and magical
         - Use warm, watercolor or soft digital art style
         - Be specific about colors, composition, and atmosphere
-        - Include the hero in every scene with consistent appearance
+        - Include the hero character in the scene
         - Be under 150 words each
 
         Return your analysis as a JSON object matching this structure:
@@ -540,8 +532,10 @@ class OpenAIService: AIServiceProtocol {
             let decoder = JSONDecoder()
             let sceneResponse = try decoder.decode(SceneExtractionJSONResponse.self, from: jsonData)
 
-            // Convert JSON scenes to StoryScene objects
-            let scenes = sceneResponse.scenes.map { jsonScene in
+            // Convert JSON scenes to StoryScene objects and sort by sceneNumber to ensure proper order
+            let scenes = sceneResponse.scenes
+                .sorted { $0.sceneNumber < $1.sceneNumber }
+                .map { jsonScene in
                 StoryScene(
                     sceneNumber: jsonScene.sceneNumber,
                     textSegment: jsonScene.textSegment,
@@ -1144,7 +1138,7 @@ class OpenAIService: AIServiceProtocol {
             requestId: String(requestId)
         )
 
-        let requestBody: [String: Any] = [
+        var requestBody: [String: Any] = [
             "model": "gpt-image-1",
             "prompt": filteredPrompt,
             "n": 1,
@@ -1154,6 +1148,12 @@ class OpenAIService: AIServiceProtocol {
             "output_format": "png",
             "moderation": "auto"
         ]
+
+        // Add previous generation ID if available for multi-turn consistency
+        if let previousGenerationId = request.previousGenerationId {
+            requestBody["previous_generation_id"] = previousGenerationId
+            AppLogger.shared.info("Using previous generation ID for avatar consistency: \(previousGenerationId)", category: .avatar, requestId: String(requestId))
+        }
 
         // Log complete request body
         AppLogger.shared.info("=== GPT-IMAGE-1 AVATAR REQUEST BODY ===", category: .avatar, requestId: String(requestId))
@@ -1266,9 +1266,29 @@ class OpenAIService: AIServiceProtocol {
 
             AppLogger.shared.logPerformance(operation: "Avatar Generation", startTime: startTime, requestId: String(requestId))
 
+            // Extract GPT-Image-1 generation ID for multi-turn consistency
+            // Check multiple possible field names for generation ID
+            let generationId = firstImage["generation_id"] as? String ??
+                              firstImage["generationId"] as? String ??
+                              firstImage["gen_id"] as? String ??
+                              json["generation_id"] as? String ??
+                              json["generationId"] as? String ??
+                              json["gen_id"] as? String
+
+            if let generationId = generationId {
+                AppLogger.shared.info("Avatar generation ID extracted: \(generationId)", category: .avatar, requestId: String(requestId))
+            } else {
+                AppLogger.shared.warning("No generation ID found in avatar response", category: .avatar, requestId: String(requestId))
+                AppLogger.shared.debug("Available response keys: \(Array(json.keys))", category: .avatar, requestId: String(requestId))
+                if !dataArray.isEmpty {
+                    AppLogger.shared.debug("Available image keys: \(Array(firstImage.keys))", category: .avatar, requestId: String(requestId))
+                }
+            }
+
             return AvatarGenerationResponse(
                 imageData: imageData,
-                revisedPrompt: revisedPrompt
+                revisedPrompt: revisedPrompt,
+                generationId: generationId
             )
 
         } catch let error as AIServiceError {
@@ -1281,12 +1301,18 @@ class OpenAIService: AIServiceProtocol {
         }
     }
 
-    func generateSceneIllustration(prompt: String, hero: Hero) async throws -> Data {
+    func generateSceneIllustration(prompt: String, hero: Hero, previousGenerationId: String?) async throws -> SceneIllustrationResponse {
         let requestId = UUID().uuidString.prefix(8).lowercased()
         let startTime = Date()
 
         AppLogger.shared.info("Scene Illustration Generation Started", category: .illustration, requestId: String(requestId))
         AppLogger.shared.info("Hero: \(hero.name)", category: .illustration, requestId: String(requestId))
+
+        if let previousGenerationId = previousGenerationId {
+            AppLogger.shared.info("Using previous generation ID for consistency: \(previousGenerationId)", category: .illustration, requestId: String(requestId))
+        } else {
+            AppLogger.shared.debug("No previous generation ID provided - first illustration or fallback", category: .illustration, requestId: String(requestId))
+        }
 
         guard !apiKey.isEmpty else {
             AppLogger.shared.error("API key is empty", category: .api, requestId: String(requestId))
@@ -1320,7 +1346,7 @@ class OpenAIService: AIServiceProtocol {
             requestId: String(requestId)
         )
 
-        let requestBody: [String: Any] = [
+        var requestBody: [String: Any] = [
             "model": "gpt-image-1",
             "prompt": filteredPrompt,
             "n": 1,
@@ -1330,6 +1356,11 @@ class OpenAIService: AIServiceProtocol {
             "output_format": "png",
             "moderation": "auto"
         ]
+
+        // Add previous generation ID if available for multi-turn consistency
+        if let previousGenerationId = previousGenerationId {
+            requestBody["previous_generation_id"] = previousGenerationId
+        }
 
         // Log complete request body
         AppLogger.shared.info("=== GPT-IMAGE-1 REQUEST BODY ===", category: .illustration, requestId: String(requestId))
@@ -1425,6 +1456,27 @@ class OpenAIService: AIServiceProtocol {
             // Extract revised prompt if available
             let revisedPrompt = firstImage["revised_prompt"] as? String
 
+            // Extract GPT-Image-1 generation ID for multi-turn consistency
+            // Check multiple possible field names for generation ID
+            let generationId = firstImage["generation_id"] as? String ??
+                              firstImage["generationId"] as? String ??
+                              firstImage["gen_id"] as? String ??
+                              json["generation_id"] as? String ??
+                              json["generationId"] as? String ??
+                              json["gen_id"] as? String
+            
+            let genId = firstImage["id"] as? String  // TODO fix generation Id retrieval
+
+            if let generationId = generationId {
+                AppLogger.shared.info("Scene illustration generation ID extracted: \(generationId)", category: .illustration, requestId: String(requestId))
+            } else {
+                AppLogger.shared.warning("No generation ID found in scene illustration response", category: .illustration, requestId: String(requestId))
+                AppLogger.shared.debug("Available response keys: \(Array(json.keys))", category: .illustration, requestId: String(requestId))
+                if !dataArray.isEmpty {
+                    AppLogger.shared.debug("Available image keys: \(Array(firstImage.keys))", category: .illustration, requestId: String(requestId))
+                }
+            }
+
             // Log success with details
             AppLogger.shared.logDALLEResponse(
                 success: true,
@@ -1443,7 +1495,11 @@ class OpenAIService: AIServiceProtocol {
 
             AppLogger.shared.logPerformance(operation: "Scene Illustration Generation", startTime: startTime, requestId: String(requestId))
 
-            return imageData
+            return SceneIllustrationResponse(
+                imageData: imageData,
+                revisedPrompt: revisedPrompt,
+                generationId: generationId
+            )
 
         } catch let error as AIServiceError {
             AppLogger.shared.logDALLEResponse(success: false, requestId: String(requestId), error: error)
@@ -1520,19 +1576,57 @@ class OpenAIService: AIServiceProtocol {
     func generateIllustrationsForScenes(_ scenes: [StoryScene], hero: Hero, storyId: UUID) async -> [(scene: StoryScene, imageData: Data?, error: Error?)] {
         var results: [(scene: StoryScene, imageData: Data?, error: Error?)] = []
 
-        for scene in scenes {
-            do {
-                // Generate illustration for this scene
-                let imageData = try await generateSceneIllustration(prompt: scene.illustrationPrompt, hero: hero)
-                results.append((scene: scene, imageData: imageData, error: nil))
+        // Sort scenes by sceneNumber to ensure correct order
+        let sortedScenes = scenes.sorted { $0.sceneNumber < $1.sceneNumber }
 
-                // Add delay between requests to avoid rate limits
-                try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second delay
+        // Track the last successful generation ID for chaining
+        var lastGenerationId: String? = hero.avatarGenerationId
+
+        AppLogger.shared.info("Starting batch illustration generation for \(sortedScenes.count) scenes", category: .illustration)
+        if let avatarGenId = hero.avatarGenerationId {
+            AppLogger.shared.debug("Initial generation ID from hero avatar: \(avatarGenId)", category: .illustration)
+        } else {
+            AppLogger.shared.warning("Hero has no avatar generation ID, visual consistency may be limited", category: .illustration)
+        }
+
+        for (index, scene) in sortedScenes.enumerated() {
+            do {
+                AppLogger.shared.info("Generating illustration for scene \(scene.sceneNumber) (\(index + 1)/\(sortedScenes.count))", category: .illustration)
+
+                // Use the last successful generation ID for visual consistency chaining
+                let response = try await generateSceneIllustration(
+                    prompt: scene.illustrationPrompt,
+                    hero: hero,
+                    previousGenerationId: lastGenerationId
+                )
+
+                // Update the last generation ID if we got a new one
+                if let newGenerationId = response.generationId {
+                    AppLogger.shared.debug("Scene \(scene.sceneNumber) generated with ID: \(newGenerationId)", category: .illustration)
+                    lastGenerationId = newGenerationId
+                } else {
+                    AppLogger.shared.warning("Scene \(scene.sceneNumber) did not return a generation ID", category: .illustration)
+                }
+
+                results.append((scene: scene, imageData: response.imageData, error: nil))
+                AppLogger.shared.success("Successfully generated illustration for scene \(scene.sceneNumber)", category: .illustration)
+
+                // Add delay between requests to avoid rate limits (except for the last scene)
+                if index < sortedScenes.count - 1 {
+                    try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second delay
+                }
             } catch {
-                print("🎨 ❌ Failed to generate illustration for scene \(scene.sceneNumber): \(error)")
+                AppLogger.shared.error("Failed to generate illustration for scene \(scene.sceneNumber): \(error)", category: .illustration)
                 results.append((scene: scene, imageData: nil, error: error))
+
+                // Continue using the last successful generation ID to maintain some consistency
+                // even when individual scenes fail
+                AppLogger.shared.info("Continuing with last successful generation ID for consistency", category: .illustration)
             }
         }
+
+        let successCount = results.filter { $0.imageData != nil }.count
+        AppLogger.shared.info("Batch illustration generation completed: \(successCount)/\(sortedScenes.count) successful", category: .illustration)
 
         return results
     }

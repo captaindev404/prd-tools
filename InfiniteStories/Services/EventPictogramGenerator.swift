@@ -225,10 +225,12 @@ class EventPictogramGenerator: ObservableObject {
             )
 
             // Generate image using the AI service's scene illustration method
-            let imageData = try await aiService.generateSceneIllustration(
+            let response = try await aiService.generateSceneIllustration(
                 prompt: prompt,
-                hero: dummyHero
+                hero: dummyHero,
+                previousGenerationId: nil // No generation chain for pictograms
             )
+            let imageData = response.imageData
 
             return imageData
 
