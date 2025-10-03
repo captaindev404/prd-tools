@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { User, Settings, LogOut, MapPin } from "lucide-react";
+import { Settings, LogOut, MapPin } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +25,7 @@ import { Badge } from "@/components/ui/badge";
  * Features:
  * - Avatar with fallback to user initials
  * - User info display (name, email, role)
- * - Navigation links: Profile, Settings
+ * - Navigation link: Settings
  * - Sign out action
  * - Mobile-optimized with 44px minimum touch targets
  * - Keyboard accessible
@@ -153,16 +153,6 @@ export function UserNav({ user }: UserNavProps) {
 
         {/* Navigation Items */}
         <DropdownMenuGroup>
-          <DropdownMenuItem asChild>
-            <Link
-              href="/settings/profile"
-              className="flex items-center cursor-pointer min-h-[44px] sm:min-h-0"
-            >
-              <User className="mr-2 h-4 w-4" aria-hidden="true" />
-              <span>Profile</span>
-            </Link>
-          </DropdownMenuItem>
-
           <DropdownMenuItem asChild>
             <Link
               href="/settings"

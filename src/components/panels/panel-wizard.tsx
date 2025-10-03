@@ -19,11 +19,18 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
-import { ChevronLeft, ChevronRight, Check, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, Loader2, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { Role } from '@prisma/client';
+import {
+  VALID_ROLES,
+  VALID_CONSENTS,
+  eligibilityRulesSchema,
+} from '@/lib/validators/panel-eligibility';
+import { handleApiError } from '@/lib/api-error-handler';
 
-const AVAILABLE_ROLES: Role[] = ['USER', 'PM', 'PO', 'RESEARCHER', 'ADMIN', 'MODERATOR'];
+const AVAILABLE_ROLES: Role[] = [...VALID_ROLES];
 const AVAILABLE_CONSENTS = [
   { value: 'research_contact', label: 'Research Contact' },
   { value: 'usage_analytics', label: 'Usage Analytics' },
@@ -36,13 +43,39 @@ const step1Schema = z.object({
   description: z.string().max(1000, 'Description must not exceed 1000 characters').optional(),
 });
 
-// Step 2 Schema: Eligibility Rules
+// Step 2 Schema: Eligibility Rules (using imported validation)
 const step2Schema = z.object({
-  includeRoles: z.array(z.enum(['USER', 'PM', 'PO', 'RESEARCHER', 'ADMIN', 'MODERATOR'] as const)).optional(),
+  includeRoles: z
+    .array(z.enum(VALID_ROLES))
+    .optional()
+    .refine(
+      (roles) => !roles || roles.length > 0,
+      { message: 'If roles are selected, at least one role is required' }
+    ),
   includeVillages: z.string().optional(),
-  requiredConsents: z.array(z.string()).optional(),
+  requiredConsents: z
+    .array(z.enum(VALID_CONSENTS))
+    .optional()
+    .refine(
+      (consents) => !consents || consents.length > 0,
+      { message: 'If consents are selected, at least one consent is required' }
+    ),
   minTenureDays: z.number().int().min(0, 'Tenure must be non-negative').optional().nullable(),
-});
+}).refine(
+  (data) => {
+    // At least one eligibility criterion must be specified
+    const hasRoles = data.includeRoles && data.includeRoles.length > 0;
+    const hasVillages = data.includeVillages && data.includeVillages.trim().length > 0;
+    const hasConsents = data.requiredConsents && data.requiredConsents.length > 0;
+    const hasTenure = data.minTenureDays !== null && data.minTenureDays !== undefined;
+
+    return hasRoles || hasVillages || hasConsents || hasTenure;
+  },
+  {
+    message: 'At least one eligibility criterion must be specified',
+    path: ['includeRoles'],
+  }
+);
 
 // Step 3 Schema: Size and Quotas
 const step3Schema = z.object({
@@ -169,11 +202,11 @@ export function PanelWizard() {
         }),
       });
 
-      const result = await response.json();
-
       if (!response.ok) {
-        throw new Error(result.message || 'Failed to create panel');
+        throw response;
       }
+
+      const result = await response.json();
 
       toast({
         title: 'Panel created',
@@ -181,11 +214,14 @@ export function PanelWizard() {
       });
 
       router.push(`/research/panels/${result.data.id}`);
-    } catch (error: any) {
-      console.error('Error creating panel:', error);
+    } catch (err) {
+      const errorResult = await handleApiError(err, {
+        context: 'Creating panel',
+      });
+
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to create panel. Please try again.',
+        title: 'Error creating panel',
+        description: errorResult.message,
         variant: 'destructive',
       });
     } finally {
@@ -386,10 +422,10 @@ export function PanelWizard() {
                                 >
                                   <FormControl>
                                     <Checkbox
-                                      checked={field.value?.includes(consent.value)}
+                                      checked={field.value?.includes(consent.value as any)}
                                       onCheckedChange={(checked) => {
                                         return checked
-                                          ? field.onChange([...(field.value || []), consent.value])
+                                          ? field.onChange([...(field.value || []), consent.value as any])
                                           : field.onChange(
                                               field.value?.filter((value) => value !== consent.value)
                                             );

@@ -28,6 +28,7 @@ export default function FeedbackListPage() {
   // Filter state
   const [state, setState] = useState(searchParams.get('state') || 'all');
   const [productArea, setProductArea] = useState(searchParams.get('area') || 'all');
+  const [villageId, setVillageId] = useState(searchParams.get('villageId') || 'all');
   const [search, setSearch] = useState(searchParams.get('q') || '');
   const [sortBy, setSortBy] = useState(searchParams.get('sortBy') || 'createdAt');
   const [page, setPage] = useState(parseInt(searchParams.get('page') || '1'));
@@ -51,6 +52,7 @@ export default function FeedbackListPage() {
 
       if (state !== 'all') params.set('state', state);
       if (productArea !== 'all') params.set('area', productArea);
+      if (villageId !== 'all') params.set('villageId', villageId);
       if (search) params.set('search', search);
 
       const response = await fetch(`/api/feedback?${params}`);
@@ -76,7 +78,7 @@ export default function FeedbackListPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [state, productArea, search, sortBy, page]);
+  }, [state, productArea, villageId, search, sortBy, page]);
 
   useEffect(() => {
     fetchFeedback();
@@ -87,13 +89,14 @@ export default function FeedbackListPage() {
     const params = new URLSearchParams();
     if (state !== 'all') params.set('state', state);
     if (productArea !== 'all') params.set('area', productArea);
+    if (villageId !== 'all') params.set('villageId', villageId);
     if (search) params.set('q', search);
     if (sortBy !== 'createdAt') params.set('sortBy', sortBy);
     if (page > 1) params.set('page', page.toString());
 
     const queryString = params.toString();
     router.replace(`/feedback${queryString ? `?${queryString}` : ''}`, { scroll: false });
-  }, [state, productArea, search, sortBy, page, router]);
+  }, [state, productArea, villageId, search, sortBy, page, router]);
 
   // Debounced search handler
   const debouncedSearchFn = useCallback((value: string) => {
@@ -131,6 +134,7 @@ export default function FeedbackListPage() {
         <FeedbackFilters
           state={state}
           productArea={productArea}
+          villageId={villageId}
           search={search}
           sortBy={sortBy}
           onStateChange={(value) => {
@@ -139,6 +143,10 @@ export default function FeedbackListPage() {
           }}
           onProductAreaChange={(value) => {
             setProductArea(value);
+            setPage(1);
+          }}
+          onVillageChange={(value) => {
+            setVillageId(value);
             setPage(1);
           }}
           onSearchChange={handleSearchChange}

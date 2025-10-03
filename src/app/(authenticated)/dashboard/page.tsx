@@ -11,10 +11,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
-import { NotificationBell } from '@/components/notifications/notification-bell';
 import { QuickActions } from '@/components/dashboard/quick-actions';
-import { UserNav } from '@/components/navigation/user-nav';
-import { MobileNav } from '@/components/navigation/mobile-nav';
 import { TrendingFeedback } from '@/components/dashboard/trending-feedback';
 import { WelcomeSection } from '@/components/dashboard/welcome-section';
 import { UserActivityCards, UserActivityCardsLoading } from '@/components/dashboard/user-activity-cards';

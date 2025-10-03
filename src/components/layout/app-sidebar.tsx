@@ -287,27 +287,38 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
                           <SidebarMenuItem>
                             <CollapsibleTrigger asChild>
                               <SidebarMenuButton
+                                tooltip={item.title}
                                 className={cn(
                                   'w-full',
                                   isItemActive && 'bg-accent text-accent-foreground'
                                 )}
+                                aria-expanded={isOpen}
+                                aria-controls={`submenu-${item.href.replace('/', '')}`}
+                                aria-label={`${item.title} menu, ${isOpen ? 'expanded' : 'collapsed'}`}
                               >
-                                <ItemIcon className="h-4 w-4" />
+                                <ItemIcon className="h-4 w-4" aria-hidden="true" />
                                 <span>{item.title}</span>
                                 {item.badge && (
-                                  <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-medium text-primary-foreground">
+                                  <span
+                                    className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-medium text-primary-foreground"
+                                    aria-label={`${item.badge} items`}
+                                  >
                                     {item.badge}
                                   </span>
                                 )}
                                 {isOpen ? (
-                                  <ChevronDown className="ml-auto h-4 w-4 transition-transform" />
+                                  <ChevronDown className="ml-auto h-4 w-4 transition-transform" aria-hidden="true" />
                                 ) : (
-                                  <ChevronRight className="ml-auto h-4 w-4 transition-transform" />
+                                  <ChevronRight className="ml-auto h-4 w-4 transition-transform" aria-hidden="true" />
                                 )}
                               </SidebarMenuButton>
                             </CollapsibleTrigger>
                             <CollapsibleContent>
-                              <SidebarMenuSub>
+                              <SidebarMenuSub
+                                id={`submenu-${item.href.replace('/', '')}`}
+                                role="group"
+                                aria-label={`${item.title} submenu`}
+                              >
                                 {item.subItems?.map((subItem) => {
                                   const SubIcon = subItem.icon;
                                   const isSubItemActive = pathname.startsWith(subItem.href);
@@ -318,8 +329,11 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
                                         asChild
                                         isActive={isSubItemActive}
                                       >
-                                        <Link href={subItem.href}>
-                                          {SubIcon && <SubIcon className="h-4 w-4" />}
+                                        <Link
+                                          href={subItem.href}
+                                          aria-current={isSubItemActive ? 'page' : undefined}
+                                        >
+                                          {SubIcon && <SubIcon className="h-4 w-4" aria-hidden="true" />}
                                           <span>{subItem.title}</span>
                                         </Link>
                                       </SidebarMenuSubButton>
@@ -335,12 +349,19 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
 
                     return (
                       <SidebarMenuItem key={item.href}>
-                        <SidebarMenuButton asChild isActive={isItemActive}>
-                          <Link href={item.href}>
-                            <ItemIcon className="h-4 w-4" />
+                        <SidebarMenuButton asChild isActive={isItemActive} tooltip={item.title}>
+                          <Link
+                            href={item.href}
+                            aria-current={isItemActive ? 'page' : undefined}
+                            aria-label={item.title}
+                          >
+                            <ItemIcon className="h-4 w-4" aria-hidden="true" />
                             <span>{item.title}</span>
                             {item.badge && (
-                              <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-medium text-primary-foreground">
+                              <span
+                                className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-medium text-primary-foreground"
+                                aria-label={`${item.badge} items`}
+                              >
                                 {item.badge}
                               </span>
                             )}

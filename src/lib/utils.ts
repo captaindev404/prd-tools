@@ -98,3 +98,25 @@ export function debounce<T extends (...args: any[]) => any>(
     timeout = setTimeout(later, wait);
   };
 }
+
+/**
+ * Extract localized text from i18n object or return string as-is
+ * Supports both i18n objects {en: "...", fr: "..."} and plain strings
+ */
+export function getLocalizedText(
+  text: string | { en: string; fr: string } | any,
+  locale: 'en' | 'fr' = 'en'
+): string {
+  // If text is already a string, return it
+  if (typeof text === 'string') {
+    return text;
+  }
+
+  // If text is an i18n object, extract the locale
+  if (text && typeof text === 'object' && (text.en || text.fr)) {
+    return text[locale] || text.en || text.fr || '';
+  }
+
+  // Fallback: return empty string
+  return '';
+}

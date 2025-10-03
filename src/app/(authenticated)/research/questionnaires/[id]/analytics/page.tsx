@@ -9,6 +9,7 @@ import { AnalyticsChart } from '@/components/questionnaires/analytics-chart';
 import { ArrowLeft, Download, Users, Calendar } from 'lucide-react';
 import type { QuestionnaireAnalytics, Question } from '@/types/questionnaire';
 import { Breadcrumbs } from '@/components/navigation/breadcrumbs';
+import { getLocalizedText } from '@/lib/utils';
 
 export default async function QuestionnaireAnalyticsPage({ params }: { params: { id: string } }) {
   const session = await auth();
@@ -187,7 +188,7 @@ export default async function QuestionnaireAnalyticsPage({ params }: { params: {
               <Card key={question.id}>
                 <CardHeader>
                   <CardTitle className="text-base">
-                    Question {index + 1}: {question.text}
+                    Question {index + 1}: {getLocalizedText(question.text)}
                   </CardTitle>
                   <CardDescription>Type: {question.type}</CardDescription>
                 </CardHeader>

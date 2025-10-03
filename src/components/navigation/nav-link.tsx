@@ -16,7 +16,13 @@ export interface NavLinkProps {
  * NavLink component with active state detection
  *
  * Wraps Next.js Link with visual feedback for the current route.
- * Supports exact and prefix path matching.
+ * Supports exact and prefix path matching with full accessibility support.
+ *
+ * Accessibility features:
+ * - aria-current="page" for active links
+ * - aria-hidden on decorative icons
+ * - Visible focus indicators
+ * - Keyboard navigable (Enter/Space)
  *
  * @example
  * ```tsx
@@ -49,7 +55,9 @@ export function NavLink({
     <Link
       href={href}
       className={cn(
-        "flex items-center gap-2 transition-colors",
+        "flex items-center gap-2 transition-colors rounded-md px-2 py-1.5",
+        // Focus styles for keyboard navigation
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         isActive
           ? "text-foreground font-medium"
           : "text-muted-foreground hover:text-foreground",

@@ -17,6 +17,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import type { Role } from '@prisma/client';
+import { handleApiError } from '@/lib/api-error-handler';
 
 interface EligibleUser {
   id: string;
@@ -54,13 +55,21 @@ export function InviteMembersDialog({
     setLoading(true);
     try {
       const response = await fetch(`/api/panels/${panelId}/eligibility-preview`);
+
+      if (!response.ok) {
+        throw response;
+      }
+
       const data = await response.json();
       setEligibleUsers(data.sample || []);
-    } catch (error) {
-      console.error('Failed to fetch eligible users:', error);
+    } catch (err) {
+      const errorResult = await handleApiError(err, {
+        context: 'Fetching eligible users',
+      });
+
       toast({
-        title: 'Error',
-        description: 'Failed to fetch eligible users',
+        title: 'Error loading eligible users',
+        description: errorResult.message,
         variant: 'destructive',
       });
     } finally {
@@ -97,6 +106,10 @@ export function InviteMembersDialog({
         body: JSON.stringify({ userIds: Array.from(selectedUserIds) }),
       });
 
+      if (!response.ok) {
+        throw response;
+      }
+
       const data = await response.json();
       setResult(data);
 
@@ -106,10 +119,14 @@ export function InviteMembersDialog({
       });
 
       if (onSuccess) onSuccess();
-    } catch (error) {
+    } catch (err) {
+      const errorResult = await handleApiError(err, {
+        context: 'Inviting panel members',
+      });
+
       toast({
-        title: 'Error',
-        description: 'Failed to invite members',
+        title: 'Error inviting members',
+        description: errorResult.message,
         variant: 'destructive',
       });
     } finally {

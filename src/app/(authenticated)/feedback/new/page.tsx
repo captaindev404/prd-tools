@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
+import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
@@ -42,13 +43,23 @@ const formSchema = z.object({
     .min(20, 'Description must be at least 20 characters')
     .max(5000, 'Description must not exceed 5000 characters'),
   productArea: z.enum(['Reservations', 'CheckIn', 'Payments', 'Housekeeping', 'Backoffice']).optional(),
+  villageId: z.string().optional().nullable(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
+// Hardcoded villages list - TODO: Replace with API call when more villages are added
+const VILLAGES = [
+  { id: 'vlg-001', name: 'La Rosière' },
+  { id: 'vlg-002', name: 'Punta Cana' },
+  { id: 'vlg-003', name: 'Cancún' },
+  { id: 'vlg-004', name: 'Val Thorens' },
+];
+
 export default function NewFeedbackPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { data: session } = useSession();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
@@ -61,6 +72,7 @@ export default function NewFeedbackPage() {
       title: '',
       body: '',
       productArea: undefined,
+      villageId: (session?.user as any)?.currentVillageId || undefined,
     },
   });
 
@@ -122,6 +134,7 @@ export default function NewFeedbackPage() {
           title: values.title,
           body: values.body,
           productArea: values.productArea,
+          villageId: values.villageId === 'none' ? null : values.villageId,
           source: 'web' as const,
           visibility: 'public' as const,
         }),
@@ -290,6 +303,42 @@ export default function NewFeedbackPage() {
                     </Select>
                     <FormDescription>
                       Select the product area this feedback relates to (optional)
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Village Context */}
+              <FormField
+                control={form.control}
+                name="villageId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Village Context (Optional)</FormLabel>
+                    <Select
+                      onValueChange={(value) => {
+                        // Handle "none" selection by setting null
+                        field.onChange(value === 'none' ? null : value);
+                      }}
+                      value={field.value || 'none'}
+                    >
+                      <FormControl>
+                        <SelectTrigger aria-describedby="village-description">
+                          <SelectValue placeholder="Select a village (optional)" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">No specific village</SelectItem>
+                        {VILLAGES.map((village) => (
+                          <SelectItem key={village.id} value={village.id}>
+                            {village.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription id="village-description">
+                      If this feedback is specific to a particular village, select it here. Leave as &quot;No specific village&quot; for platform-wide feedback.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

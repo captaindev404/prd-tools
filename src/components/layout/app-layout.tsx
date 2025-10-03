@@ -3,6 +3,7 @@ import { getSession } from '@/lib/session';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import { AppHeader } from '@/components/layout/app-header';
+import { SkipNav } from '@/components/layout/skip-nav';
 
 /**
  * Props for AppLayout
@@ -79,20 +80,30 @@ export async function AppLayout({ children }: AppLayoutProps) {
   }
 
   return (
-    <SidebarProvider>
-      {/* Sidebar Navigation */}
-      <AppSidebar userRole={session.user.role} />
+    <>
+      {/* Skip Navigation Link - First focusable element for keyboard users */}
+      <SkipNav />
 
-      {/* Main Content Area */}
-      <SidebarInset>
-        {/* Header with Breadcrumbs */}
-        <AppHeader user={session.user} />
+      <SidebarProvider>
+        {/* Sidebar Navigation */}
+        <AppSidebar userRole={session.user.role} />
 
-        {/* Page Content */}
-        <main className="flex flex-1 flex-col">
-          {children}
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
+        {/* Main Content Area */}
+        <SidebarInset>
+          {/* Header with Breadcrumbs */}
+          <AppHeader user={session.user} />
+
+          {/* Page Content - Accessible via skip link */}
+          <main
+            id="main-content"
+            className="flex flex-1 flex-col"
+            tabIndex={-1}
+            aria-label="Main content"
+          >
+            {children}
+          </main>
+        </SidebarInset>
+      </SidebarProvider>
+    </>
   );
 }

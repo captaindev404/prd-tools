@@ -137,7 +137,7 @@ const SidebarProvider = React.forwardRef<
 
     return (
       <SidebarContext.Provider value={contextValue}>
-        <TooltipProvider delayDuration={0}>
+        <TooltipProvider delayDuration={200}>
           <div
             style={
               {
@@ -211,12 +211,15 @@ const Sidebar = React.forwardRef<
               } as React.CSSProperties
             }
             side={side}
+            aria-label="Mobile navigation sidebar"
           >
             <SheetHeader className="sr-only">
-              <SheetTitle>Sidebar</SheetTitle>
-              <SheetDescription>Displays the mobile sidebar.</SheetDescription>
+              <SheetTitle>Navigation Menu</SheetTitle>
+              <SheetDescription>Main navigation sidebar for mobile devices.</SheetDescription>
             </SheetHeader>
-            <div className="flex h-full w-full flex-col">{children}</div>
+            <nav className="flex h-full w-full flex-col" aria-label="Main navigation">
+              {children}
+            </nav>
           </SheetContent>
         </Sheet>
       )
@@ -256,12 +259,13 @@ const Sidebar = React.forwardRef<
           )}
           {...props}
         >
-          <div
+          <nav
             data-sidebar="sidebar"
             className="flex h-full w-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow"
+            aria-label="Main navigation"
           >
             {children}
-          </div>
+          </nav>
         </div>
       </div>
     )
@@ -453,6 +457,8 @@ const SidebarGroupLabel = React.forwardRef<
         "group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0",
         className
       )}
+      role="heading"
+      aria-level={2}
       {...props}
     />
   )

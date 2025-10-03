@@ -6,16 +6,21 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Users, Filter } from 'lucide-react';
+import { Plus, Users, Filter, AlertCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
+import { useToast } from '@/hooks/use-toast';
+import { handleApiError } from '@/lib/api-error-handler';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface PanelsListClientProps {
   canManage?: boolean;
 }
 
 export function PanelsListClient({ canManage = false }: PanelsListClientProps) {
+  const { toast } = useToast();
   const [panels, setPanels] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<{ message: string; isRetryable: boolean } | null>(null);
   const [search, setSearch] = useState('');
   const [includeArchived, setIncludeArchived] = useState(false);
 
@@ -25,16 +30,36 @@ export function PanelsListClient({ canManage = false }: PanelsListClientProps) {
 
   const fetchPanels = async () => {
     setLoading(true);
+    setError(null);
+
     try {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
       if (includeArchived) params.set('includeArchived', 'true');
 
       const response = await fetch(`/api/panels?${params.toString()}`);
+
+      if (!response.ok) {
+        throw response;
+      }
+
       const data = await response.json();
       setPanels(data.panels || []);
-    } catch (error) {
-      console.error('Failed to fetch panels:', error);
+    } catch (err) {
+      const errorResult = await handleApiError(err, {
+        context: 'Fetching panels list',
+      });
+
+      setError({
+        message: errorResult.message,
+        isRetryable: errorResult.isRetryable,
+      });
+
+      toast({
+        title: 'Error loading panels',
+        description: errorResult.message,
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
@@ -85,6 +110,28 @@ export function PanelsListClient({ canManage = false }: PanelsListClientProps) {
         )}
       </div>
 
+      {/* Error State */}
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription className="flex items-center justify-between">
+            <span>{error.message}</span>
+            {error.isRetryable && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchPanels}
+                className="ml-4"
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Retry
+              </Button>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Loading State */}
       {loading && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -103,7 +150,7 @@ export function PanelsListClient({ canManage = false }: PanelsListClientProps) {
       )}
 
       {/* Empty State */}
-      {!loading && panels.length === 0 && (
+      {!loading && !error && panels.length === 0 && (
         <Card className="p-12">
           <div className="flex flex-col items-center justify-center text-center">
             <Users className="h-12 w-12 text-muted-foreground mb-4" />
@@ -127,7 +174,7 @@ export function PanelsListClient({ canManage = false }: PanelsListClientProps) {
       )}
 
       {/* Panels Grid */}
-      {!loading && panels.length > 0 && (
+      {!loading && !error && panels.length > 0 && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {panels.map((panel) => (
             <Link key={panel.id} href={`/research/panels/${panel.id}`}>

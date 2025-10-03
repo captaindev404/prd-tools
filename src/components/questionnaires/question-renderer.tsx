@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Star } from 'lucide-react';
 import type { Question, LikertQuestion, MCQQuestion, TextQuestion, RatingQuestion } from '@/types/questionnaire';
 import { QuestionType } from '@/types/questionnaire';
+import { getLocalizedText } from '@/lib/utils';
 
 interface QuestionRendererProps {
   question: Question;
@@ -21,7 +22,7 @@ export function QuestionRenderer({ question, value, onChange, error }: QuestionR
     <div className="space-y-3">
       <div>
         <Label htmlFor={question.id} className="text-base">
-          {question.text}
+          {getLocalizedText(question.text)}
           {question.required && <span className="text-red-500 ml-1">*</span>}
         </Label>
       </div>
@@ -136,7 +137,7 @@ function MCQSingleInput({
           <div key={option.id} className="flex items-center space-x-2">
             <RadioGroupItem value={option.id} id={option.id} />
             <Label htmlFor={option.id} className="cursor-pointer font-normal">
-              {option.text}
+              {getLocalizedText(option.text)}
             </Label>
           </div>
         ))}
@@ -173,7 +174,7 @@ function MCQMultipleInput({
             onCheckedChange={() => handleToggle(option.id)}
           />
           <Label htmlFor={option.id} className="cursor-pointer font-normal">
-            {option.text}
+            {getLocalizedText(option.text)}
           </Label>
         </div>
       ))}

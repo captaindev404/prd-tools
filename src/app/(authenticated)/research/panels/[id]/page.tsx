@@ -8,9 +8,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { Users, Settings, Archive, Edit, UserPlus } from 'lucide-react';
+import { Users, Settings, Archive, Edit, UserPlus, AlertCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { InviteMembersDialog } from '@/components/panels/invite-members-dialog';
+import { handleApiError } from '@/lib/api-error-handler';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface PanelDetailPageProps {
   params: { id: string };
@@ -21,6 +23,7 @@ export default function PanelDetailPage({ params }: PanelDetailPageProps) {
   const { toast } = useToast();
   const [panel, setPanel] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<{ message: string; isRetryable: boolean } | null>(null);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -28,12 +31,33 @@ export default function PanelDetailPage({ params }: PanelDetailPageProps) {
   }, [params.id]);
 
   const fetchPanel = async () => {
+    setLoading(true);
+    setError(null);
+
     try {
       const response = await fetch(`/api/panels/${params.id}`);
+
+      if (!response.ok) {
+        throw response;
+      }
+
       const data = await response.json();
       setPanel(data);
-    } catch (error) {
-      console.error('Failed to fetch panel:', error);
+    } catch (err) {
+      const errorResult = await handleApiError(err, {
+        context: 'Fetching panel details',
+      });
+
+      setError({
+        message: errorResult.message,
+        isRetryable: errorResult.isRetryable,
+      });
+
+      toast({
+        title: 'Error loading panel',
+        description: errorResult.message,
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
@@ -43,11 +67,24 @@ export default function PanelDetailPage({ params }: PanelDetailPageProps) {
     if (!confirm('Are you sure you want to archive this panel?')) return;
 
     try {
-      await fetch(`/api/panels/${params.id}`, { method: 'DELETE' });
+      const response = await fetch(`/api/panels/${params.id}`, { method: 'DELETE' });
+
+      if (!response.ok) {
+        throw response;
+      }
+
       toast({ title: 'Panel archived' });
       router.push('/research/panels');
-    } catch (error) {
-      toast({ title: 'Error', description: 'Failed to archive panel', variant: 'destructive' });
+    } catch (err) {
+      const errorResult = await handleApiError(err, {
+        context: 'Archiving panel',
+      });
+
+      toast({
+        title: 'Error archiving panel',
+        description: errorResult.message,
+        variant: 'destructive',
+      });
     }
   };
 
@@ -61,8 +98,43 @@ export default function PanelDetailPage({ params }: PanelDetailPageProps) {
     );
   }
 
+  if (error) {
+    return (
+      <div className="container py-10">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error Loading Panel</AlertTitle>
+          <AlertDescription className="flex items-center justify-between">
+            <span>{error.message}</span>
+            {error.isRetryable && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchPanel}
+                className="ml-4"
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Retry
+              </Button>
+            )}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   if (!panel) {
-    return <div className="container py-10">Panel not found</div>;
+    return (
+      <div className="container py-10">
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Panel Not Found</AlertTitle>
+          <AlertDescription>
+            The panel you're looking for doesn't exist or has been deleted.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
   }
 
   return (

@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { PanelCard } from '@/components/panels/panel-card';
+import { PanelsList } from '@/components/panels/panels-list';
+import { PanelSearch } from '@/components/panels/panel-search';
 import { getCurrentUser, canCreatePanel } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
 import { Plus } from 'lucide-react';
@@ -11,7 +12,16 @@ export const metadata = {
   description: 'Manage research panels for user testing and feedback collection',
 };
 
-export default async function PanelsPage() {
+const PAGE_SIZE = 20;
+
+interface PanelsPageProps {
+  searchParams?: Promise<{
+    search?: string;
+    page?: string;
+  }>;
+}
+
+export default async function PanelsPage({ searchParams }: PanelsPageProps) {
   const user = await getCurrentUser();
 
   if (!user) {
@@ -19,6 +29,12 @@ export default async function PanelsPage() {
   }
 
   const canManage = canCreatePanel(user);
+
+  // Get search query and page from URL params
+  const resolvedParams = await searchParams;
+  const searchQuery = resolvedParams?.search?.trim().toLowerCase();
+  const page = Math.max(1, parseInt(resolvedParams?.page || '1'));
+  const skip = (page - 1) * PAGE_SIZE;
 
   // Build where clause based on user permissions
   const where: any = {
@@ -62,24 +78,45 @@ export default async function PanelsPage() {
     where.id = { in: panelIds };
   }
 
-  // Fetch panels
-  const panels = await prisma.panel.findMany({
-    where,
-    orderBy: { createdAt: 'desc' },
-    include: {
-      _count: {
-        select: {
-          memberships: true,
+  // Add search filter if provided (case-insensitive)
+  if (searchQuery) {
+    where.name = {
+      contains: searchQuery,
+      mode: 'insensitive',
+    };
+  }
+
+  // Fetch total count and paginated panels
+  const [totalPanels, panels] = await Promise.all([
+    prisma.panel.count({ where }),
+    prisma.panel.findMany({
+      where,
+      skip,
+      take: PAGE_SIZE,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            displayName: true,
+            email: true,
+            role: true,
+          },
+        },
+        _count: {
+          select: {
+            memberships: true,
+          },
         },
       },
-    },
-  });
+    }),
+  ]);
 
-  // Panel doesn't have createdById, so creator is null
+  // Transform panels for PanelCard
   const panelsWithDetails = panels.map((panel) => ({
     ...panel,
     memberCount: panel._count.memberships,
-    creator: null,
+    creator: panel.createdBy,
   }));
 
   return (
@@ -105,7 +142,13 @@ export default async function PanelsPage() {
         )}
       </div>
 
-      {panelsWithDetails.length === 0 ? (
+      {/* Search component */}
+      <div className="mb-6">
+        <PanelSearch totalCount={totalPanels} />
+      </div>
+
+      {/* Panels list with pagination */}
+      {totalPanels === 0 && !searchQuery ? (
         <div className="text-center py-12 border-2 border-dashed rounded-lg">
           <p className="text-muted-foreground">
             {canManage
@@ -122,11 +165,12 @@ export default async function PanelsPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {panelsWithDetails.map((panel) => (
-            <PanelCard key={panel.id} panel={panel} />
-          ))}
-        </div>
+        <PanelsList
+          initialPanels={panelsWithDetails}
+          initialTotal={totalPanels}
+          initialPage={page}
+          pageSize={PAGE_SIZE}
+        />
       )}
     </div>
   );

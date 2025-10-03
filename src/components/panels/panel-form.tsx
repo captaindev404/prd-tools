@@ -20,21 +20,71 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { Role } from '@prisma/client';
+import {
+  VALID_ROLES,
+  VALID_CONSENTS,
+  eligibilityRulesSchema,
+} from '@/lib/validators/panel-eligibility';
+import { handleApiError } from '@/lib/api-error-handler';
 
-const AVAILABLE_ROLES: Role[] = ['USER', 'PM', 'PO', 'RESEARCHER', 'ADMIN', 'MODERATOR'];
-const AVAILABLE_CONSENTS = ['research_contact', 'usage_analytics', 'email_updates'];
+const AVAILABLE_ROLES: Role[] = [...VALID_ROLES];
+const AVAILABLE_CONSENTS = [...VALID_CONSENTS];
 
+// Form schema with integrated eligibility validation
 const formSchema = z.object({
-  name: z.string().min(3, 'Name must be at least 3 characters').max(100, 'Name must not exceed 100 characters'),
-  description: z.string().max(1000, 'Description must not exceed 1000 characters').optional(),
-  sizeTarget: z.number().int().positive('Size target must be a positive number').optional().nullable(),
-  includeRoles: z.array(z.enum(['USER', 'PM', 'PO', 'RESEARCHER', 'ADMIN', 'MODERATOR'] as const)).optional(),
+  name: z
+    .string()
+    .min(3, 'Name must be at least 3 characters')
+    .max(100, 'Name must not exceed 100 characters'),
+  description: z
+    .string()
+    .max(1000, 'Description must not exceed 1000 characters')
+    .optional(),
+  sizeTarget: z
+    .number()
+    .int('Size target must be a whole number')
+    .positive('Size target must be a positive number')
+    .optional()
+    .nullable(),
+  includeRoles: z
+    .array(z.enum(VALID_ROLES))
+    .optional()
+    .refine(
+      (roles) => !roles || roles.length > 0,
+      { message: 'If roles are selected, at least one role is required' }
+    ),
   includeVillages: z.string().optional(),
-  requiredConsents: z.array(z.string()).optional(),
-  minTenureDays: z.number().int().min(0, 'Tenure must be non-negative').optional().nullable(),
-});
+  requiredConsents: z
+    .array(z.enum(VALID_CONSENTS))
+    .optional()
+    .refine(
+      (consents) => !consents || consents.length > 0,
+      { message: 'If consents are selected, at least one consent is required' }
+    ),
+  minTenureDays: z
+    .number()
+    .int('Tenure must be a whole number')
+    .min(0, 'Tenure must be non-negative')
+    .optional()
+    .nullable(),
+}).refine(
+  (data) => {
+    // At least one eligibility criterion must be specified
+    const hasRoles = data.includeRoles && data.includeRoles.length > 0;
+    const hasVillages = data.includeVillages && data.includeVillages.trim().length > 0;
+    const hasConsents = data.requiredConsents && data.requiredConsents.length > 0;
+    const hasTenure = data.minTenureDays !== null && data.minTenureDays !== undefined;
+
+    return hasRoles || hasVillages || hasConsents || hasTenure;
+  },
+  {
+    message: 'At least one eligibility criterion must be specified (roles, villages, consents, or tenure)',
+    path: ['includeRoles'],
+  }
+);
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -54,6 +104,7 @@ export function PanelForm({ initialData, mode }: PanelFormProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [eligibleCount, setEligibleCount] = useState<number | null>(null);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   // Parse initial eligibility rules
   const parseEligibilityRules = () => {
@@ -103,32 +154,55 @@ export function PanelForm({ initialData, mode }: PanelFormProps) {
     const rules: any = {};
 
     if (values.includeRoles && values.includeRoles.length > 0) {
-      rules.include_roles = values.includeRoles;
+      rules.includeRoles = values.includeRoles;
     }
 
     if (values.includeVillages) {
-      rules.include_villages = values.includeVillages
+      const villages = values.includeVillages
         .split(',')
         .map((v) => v.trim())
         .filter(Boolean);
+      if (villages.length > 0) {
+        rules.includeVillages = villages;
+      }
     }
 
     if (values.requiredConsents && values.requiredConsents.length > 0) {
-      rules.required_consents = values.requiredConsents;
+      rules.requiredConsents = values.requiredConsents;
     }
 
-    if (values.minTenureDays !== null && values.minTenureDays !== undefined) {
-      rules.min_tenure_days = values.minTenureDays;
-    }
+    // Note: minTenureDays is a custom field not in the DSL eligibility schema
+    // It would need to be added to attributesPredicates if used
 
     return rules;
+  };
+
+  // Check if form has validation errors
+  const hasValidationErrors = () => {
+    return Object.keys(form.formState.errors).length > 0 || validationErrors.length > 0;
   };
 
   const onSubmit = async (values: FormValues) => {
     try {
       setLoading(true);
+      setValidationErrors([]);
 
+      // Build and validate eligibility rules
       const eligibilityRules = buildEligibilityRules(values);
+
+      // Validate eligibility rules against schema
+      const validationResult = eligibilityRulesSchema.safeParse(eligibilityRules);
+
+      if (!validationResult.success) {
+        const errors = validationResult.error.issues.map((err) => err.message);
+        setValidationErrors(errors);
+        toast({
+          title: 'Validation Error',
+          description: 'Please fix the eligibility criteria errors before submitting',
+          variant: 'destructive',
+        });
+        return;
+      }
 
       const payload = {
         name: values.name,
@@ -146,11 +220,11 @@ export function PanelForm({ initialData, mode }: PanelFormProps) {
         body: JSON.stringify(payload),
       });
 
-      const result = await response.json();
-
       if (!response.ok) {
-        throw new Error(result.message || 'Failed to save panel');
+        throw response;
       }
+
+      const result = await response.json();
 
       toast({
         title: 'Success',
@@ -158,11 +232,14 @@ export function PanelForm({ initialData, mode }: PanelFormProps) {
       });
 
       router.push(`/research/panels/${result.data.id}`);
-    } catch (error: any) {
-      console.error('Error saving panel:', error);
+    } catch (err) {
+      const errorResult = await handleApiError(err, {
+        context: mode === 'create' ? 'Creating panel' : 'Updating panel',
+      });
+
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to save panel',
+        title: `Error ${mode === 'create' ? 'creating' : 'updating'} panel`,
+        description: errorResult.message,
         variant: 'destructive',
       });
     } finally {
@@ -173,6 +250,20 @@ export function PanelForm({ initialData, mode }: PanelFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {validationErrors.length > 0 && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <div className="font-semibold mb-2">Eligibility Criteria Validation Errors:</div>
+              <ul className="list-disc list-inside space-y-1">
+                {validationErrors.map((error, index) => (
+                  <li key={index} className="text-sm">{error}</li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <Card>
           <CardContent className="pt-6 space-y-4">
             <FormField
@@ -380,7 +471,10 @@ export function PanelForm({ initialData, mode }: PanelFormProps) {
         </Card>
 
         <div className="flex gap-4">
-          <Button type="submit" disabled={loading}>
+          <Button
+            type="submit"
+            disabled={loading || hasValidationErrors()}
+          >
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {mode === 'create' ? 'Create Panel' : 'Update Panel'}
           </Button>
@@ -393,6 +487,12 @@ export function PanelForm({ initialData, mode }: PanelFormProps) {
             Cancel
           </Button>
         </div>
+
+        {hasValidationErrors() && !loading && (
+          <p className="text-sm text-destructive">
+            Please fix all validation errors before submitting
+          </p>
+        )}
       </form>
     </Form>
   );
