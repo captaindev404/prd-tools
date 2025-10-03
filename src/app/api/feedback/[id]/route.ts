@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { redactPII } from '@/lib/pii-redact';
 import { getCurrentUser, canEditFeedback } from '@/lib/auth-helpers';
+import { handleApiError, ApiErrors } from '@/lib/api-errors';
 import type { UpdateFeedbackInput } from '@/types/feedback';
 
 /**
@@ -71,13 +72,7 @@ export async function GET(
     });
 
     if (!feedback) {
-      return NextResponse.json(
-        {
-          error: 'Not found',
-          message: 'Feedback item not found',
-        },
-        { status: 404 }
-      );
+      throw ApiErrors.notFound('Feedback', 'Feedback item not found');
     }
 
     // Calculate vote statistics
@@ -112,14 +107,7 @@ export async function GET(
       userHasVoted,
     });
   } catch (error) {
-    console.error('Error fetching feedback:', error);
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        message: 'Failed to fetch feedback. Please try again later.',
-      },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -146,10 +134,7 @@ export async function PATCH(
     // Check authentication
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'You must be logged in to edit feedback' },
-        { status: 401 }
-      );
+      throw ApiErrors.unauthorized('You must be logged in to edit feedback');
     }
 
     const feedbackId = params.id;
@@ -167,31 +152,24 @@ export async function PATCH(
     });
 
     if (!existingFeedback) {
-      return NextResponse.json(
-        {
-          error: 'Not found',
-          message: 'Feedback item not found',
-        },
-        { status: 404 }
-      );
+      throw ApiErrors.notFound('Feedback', 'Feedback item not found');
     }
 
     // Check authorization
     if (!canEditFeedback(user, existingFeedback)) {
-      return NextResponse.json(
-        {
-          error: 'Forbidden',
-          message:
-            user.id === existingFeedback.authorId
-              ? 'The edit window for this feedback has expired'
-              : 'You do not have permission to edit this feedback',
-        },
-        { status: 403 }
-      );
+      const message = user.id === existingFeedback.authorId
+        ? 'The edit window for this feedback has expired'
+        : 'You do not have permission to edit this feedback';
+      throw ApiErrors.forbidden(message);
     }
 
     // Parse and validate request body
-    const body: UpdateFeedbackInput = await request.json();
+    let body: UpdateFeedbackInput;
+    try {
+      body = await request.json();
+    } catch (error) {
+      throw ApiErrors.badRequest('Invalid JSON in request body');
+    }
 
     // Validation
     const errors: Array<{ field: string; message: string }> = [];
@@ -217,14 +195,7 @@ export async function PATCH(
     }
 
     if (errors.length > 0) {
-      return NextResponse.json(
-        {
-          error: 'Validation failed',
-          message: 'Please check your input and try again',
-          details: errors,
-        },
-        { status: 400 }
-      );
+      throw ApiErrors.validationError(errors, 'Please check your input and try again');
     }
 
     // Prepare update data with PII redaction
@@ -280,13 +251,6 @@ export async function PATCH(
       message: 'Feedback updated successfully',
     });
   } catch (error) {
-    console.error('Error updating feedback:', error);
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        message: 'Failed to update feedback. Please try again later.',
-      },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

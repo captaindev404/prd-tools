@@ -185,7 +185,8 @@ export async function PATCH(
 /**
  * DELETE /api/panels/[id]/members/[userId] - Remove member from panel
  *
- * Access: RESEARCHER/PM/ADMIN only
+ * Auth required: RESEARCHER, PM, or ADMIN
+ * Returns: 204 No Content on success
  */
 export async function DELETE(
   request: NextRequest,
@@ -200,11 +201,12 @@ export async function DELETE(
       );
     }
 
-    if (!canManagePanelMembers(user)) {
+    // Check authorization - only RESEARCHER, PM, or ADMIN can remove members
+    if (!['RESEARCHER', 'PM', 'ADMIN'].includes(user.role)) {
       return NextResponse.json(
         {
           error: 'Forbidden',
-          message: 'You do not have permission to remove panel members',
+          message: 'Only researchers, product managers, and admins can remove panel members',
         },
         { status: 403 }
       );
@@ -213,13 +215,11 @@ export async function DELETE(
     const panelId = params.id;
     const targetUserId = params.userId;
 
-    // Fetch membership
-    const membership = await prisma.panelMembership.findUnique({
+    // Find the panel member record
+    const membership = await prisma.panelMembership.findFirst({
       where: {
-        panelId_userId: {
-          panelId,
-          userId: targetUserId,
-        },
+        panelId,
+        userId: targetUserId,
       },
       include: {
         panel: {
@@ -233,18 +233,15 @@ export async function DELETE(
 
     if (!membership) {
       return NextResponse.json(
-        { error: 'Not found', message: 'Membership not found' },
+        { error: 'Panel member not found' },
         { status: 404 }
       );
     }
 
-    // Delete membership
+    // Delete the panel member
     await prisma.panelMembership.delete({
       where: {
-        panelId_userId: {
-          panelId,
-          userId: targetUserId,
-        },
+        id: membership.id,
       },
     });
 
@@ -257,15 +254,14 @@ export async function DELETE(
           panelId,
           panelName: membership.panel.name,
           removedUserId: targetUserId,
+          actorUserId: user.id,
           timestamp: new Date().toISOString(),
         }),
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      message: 'Member removed from panel successfully',
-    });
+    // Return 204 No Content on success
+    return new NextResponse(null, { status: 204 });
   } catch (error) {
     console.error('Error removing panel member:', error);
     return NextResponse.json(

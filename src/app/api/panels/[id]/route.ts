@@ -90,12 +90,14 @@ export async function GET(
           where: whereClause,
           select: {
             id: true,
+            employeeId: true,
+            email: true,
+            displayName: true,
             role: true,
             currentVillageId: true,
             consents: true,
             villageHistory: true,
             createdAt: true,
-            email: true,
           },
         });
 
@@ -178,12 +180,15 @@ export async function PATCH(
       );
     }
 
-    // Check permission (Panel doesn't have createdById, so only RESEARCHER/PM/ADMIN can edit)
-    if (!canEditPanel(user)) {
+    // Check permission: creator OR authorized role
+    const isCreator = panel.createdById === user.id;
+    const hasRole = ['RESEARCHER', 'PM', 'ADMIN'].includes(user.role);
+
+    if (!isCreator && !hasRole) {
       return NextResponse.json(
         {
           error: 'Forbidden',
-          message: 'You do not have permission to edit this panel',
+          message: 'You do not have permission to edit this panel. Only panel creators or users with RESEARCHER/PM/ADMIN role can edit panels.',
         },
         { status: 403 }
       );
@@ -204,7 +209,13 @@ export async function PATCH(
       }
     }
 
-    // Description field doesn't exist in Panel model
+    if (body.description !== undefined && body.description !== null) {
+      if (typeof body.description !== 'string') {
+        errors.push({ field: 'description', message: 'Description must be a string' });
+      } else if (body.description.length > 500) {
+        errors.push({ field: 'description', message: 'Description must not exceed 500 characters' });
+      }
+    }
 
     if (body.eligibilityRules !== undefined) {
       const criteriaValidation = validateCriteria(body.eligibilityRules);
@@ -238,6 +249,10 @@ export async function PATCH(
 
     if (body.name !== undefined) {
       updateData.name = body.name;
+    }
+
+    if (body.description !== undefined) {
+      updateData.description = body.description;
     }
 
     if (body.eligibilityRules !== undefined) {
@@ -300,9 +315,7 @@ export async function PATCH(
 }
 
 /**
- * DELETE /api/panels/[id] - Delete panel
- *
- * Soft delete (archive) if has members, hard delete if no members
+ * DELETE /api/panels/[id] - Soft delete (archive) panel
  *
  * Access: ADMIN or panel creator
  */
@@ -321,16 +334,9 @@ export async function DELETE(
 
     const panelId = params.id;
 
-    // Fetch panel with member count
+    // Fetch panel
     const panel = await prisma.panel.findUnique({
       where: { id: panelId },
-      include: {
-        _count: {
-          select: {
-            memberships: true,
-          },
-        },
-      },
     });
 
     if (!panel) {
@@ -340,74 +346,46 @@ export async function DELETE(
       );
     }
 
-    // Check permission (Panel doesn't have createdById, so only ADMIN can delete)
-    if (!canDeletePanel(user)) {
+    // Check permission: creator OR ADMIN
+    const isCreator = panel.createdById === user.id;
+    const isAdmin = user.role === 'ADMIN';
+
+    if (!isCreator && !isAdmin) {
       return NextResponse.json(
         {
           error: 'Forbidden',
-          message: 'You do not have permission to delete this panel',
+          message: 'Only panel creators or admins can archive panels',
         },
         { status: 403 }
       );
     }
 
-    const hasMembers = panel._count.memberships > 0;
+    // Soft delete - set archived = true
+    await prisma.panel.update({
+      where: { id: panelId },
+      data: { archived: true },
+    });
 
-    if (hasMembers) {
-      // Soft delete (archive)
-      // TODO: Add archived field to Panel model
-      // await prisma.panel.update({
-      //   where: { id: panelId },
-      //   data: { archived: true },
-      // });
+    // Log event
+    await prisma.event.create({
+      data: {
+        type: 'panel.archived',
+        userId: user.id,
+        payload: JSON.stringify({
+          panelId: panel.id,
+          panelName: panel.name,
+          timestamp: new Date().toISOString(),
+        }),
+      },
+    });
 
-      // Log event
-      await prisma.event.create({
-        data: {
-          type: 'panel.archived',
-          userId: user.id,
-          payload: JSON.stringify({
-            panelId: panel.id,
-            panelName: panel.name,
-            timestamp: new Date().toISOString(),
-          }),
-        },
-      });
-
-      return NextResponse.json({
-        success: true,
-        message: 'Panel archived successfully (panel has members)',
-      });
-    } else {
-      // Hard delete (no members)
-      await prisma.panel.delete({
-        where: { id: panelId },
-      });
-
-      // Log event
-      await prisma.event.create({
-        data: {
-          type: 'panel.deleted',
-          userId: user.id,
-          payload: JSON.stringify({
-            panelId: panel.id,
-            panelName: panel.name,
-            timestamp: new Date().toISOString(),
-          }),
-        },
-      });
-
-      return NextResponse.json({
-        success: true,
-        message: 'Panel deleted successfully',
-      });
-    }
+    return new NextResponse(null, { status: 204 });
   } catch (error) {
-    console.error('Error deleting panel:', error);
+    console.error('Error archiving panel:', error);
     return NextResponse.json(
       {
         error: 'Internal server error',
-        message: 'Failed to delete panel. Please try again later.',
+        message: 'Failed to archive panel. Please try again later.',
       },
       { status: 500 }
     );

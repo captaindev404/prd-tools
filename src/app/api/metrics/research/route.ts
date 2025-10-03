@@ -9,6 +9,8 @@
  * - panelId: panel ID (optional)
  */
 
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth-helpers';
 import { hasRole } from '@/lib/auth-helpers';

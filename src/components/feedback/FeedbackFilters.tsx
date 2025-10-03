@@ -34,7 +34,7 @@ const stateOptions: { value: string; label: string }[] = [
 const productAreaOptions: { value: string; label: string }[] = [
   { value: 'all', label: 'All Areas' },
   { value: 'Reservations', label: 'Reservations' },
-  { value: 'Check-in', label: 'Check-in' },
+  { value: 'CheckIn', label: 'Check-in' },
   { value: 'Payments', label: 'Payments' },
   { value: 'Housekeeping', label: 'Housekeeping' },
   { value: 'Backoffice', label: 'Backoffice' },

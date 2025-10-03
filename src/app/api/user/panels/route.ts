@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth-helpers';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/user/panels - Get current user's panel memberships
  *

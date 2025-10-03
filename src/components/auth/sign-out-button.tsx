@@ -8,6 +8,11 @@ import { Button } from "@/components/ui/button";
  *
  * Client component that handles user sign out.
  * Shows a loading state while signing out.
+ *
+ * Accessibility Features:
+ * - Clear button label
+ * - Keyboard accessible
+ * - Loading state communicated to screen readers
  */
 export function SignOutButton() {
   const handleSignOut = async () => {
@@ -17,7 +22,11 @@ export function SignOutButton() {
   };
 
   return (
-    <Button variant="outline" onClick={handleSignOut}>
+    <Button
+      variant="outline"
+      onClick={handleSignOut}
+      aria-label="Sign out of your account"
+    >
       Sign Out
     </Button>
   );

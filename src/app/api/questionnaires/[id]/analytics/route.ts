@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser, canViewQuestionnaireResponses } from '@/lib/auth-helpers';
+import { getCurrentUser, canViewQuestionnaireResponses, hasRole } from '@/lib/auth-helpers';
 import {
   QuestionType,
 } from '@/types/questionnaire';
@@ -14,12 +14,21 @@ import type {
   RatingAnalytics,
   DemographicsAnalytics,
 } from '@/types/questionnaire';
+import {
+  computeNPS,
+  computeLikertDistribution,
+  computeMCQDistribution,
+  computeNumericStats,
+  segmentByVillage,
+  segmentByRole,
+} from '@/lib/questionnaire-analytics';
 
 /**
- * GET /api/questionnaires/[id]/analytics - Get analytics
+ * GET /api/questionnaires/[id]/analytics - Get questionnaire analytics
  *
- * RESEARCHER/PM only
+ * RESEARCHER/PM/PO/ADMIN roles only
  * Returns aggregated analytics for all questions
+ * Supports segmentation query param: ?segment=village|role|panel
  */
 export async function GET(
   request: NextRequest,
@@ -34,8 +43,8 @@ export async function GET(
       );
     }
 
-    // Check permissions
-    if (!canViewQuestionnaireResponses(user)) {
+    // Check permissions - RESEARCHER/PM/PO/ADMIN
+    if (!hasRole(user, ['RESEARCHER', 'PM', 'PO', 'ADMIN'])) {
       return NextResponse.json(
         {
           error: 'Forbidden',
@@ -46,6 +55,10 @@ export async function GET(
     }
 
     const questionnaireId = params.id;
+
+    // Get segmentation parameter
+    const searchParams = request.nextUrl.searchParams;
+    const segmentBy = searchParams.get('segment'); // village, role, or panel
 
     const questionnaire = await prisma.questionnaire.findUnique({
       where: { id: questionnaireId },
@@ -88,6 +101,7 @@ export async function GET(
             byVillage: {},
             totalResponses: 0,
           },
+          segmentation: segmentBy ? { type: segmentBy, segments: {} } : undefined,
         },
       });
     }
@@ -141,6 +155,60 @@ export async function GET(
       demographics.byVillage[village] = (demographics.byVillage[village] || 0) + 1;
     });
 
+    // Segmentation (if requested)
+    let segmentation: any = undefined;
+    if (segmentBy) {
+      if (segmentBy === 'village') {
+        // Create village map
+        const userVillageMap: Record<string, string> = {};
+        responses.forEach((r) => {
+          userVillageMap[r.respondentId] = r.respondent.currentVillageId || 'unassigned';
+        });
+
+        // Segment responses
+        const responsesWithUserId = responses.map((r) => ({
+          userId: r.respondentId,
+          response: r,
+        }));
+        const segments = segmentByVillage(responsesWithUserId, userVillageMap);
+
+        segmentation = {
+          type: 'village',
+          segments: Object.keys(segments).reduce((acc, villageId) => {
+            acc[villageId] = {
+              count: segments[villageId].length,
+              percentage: Math.round((segments[villageId].length / totalResponses) * 100),
+            };
+            return acc;
+          }, {} as Record<string, any>),
+        };
+      } else if (segmentBy === 'role') {
+        // Create role map
+        const userRoleMap: Record<string, string> = {};
+        responses.forEach((r) => {
+          userRoleMap[r.respondentId] = r.respondent.role;
+        });
+
+        // Segment responses
+        const responsesWithUserId = responses.map((r) => ({
+          userId: r.respondentId,
+          response: r,
+        }));
+        const segments = segmentByRole(responsesWithUserId, userRoleMap);
+
+        segmentation = {
+          type: 'role',
+          segments: Object.keys(segments).reduce((acc, role) => {
+            acc[role] = {
+              count: segments[role].length,
+              percentage: Math.round((segments[role].length / totalResponses) * 100),
+            };
+            return acc;
+          }, {} as Record<string, any>),
+        };
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: {
@@ -150,6 +218,7 @@ export async function GET(
         lastResponseAt,
         questions: questionAnalytics,
         demographics,
+        segmentation,
       },
     });
   } catch (error) {

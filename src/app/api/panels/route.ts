@@ -6,16 +6,19 @@ import { validateCriteria } from '@/lib/panel-eligibility';
 import { applyRateLimit, addRateLimitHeaders } from '@/middleware/rate-limit';
 
 /**
- * GET /api/panels - List panels with pagination
+ * GET /api/panels - List panels with pagination and filters
  *
  * Query parameters:
- * - archived?: boolean (default: false) - Include archived panels
+ * - search?: string - Search panels by name (case-insensitive)
+ * - createdById?: string - Filter by panel creator
+ * - includeArchived?: boolean (default: false) - Include archived panels
+ * - archived?: boolean (alias for includeArchived)
  * - page?: number (default: 1)
  * - limit?: number (default: 20, max: 100)
  *
  * Access:
- * - RESEARCHER/PM: See all panels
- * - Regular users: See only panels they're members of
+ * - RESEARCHER/PM/ADMIN: See all panels (with filters)
+ * - Regular users: See only panels they're members of (filters still apply)
  */
 export async function GET(request: NextRequest) {
   // Apply rate limit
@@ -32,7 +35,9 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const includeArchived = searchParams.get('archived') === 'true';
+    const search = searchParams.get('search');
+    const createdById = searchParams.get('createdById');
+    const includeArchived = searchParams.get('includeArchived') === 'true' || searchParams.get('archived') === 'true';
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')));
     const skip = (page - 1) * limit;
@@ -41,8 +46,22 @@ export async function GET(request: NextRequest) {
     const canSeeAll = canCreatePanel(user); // RESEARCHER/PM/ADMIN can see all
     const where: any = {};
 
+    // Filter: archived panels
     if (!includeArchived) {
       where.archived = false;
+    }
+
+    // Filter: search by name
+    if (search) {
+      where.name = {
+        contains: search,
+        mode: 'insensitive',
+      };
+    }
+
+    // Filter: created by specific user
+    if (createdById) {
+      where.createdById = createdById;
     }
 
     // If not RESEARCHER/PM/ADMIN, filter to only panels user is member of
@@ -68,7 +87,7 @@ export async function GET(request: NextRequest) {
       where.id = { in: panelIds };
     }
 
-    // Fetch panels with member counts
+    // Fetch panels with member counts and creator details
     const [panels, total] = await Promise.all([
       prisma.panel.findMany({
         where,
@@ -76,6 +95,14 @@ export async function GET(request: NextRequest) {
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
+          createdBy: {
+            select: {
+              id: true,
+              displayName: true,
+              email: true,
+              role: true,
+            },
+          },
           _count: {
             select: {
               memberships: true,
@@ -86,16 +113,16 @@ export async function GET(request: NextRequest) {
       prisma.panel.count({ where }),
     ]);
 
-    // Fetch creator details for each panel
-    // TODO: Add createdById to Panel model
-    const panelsWithCreator = panels.map((panel) => ({
+    // Map panels to include memberCount and creator
+    const panelsWithMetadata = panels.map((panel) => ({
       ...panel,
       memberCount: panel._count.memberships,
-      creator: null,
+      creator: panel.createdBy,
+      _count: undefined, // Remove _count from response
     }));
 
     const response = NextResponse.json({
-      items: panelsWithCreator,
+      items: panelsWithMetadata,
       total,
       page,
       limit,
@@ -166,8 +193,8 @@ export async function POST(request: NextRequest) {
     if (body.description !== undefined && body.description !== null) {
       if (typeof body.description !== 'string') {
         errors.push({ field: 'description', message: 'Description must be a string' });
-      } else if (body.description.length > 1000) {
-        errors.push({ field: 'description', message: 'Description must not exceed 1000 characters' });
+      } else if (body.description.length > 500) {
+        errors.push({ field: 'description', message: 'Description must not exceed 500 characters' });
       }
     }
 
@@ -200,14 +227,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create panel (description, createdById, archived fields don't exist in schema)
+    // Create panel
     const panel = await prisma.panel.create({
       data: {
         id: `pan_${ulid()}`,
         name: body.name,
+        description: body.description || null,
         eligibilityRules: JSON.stringify(body.eligibilityRules),
         sizeTarget: body.sizeTarget || null,
         quotas: '[]',
+        createdById: user.id,
       },
       include: {
         _count: {

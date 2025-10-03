@@ -3,6 +3,13 @@
  *
  * Displays a bell icon with unread count badge and a dropdown with recent notifications.
  * Auto-refreshes every 30 seconds to check for new notifications.
+ *
+ * Accessibility Features:
+ * - Button properly labeled with aria-label
+ * - Unread count announced to screen readers
+ * - Keyboard navigable popover with focus management
+ * - Clear ARIA labels for notification actions
+ * - Live region for unread count updates
  */
 
 'use client';
@@ -119,40 +126,47 @@ export function NotificationBell() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative"
+          aria-label={unreadCount > 0 ? `${unreadCount} unread notifications` : 'Notifications'}
+        >
+          <Bell className="h-5 w-5" aria-hidden="true" />
           {unreadCount > 0 && (
             <Badge
               variant="destructive"
               className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center p-0 text-xs"
+              aria-label={`${unreadCount} unread`}
             >
-              {unreadCount > 9 ? '9+' : unreadCount}
+              <span aria-hidden="true">{unreadCount > 9 ? '9+' : unreadCount}</span>
             </Badge>
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="end">
+      <PopoverContent className="w-80 p-0" align="end" role="dialog" aria-label="Notifications panel">
         <div className="flex items-center justify-between p-4 border-b">
-          <h3 className="font-semibold">Notifications</h3>
+          <h2 className="font-semibold text-base">Notifications</h2>
           {unreadCount > 0 && (
             <Button
               variant="ghost"
               size="sm"
               onClick={markAllAsRead}
               disabled={loading}
+              aria-label="Mark all notifications as read"
             >
               Mark all as read
             </Button>
           )}
         </div>
-        <ScrollArea className="h-[400px]">
+        <ScrollArea className="h-[400px]" aria-label="Notification list">
           {notifications.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">
-              <Bell className="h-12 w-12 mx-auto mb-2 opacity-50" />
+            <div className="p-8 text-center text-muted-foreground" role="status">
+              <Bell className="h-12 w-12 mx-auto mb-2 opacity-50" aria-hidden="true" />
               <p className="text-sm">No notifications yet</p>
             </div>
           ) : (
-            <div className="p-2">
+            <div className="p-2" role="list">
               {notifications.map(notification => (
                 <NotificationItem
                   key={notification.id}
@@ -166,7 +180,7 @@ export function NotificationBell() {
         {notifications.length > 0 && (
           <div className="p-2 border-t">
             <Link href="/notifications">
-              <Button variant="ghost" className="w-full" size="sm">
+              <Button variant="ghost" className="w-full" size="sm" aria-label="View all notifications page">
                 View all notifications
               </Button>
             </Link>

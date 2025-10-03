@@ -154,6 +154,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             token.employeeId = dbUser.employeeId;
             token.role = dbUser.role;
             token.currentVillageId = dbUser.currentVillageId;
+            token.consents = dbUser.consents;
           }
         }
       }
@@ -167,6 +168,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         (session.user as any).employeeId = token.employeeId as string;
         (session.user as any).role = token.role as Role;
         (session.user as any).currentVillageId = token.currentVillageId as string | undefined;
+        (session.user as any).consents = token.consents as string | undefined;
       }
 
       return session;
@@ -230,6 +232,7 @@ declare module "next-auth" {
       employeeId: string;
       role: Role;
       currentVillageId?: string | null;
+      consents?: string;
     };
   }
 }
@@ -240,5 +243,6 @@ declare module "next-auth/jwt" {
     employeeId?: string;
     role?: Role;
     currentVillageId?: string | null;
+    consents?: string;
   }
 }

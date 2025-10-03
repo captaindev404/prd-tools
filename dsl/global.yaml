@@ -84,7 +84,8 @@ feedback:
     id: "fb_${ulid}"
     author_id: "usr_${ulid}"
     created_at: "iso_datetime"
-    village_context_optional: true
+    village_context: "vlg_* | null"    # UPDATED: Clarified usage (optional village ID)
+    product_area: "Reservations | CheckIn | Payments | Housekeeping | Backoffice | null"  # NEW: Product taxonomy
     visibility: "public" # public | internal
     source: "app|web|kiosk|support|import"
     body:
@@ -155,6 +156,9 @@ research:
     schema:
       id: "pan_${ulid}"
       name: "string"
+      description: "string"              # NEW: Panel description
+      created_by_id: "usr_${ulid}"       # NEW: Creator tracking
+      archived: "boolean"                # NEW: Soft delete support
       eligibility_rules:
         include_roles: ["USER"]
         include_villages: ["vlg-*|all"]
@@ -172,14 +176,16 @@ research:
       id: "qnn_${ulid}"
       title: "string"
       versioning: "semver"
+      question_types: ["likert", "nps", "mcq_single", "mcq_multiple", "text", "number"]  # NEW: All supported types
       questions:
         - id: "q1"
-          type: "likert"     # likert | nps | mcq | checkbox | text | number
+          type: "likert"     # likert | nps | mcq_single | mcq_multiple | text | number
           text: { en: "How satisfied are you with X?", fr: "Votre satisfaction pour X ?" }
           scale: 1..5
           required: true
         - id: "q2"
           type: "text"
+          text: { en: "Additional comments?", fr: "Commentaires supplémentaires ?" }
           required: false
       targeting:
         panels: ["pan-*"]
@@ -303,6 +309,9 @@ metrics:
 ui_hints:
   feedback:
     show_duplicate_suggestions: true
+    show_village_selector: true         # NEW: Show village context dropdown
+    show_product_area_selector: true    # NEW: Show product area dropdown
+    auto_populate_village: true         # NEW: Auto-fill with currentVillageId
     editor:
       min_title_chars: 8
       min_body_chars: 20
@@ -311,6 +320,18 @@ ui_hints:
     show_vote_counts_on_linked_feedback: true
   research:
     badge_consent_status: true
+    panels:
+      show_eligibility_preview: true    # NEW: Show eligibility preview button
+      preview_sample_size: 10           # NEW: Number of sample users to show
+      quota_visualization: "progress_bars"  # NEW: progress_bars | pie_chart
+    questionnaires:
+      show_language_toggle: true        # NEW: EN/FR toggle in builder
+      default_language: "en"            # NEW: Default display language
+      require_both_translations: true   # NEW: Require EN+FR before publish
+      analytics:
+        compute_nps: true               # NEW: Auto-compute NPS scores
+        segmentation: ["village", "role", "panel"]  # NEW: Segmentation options
+        export_formats: ["csv", "json", "parquet"]  # NEW: Available export formats
   navigation:
     layout: "sidebar_top_bar"          # sidebar_top_bar | top_bar_only | sidebar_only
     sidebar:
@@ -318,8 +339,8 @@ ui_hints:
       persist_state: true               # Remember user preference in localStorage
       collapsible: true                 # Allow user to collapse sidebar
       mobile_behavior: "drawer"         # drawer | bottom_sheet
-      width_expanded: "280px"
-      width_collapsed: "80px"
+      width_expanded: "240px"           # UPDATED: 280px -> 240px
+      width_collapsed: "64px"           # UPDATED: 80px -> 64px
     breadcrumbs:
       enabled: true
       show_icons: false                 # Show icons in breadcrumb items
@@ -331,6 +352,14 @@ ui_hints:
     active_link:
       indicator: "border_and_color"     # border_and_color | background | underline
       show_icon_highlight: true
+    user_menu:
+      show_profile_link: false          # NEW: Profile removed (redundant with Settings)
+      show_settings_link: true          # NEW: Keep Settings link
+      show_sign_out: true               # NEW: Keep Sign Out
+    research_submenu:
+      default_route: "/research/sessions"  # NEW: Primary destination
+      show_submenu: true                # NEW: Show Sessions/Panels/Questionnaires
+      items: ["sessions", "panels", "questionnaires"]  # NEW: Submenu items
 
 # ---------- Example seed data ----------
 seed:

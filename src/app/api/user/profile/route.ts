@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth-helpers';
 import { applyRateLimit, addRateLimitHeaders } from '@/middleware/rate-limit';
+import { handleApiError, ApiErrors } from '@/lib/api-errors';
 
 /**
  * GET /api/user/profile - Get current user profile
@@ -18,10 +19,7 @@ export async function GET(request: NextRequest) {
     // Check authentication
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'You must be logged in to view your profile' },
-        { status: 401 }
-      );
+      throw ApiErrors.unauthorized('You must be logged in to view your profile');
     }
 
     // Fetch full user details from database
@@ -52,10 +50,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!dbUser) {
-      return NextResponse.json(
-        { error: 'Not found', message: 'User not found' },
-        { status: 404 }
-      );
+      throw ApiErrors.notFound('User', 'User not found');
     }
 
     // Parse JSON fields
@@ -82,14 +77,7 @@ export async function GET(request: NextRequest) {
 
     return addRateLimitHeaders(response, request);
   } catch (error) {
-    console.error('Error fetching user profile:', error);
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        message: 'Failed to fetch profile. Please try again later.',
-      },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -111,14 +99,16 @@ export async function PATCH(request: NextRequest) {
     // Check authentication
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'You must be logged in to update your profile' },
-        { status: 401 }
-      );
+      throw ApiErrors.unauthorized('You must be logged in to update your profile');
     }
 
     // Parse request body
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch (error) {
+      throw ApiErrors.badRequest('Invalid JSON in request body');
+    }
 
     // Validation
     const errors: Array<{ field: string; message: string }> = [];
@@ -158,14 +148,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (errors.length > 0) {
-      return NextResponse.json(
-        {
-          error: 'Validation failed',
-          message: 'Please check your input and try again',
-          details: errors,
-        },
-        { status: 400 }
-      );
+      throw ApiErrors.validationError(errors, 'Please check your input and try again');
     }
 
     // Build update data
@@ -232,13 +215,6 @@ export async function PATCH(request: NextRequest) {
 
     return addRateLimitHeaders(response, request);
   } catch (error) {
-    console.error('Error updating user profile:', error);
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        message: 'Failed to update profile. Please try again later.',
-      },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

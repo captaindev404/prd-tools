@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import {
   getCurrentUser,
+  hasRole,
   canEditQuestionnaire,
   canDeleteQuestionnaire,
   canViewQuestionnaireResponses,
@@ -141,8 +142,9 @@ export async function GET(
 /**
  * PATCH /api/questionnaires/[id] - Update questionnaire
  *
- * RESEARCHER/PM or creator
- * If published, increment version
+ * RESEARCHER/PM/ADMIN roles only
+ * Only draft questionnaires can be updated
+ * Published questionnaires require creating a new version
  */
 export async function PATCH(
   request: NextRequest,
@@ -157,6 +159,14 @@ export async function PATCH(
       );
     }
 
+    // Check authorization - RESEARCHER/PM/ADMIN roles required
+    if (!hasRole(user, ['RESEARCHER', 'PM', 'ADMIN'])) {
+      return NextResponse.json(
+        { error: 'Forbidden', message: 'Insufficient permissions' },
+        { status: 403 }
+      );
+    }
+
     const questionnaireId = params.id;
 
     const questionnaire = await prisma.questionnaire.findUnique({
@@ -167,6 +177,17 @@ export async function PATCH(
       return NextResponse.json(
         { error: 'Not found', message: 'Questionnaire not found' },
         { status: 404 }
+      );
+    }
+
+    // Check if questionnaire is in draft status
+    if (questionnaire.status !== 'draft') {
+      return NextResponse.json(
+        {
+          error: 'Invalid state',
+          message: 'Only draft questionnaires can be updated. Published questionnaires cannot be modified.',
+        },
+        { status: 400 }
       );
     }
 
@@ -277,13 +298,7 @@ export async function PATCH(
       updateData.maxResponses = body.maxResponses;
     }
 
-    // If published, increment version
-    if (questionnaire.status === 'published') {
-      const [major, minor, patch] = questionnaire.version.split('.').map(Number);
-      updateData.version = `${major}.${minor}.${patch + 1}`;
-    }
-
-    // Update questionnaire
+    // Update questionnaire (draft only, so no version increment needed)
     const updated = await prisma.questionnaire.update({
       where: { id: questionnaireId },
       data: updateData,

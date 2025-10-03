@@ -20,6 +20,7 @@ export type SessionUser = {
   employeeId: string;
   role: Role;
   currentVillageId?: string | null;
+  consents?: string;
 };
 
 /**

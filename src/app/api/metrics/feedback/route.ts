@@ -1,3 +1,8 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentUser } from '@/lib/auth-helpers';
+
+export const dynamic = 'force-dynamic';
+
 /**
  * Feedback Analytics API
  *
@@ -9,9 +14,6 @@
  * - productArea: Reservations | CheckIn | Payments | Housekeeping | Backoffice (optional)
  * - village: village ID (optional)
  */
-
-import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth-helpers';
 import { hasRole } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
 import { getStartDate, getPreviousPeriod, calculateTrend, calculateAverage } from '@/lib/analytics-helpers';

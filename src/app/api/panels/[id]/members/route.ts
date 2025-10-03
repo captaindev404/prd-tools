@@ -188,6 +188,7 @@ export async function POST(
       },
       select: {
         id: true,
+        employeeId: true,
         displayName: true,
         email: true,
         role: true,
@@ -290,13 +291,8 @@ export async function POST(
     }
 
     return NextResponse.json({
-      success: true,
-      data: {
-        invited: invitationResults.invited.length,
-        skipped: invitationResults.skipped.length,
-        details: invitationResults,
-      },
-      message: `Invited ${invitationResults.invited.length} user(s) to panel`,
+      added: invitationResults.invited.length,
+      skipped: invitationResults.skipped,
     });
   } catch (error) {
     console.error('Error inviting panel members:', error);

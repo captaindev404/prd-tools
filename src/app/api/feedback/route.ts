@@ -7,8 +7,10 @@ import { checkRateLimit, incrementRateLimit } from '@/lib/rate-limit';
 import { applyRateLimit, addRateLimitHeaders } from '@/middleware/rate-limit';
 import { performAutoScreening } from '@/lib/moderation';
 import { checkToxicity, shouldAutoFlag } from '@/lib/moderation-advanced';
+import { handleApiError, ApiErrors } from '@/lib/api-errors';
 import type { CreateFeedbackInput, FeedbackFilters } from '@/types/feedback';
-import type { FeedbackState, ProductArea } from '@prisma/client';
+import type { FeedbackState } from '@prisma/client';
+import { ProductArea } from '@prisma/client';
 
 /**
  * POST /api/feedback - Create new feedback
@@ -17,6 +19,7 @@ import type { FeedbackState, ProductArea } from '@prisma/client';
  * - title: string (8-120 chars)
  * - body: string (20-5000 chars)
  * - featureId?: string (optional)
+ * - productArea?: 'Reservations' | 'CheckIn' | 'Payments' | 'Housekeeping' | 'Backoffice' (optional)
  * - villageId?: string (optional)
  * - source?: 'app' | 'web' | 'kiosk' | 'support' | 'import'
  * - visibility?: 'public' | 'internal'
@@ -36,10 +39,7 @@ export async function POST(request: NextRequest) {
     // Check authentication
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'You must be logged in to submit feedback' },
-        { status: 401 }
-      );
+      throw ApiErrors.unauthorized('You must be logged in to submit feedback');
     }
 
     // Check rate limit
@@ -56,7 +56,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse and validate request body
-    const body: CreateFeedbackInput = await request.json();
+    let body: CreateFeedbackInput;
+    try {
+      body = await request.json();
+    } catch (error) {
+      throw ApiErrors.badRequest('Invalid JSON in request body');
+    }
 
     // Validation
     const errors: Array<{ field: string; message: string }> = [];
@@ -77,15 +82,19 @@ export async function POST(request: NextRequest) {
       errors.push({ field: 'body', message: 'Body must not exceed 5000 characters' });
     }
 
+    // Validate productArea if provided
+    if (body.productArea !== undefined && body.productArea !== null) {
+      const validAreas = ['Reservations', 'CheckIn', 'Payments', 'Housekeeping', 'Backoffice'];
+      if (!validAreas.includes(body.productArea as string)) {
+        errors.push({
+          field: 'productArea',
+          message: `Invalid product area. Must be one of: ${validAreas.join(', ')}`,
+        });
+      }
+    }
+
     if (errors.length > 0) {
-      return NextResponse.json(
-        {
-          error: 'Validation failed',
-          message: 'Please check your input and try again',
-          details: errors,
-        },
-        { status: 400 }
-      );
+      throw ApiErrors.validationError(errors, 'Please check your input and try again');
     }
 
     // Apply PII redaction
@@ -123,6 +132,7 @@ export async function POST(request: NextRequest) {
         title: redactedTitle,
         body: redactedBody,
         featureId: body.featureId || null,
+        productArea: body.productArea || null,
         villageId: body.villageId || user.currentVillageId || null,
         visibility: body.visibility || 'public',
         source: body.source || 'app',
@@ -185,14 +195,7 @@ export async function POST(request: NextRequest) {
 
     return addRateLimitHeaders(response, request);
   } catch (error) {
-    console.error('Error creating feedback:', error);
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        message: 'Failed to create feedback. Please try again later.',
-      },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -202,6 +205,7 @@ export async function POST(request: NextRequest) {
  * Query parameters:
  * - state?: FeedbackState | FeedbackState[] (filter by state)
  * - area?: ProductArea (filter by feature area)
+ * - productArea?: ProductArea (filter by feedback's productArea field directly)
  * - villageId?: string (filter by village)
  * - featureId?: string (filter by feature)
  * - authorId?: string (filter by author)
@@ -222,6 +226,7 @@ export async function GET(request: NextRequest) {
     // Parse query parameters
     const state = searchParams.get('state') as FeedbackState | null;
     const area = searchParams.get('area') as ProductArea | null;
+    const productArea = searchParams.get('productArea') as ProductArea | null;
     const villageId = searchParams.get('villageId');
     const featureId = searchParams.get('featureId');
     const authorId = searchParams.get('authorId');
@@ -230,6 +235,21 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '20'))); // Max 50 per DSL spec
     const sortBy = (searchParams.get('sortBy') || 'createdAt') as 'createdAt' | 'updatedAt' | 'votes';
     const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc';
+
+    // Validate productArea if provided
+    if (productArea) {
+      const validAreas = Object.values(ProductArea);
+      if (!validAreas.includes(productArea as ProductArea)) {
+        return NextResponse.json(
+          {
+            error: 'Invalid productArea',
+            message: `Product area must be one of: ${validAreas.join(', ')}`,
+            validValues: validAreas,
+          },
+          { status: 400 }
+        );
+      }
+    }
 
     // Build where clause
     const where: any = {};
@@ -257,7 +277,12 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    // Filter by feature area if provided
+    // Filter by productArea if provided (direct field on feedback)
+    if (productArea) {
+      where.productArea = productArea;
+    }
+
+    // Filter by feature area if provided (related feature's area)
     if (area) {
       where.feature = {
         area,
@@ -442,13 +467,6 @@ export async function GET(request: NextRequest) {
 
     return addRateLimitHeaders(response, request);
   } catch (error) {
-    console.error('Error fetching feedback:', error);
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        message: 'Failed to fetch feedback. Please try again later.',
-      },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

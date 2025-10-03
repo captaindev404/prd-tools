@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth-helpers';
+import { handleApiError, ApiErrors } from '@/lib/api-errors';
+
+export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/moderation/queue - List feedback items needing moderation review
@@ -19,20 +22,11 @@ export async function GET(request: NextRequest) {
     // Check authentication and authorization
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'You must be logged in' },
-        { status: 401 }
-      );
+      throw ApiErrors.unauthorized('You must be logged in');
     }
 
     if (user.role !== 'MODERATOR' && user.role !== 'ADMIN') {
-      return NextResponse.json(
-        {
-          error: 'Forbidden',
-          message: 'You must have MODERATOR role to access the moderation queue',
-        },
-        { status: 403 }
-      );
+      throw ApiErrors.forbidden('You must have MODERATOR role to access the moderation queue');
     }
 
     // Parse query parameters
@@ -158,13 +152,6 @@ export async function GET(request: NextRequest) {
       stats: slaStats,
     });
   } catch (error) {
-    console.error('Error fetching moderation queue:', error);
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        message: 'Failed to fetch moderation queue. Please try again later.',
-      },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

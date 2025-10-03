@@ -52,24 +52,96 @@ export async function POST(
       );
     }
 
-    // Validate questionnaire is complete
-    const questions = JSON.parse(questionnaire.questions || '[]');
-    if (questions.length === 0) {
+    // Cannot publish already published questionnaire
+    if (questionnaire.status === 'published') {
       return NextResponse.json(
         {
-          error: 'Validation failed',
-          message: 'Cannot publish questionnaire with no questions',
+          error: 'Invalid state',
+          message: 'Questionnaire is already published',
         },
         { status: 400 }
       );
     }
 
-    // Check status
+    // Check status - must be draft
     if (questionnaire.status !== 'draft') {
       return NextResponse.json(
         {
           error: 'Invalid state',
           message: `Cannot publish questionnaire with status '${questionnaire.status}'`,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Comprehensive validation
+    const errors: string[] = [];
+
+    // Parse questions
+    const questions = JSON.parse(questionnaire.questions || '[]');
+
+    // Validate questions exist
+    if (questions.length === 0) {
+      errors.push('At least one question is required');
+    }
+
+    // Validate each question has EN and FR translations
+    questions.forEach((q: any, index: number) => {
+      // Check for multilingual text (EN/FR)
+      if (typeof q.text === 'object') {
+        if (!q.text?.en || !q.text?.fr) {
+          errors.push(`Question ${index + 1}: Missing EN or FR translation`);
+        }
+      } else if (typeof q.text === 'string') {
+        // Legacy format - allow but warn
+        console.warn(`Question ${index + 1} uses legacy text format (string instead of {en, fr})`);
+      } else {
+        errors.push(`Question ${index + 1}: Invalid text format`);
+      }
+
+      // Validate question type
+      const validTypes = [
+        'likert_5',
+        'likert_7',
+        'nps',
+        'mcq_single',
+        'mcq_multiple',
+        'text',
+        'rating',
+        'number'
+      ];
+      if (!validTypes.includes(q.type)) {
+        errors.push(`Question ${index + 1}: Invalid question type "${q.type}"`);
+      }
+
+      // Validate MCQ options
+      if ((q.type === 'mcq_single' || q.type === 'mcq_multiple') && (!q.options || q.options.length < 2)) {
+        errors.push(`Question ${index + 1}: MCQ questions must have at least 2 options`);
+      }
+    });
+
+    // Validate targeting - must have panelIds or adHocFilters
+    const panelIds = JSON.parse(questionnaire.panelIds || '[]');
+    const adHocFilters = JSON.parse(questionnaire.adHocFilters || '{}');
+
+    if (panelIds.length === 0 && Object.keys(adHocFilters).length === 0) {
+      errors.push('Targeting required: Must specify panelIds or adHocFilters');
+    }
+
+    // Validate dates if both are provided
+    if (questionnaire.startAt && questionnaire.endAt) {
+      if (new Date(questionnaire.startAt) >= new Date(questionnaire.endAt)) {
+        errors.push('Start date must be before end date');
+      }
+    }
+
+    // If there are validation errors, return them
+    if (errors.length > 0) {
+      return NextResponse.json(
+        {
+          error: 'Validation failed',
+          message: 'Please fix the following issues before publishing',
+          details: errors,
         },
         { status: 400 }
       );
@@ -107,10 +179,9 @@ export async function POST(
       },
     });
 
-    // Get eligible users based on targeting
+    // Get eligible users based on targeting (reuse variables from validation)
     const deliveryMode = JSON.parse(updated.deliveryMode || '[]');
-    const panelIds = JSON.parse(updated.panelIds || '[]');
-    const adHocFilters = JSON.parse(updated.adHocFilters || '{}');
+    // panelIds and adHocFilters already declared above during validation
     let emailsSent = 0;
     let emailErrors: string[] = [];
 

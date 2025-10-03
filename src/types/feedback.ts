@@ -13,7 +13,7 @@ export type ModerationStatus = 'auto_pending' | 'pending_review' | 'approved' | 
 
 export type ModerationSignal = 'toxicity' | 'spam' | 'pii' | 'off_topic';
 
-export type ProductArea = 'Reservations' | 'Check-in' | 'Payments' | 'Housekeeping' | 'Backoffice';
+export type ProductArea = 'Reservations' | 'CheckIn' | 'Payments' | 'Housekeeping' | 'Backoffice';
 
 export interface FeedbackAuthor {
   id: string;

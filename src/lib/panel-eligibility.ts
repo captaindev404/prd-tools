@@ -21,12 +21,14 @@ export interface AttributePredicate {
 
 export interface UserForEligibility {
   id: string;
+  employeeId: string;
+  email: string;
+  displayName: string | null;
   role: Role;
-  currentVillageId?: string | null;
+  currentVillageId: string | null;
   consents: string; // JSON string
   villageHistory: string; // JSON string
   createdAt: Date;
-  email: string;
 }
 
 /**
@@ -171,11 +173,75 @@ export function checkEligibility(
     }
   }
 
-  // Check attribute predicates (future extension point)
+  // Check attribute predicates
   if (criteria.attributes_predicates && criteria.attributes_predicates.length > 0) {
-    // For now, we don't have custom attributes on users
-    // This could be extended to check village history or other metadata
-    reasons.push('Attribute predicates are not yet fully supported');
+    for (const predicate of criteria.attributes_predicates) {
+      try {
+        // Parse village history as the main attribute source
+        let villageHistory: any[] = [];
+        try {
+          villageHistory = JSON.parse(user.villageHistory);
+        } catch {
+          villageHistory = [];
+        }
+
+        // Support common attribute checks
+        let value: any;
+        if (predicate.key === 'villageCount') {
+          value = villageHistory.length;
+        } else if (predicate.key === 'hasWorkedInVillage') {
+          value = villageHistory.map((h: any) => h.village_id);
+        } else if (predicate.key === 'email') {
+          value = user.email;
+        } else {
+          // For other attributes, we can't check them currently
+          reasons.push(`Attribute '${predicate.key}' is not supported for eligibility checking`);
+          continue;
+        }
+
+        // Apply operator
+        let matches = false;
+        switch (predicate.op) {
+          case 'eq':
+            matches = value === predicate.value;
+            break;
+          case 'in':
+            if (Array.isArray(value)) {
+              matches = value.some((v) => predicate.value.includes(v));
+            } else {
+              matches = predicate.value.includes(value);
+            }
+            break;
+          case 'contains':
+            if (Array.isArray(value)) {
+              matches = value.includes(predicate.value);
+            } else if (typeof value === 'string') {
+              matches = value.includes(predicate.value);
+            }
+            break;
+          case 'gt':
+            matches = Number(value) > Number(predicate.value);
+            break;
+          case 'lt':
+            matches = Number(value) < Number(predicate.value);
+            break;
+          case 'gte':
+            matches = Number(value) >= Number(predicate.value);
+            break;
+          case 'lte':
+            matches = Number(value) <= Number(predicate.value);
+            break;
+        }
+
+        if (!matches) {
+          reasons.push(
+            `Attribute '${predicate.key}' does not match predicate: ${predicate.op} ${JSON.stringify(predicate.value)}`
+          );
+        }
+      } catch (error) {
+        reasons.push(`Error evaluating attribute predicate for '${predicate.key}': ${error}`);
+      }
+    }
   }
 
   return {

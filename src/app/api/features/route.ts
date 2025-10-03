@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser, canCreateFeature } from '@/lib/auth-helpers';
 import { applyRateLimit, addRateLimitHeaders } from '@/middleware/rate-limit';
+import { handleApiError, ApiErrors } from '@/lib/api-errors';
 import type { CreateFeatureInput } from '@/types/feature';
 import type { ProductArea, FeatureStatus } from '@prisma/client';
 
@@ -98,14 +99,7 @@ export async function GET(request: NextRequest) {
 
     return addRateLimitHeaders(response, request);
   } catch (error) {
-    console.error('Error fetching features:', error);
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        message: 'Failed to fetch features. Please try again later.',
-      },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -132,25 +126,21 @@ export async function POST(request: NextRequest) {
     // Check authentication
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'You must be logged in to create features' },
-        { status: 401 }
-      );
+      throw ApiErrors.unauthorized('You must be logged in to create features');
     }
 
     // Check authorization
     if (!canCreateFeature(user)) {
-      return NextResponse.json(
-        {
-          error: 'Forbidden',
-          message: 'Only PM, PO, or ADMIN roles can create features',
-        },
-        { status: 403 }
-      );
+      throw ApiErrors.forbidden('Only PM, PO, or ADMIN roles can create features');
     }
 
     // Parse and validate request body
-    const body: CreateFeatureInput = await request.json();
+    let body: CreateFeatureInput;
+    try {
+      body = await request.json();
+    } catch (error) {
+      throw ApiErrors.badRequest('Invalid JSON in request body');
+    }
 
     // Validation
     const errors: Array<{ field: string; message: string }> = [];
@@ -181,14 +171,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (errors.length > 0) {
-      return NextResponse.json(
-        {
-          error: 'Validation failed',
-          message: 'Please check your input and try again',
-          details: errors,
-        },
-        { status: 400 }
-      );
+      throw ApiErrors.validationError(errors, 'Please check your input and try again');
     }
 
     // Generate feature ID: feat-{area}-{random}
@@ -246,13 +229,6 @@ export async function POST(request: NextRequest) {
 
     return addRateLimitHeaders(response, request);
   } catch (error) {
-    console.error('Error creating feature:', error);
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        message: 'Failed to create feature. Please try again later.',
-      },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

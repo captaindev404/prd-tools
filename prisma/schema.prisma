@@ -126,6 +126,7 @@ model User {
   questionnaires      Questionnaire[]
   questionnaireResponses QuestionnaireResponse[]
   facilitatedSessions Session[] @relation("SessionFacilitators")
+  createdPanels       Panel[] @relation("UserCreatedPanels")
   events              Event[]
   notifications       Notification[]
 
@@ -204,6 +205,7 @@ model Feedback {
   villageId        String? // optional per DSL
   visibility       Visibility       @default(public)
   source           Source           @default(app)
+  productArea      ProductArea?
 
   // Feature relations
   featureId        String?
@@ -244,6 +246,10 @@ model Feedback {
   @@index([state])
   @@index([createdAt])
   @@index([featureId])
+  @@index([moderationStatus])
+  @@index([productArea])
+  @@index([state, moderationStatus]) // Composite index for trending queries
+  @@index([createdAt, state]) // For recent feedback filtering
 }
 
 model Vote {
@@ -262,6 +268,8 @@ model Vote {
   @@unique([feedbackId, userId]) // One vote per user per feedback
   @@index([feedbackId])
   @@index([userId])
+  @@index([feedbackId, decayedWeight]) // For vote aggregation queries
+  @@index([createdAt]) // For recent votes
 }
 
 model RoadmapItem {
@@ -301,16 +309,26 @@ model RoadmapItem {
 
   @@index([stage])
   @@index([createdById])
+  @@index([visibility, updatedAt]) // For public roadmap queries
+  @@index([stage, visibility]) // For stage filtering
 }
 
 model Panel {
   id                String   @id // pan_${ulid}
   name              String
+  description       String?
 
   // Eligibility rules (stored as JSON per DSL spec)
   eligibilityRules  String   @default("{}") // JSON object with include_roles, include_villages, attributes_predicates, required_consents
   sizeTarget        Int?
   quotas            String   @default("[]") // JSON array of quota objects
+
+  // Ownership
+  createdById       String
+  createdBy         User     @relation("UserCreatedPanels", fields: [createdById], references: [id])
+
+  // Status
+  archived          Boolean  @default(false)
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -319,6 +337,9 @@ model Panel {
   memberships       PanelMembership[]
   questionnaires    Questionnaire[]
   sessions          Session[]
+
+  @@index([createdById])
+  @@index([archived])
 }
 
 model PanelMembership {
@@ -335,6 +356,7 @@ model PanelMembership {
   @@unique([panelId, userId])
   @@index([panelId])
   @@index([userId])
+  @@index([userId, active]) // For active panel lookups
 }
 
 model Questionnaire {
@@ -460,8 +482,8 @@ model Notification {
 
   @@index([userId])
   @@index([createdAt])
-  @@index([userId, readAt])
-  @@index([userId, createdAt])
+  @@index([userId, readAt]) // For unread notifications
+  @@index([userId, createdAt]) // For recent notifications
 }
 
 model AuditLog {

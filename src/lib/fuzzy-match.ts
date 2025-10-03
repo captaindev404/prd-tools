@@ -129,6 +129,7 @@ export async function findDuplicates(
       villageId: true,
       visibility: true,
       source: true,
+      productArea: true,
       featureId: true,
       state: true,
       moderationStatus: true,

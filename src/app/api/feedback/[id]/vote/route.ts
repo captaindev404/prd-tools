@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth-helpers';
 import { calculateBaseVoteWeight, calculateDecayedWeight, hasUserVoted } from '@/lib/vote-weight';
+import { handleApiError, ApiErrors } from '@/lib/api-errors';
 
 /**
  * POST /api/feedback/[id]/vote - Cast a vote on feedback
@@ -25,13 +26,7 @@ export async function POST(
     // Check authentication
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        {
-          error: 'Unauthorized',
-          message: 'You must be logged in to vote on feedback',
-        },
-        { status: 401 }
-      );
+      throw ApiErrors.unauthorized('You must be logged in to vote on feedback');
     }
 
     const feedbackId = params.id;
@@ -47,25 +42,13 @@ export async function POST(
     });
 
     if (!feedback) {
-      return NextResponse.json(
-        {
-          error: 'Not found',
-          message: 'Feedback item not found',
-        },
-        { status: 404 }
-      );
+      throw ApiErrors.notFound('Feedback', 'Feedback item not found');
     }
 
     // Check if user has already voted
     const alreadyVoted = await hasUserVoted(user.id, feedbackId);
     if (alreadyVoted) {
-      return NextResponse.json(
-        {
-          error: 'Conflict',
-          message: 'You have already voted on this feedback',
-        },
-        { status: 409 }
-      );
+      throw ApiErrors.conflict('You have already voted on this feedback');
     }
 
     // Calculate vote weight based on user role, panel membership, and village priority
@@ -132,14 +115,7 @@ export async function POST(
       { status: 201 }
     );
   } catch (error) {
-    console.error('Error casting vote:', error);
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        message: 'Failed to cast vote. Please try again later.',
-      },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -164,13 +140,7 @@ export async function DELETE(
     // Check authentication
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        {
-          error: 'Unauthorized',
-          message: 'You must be logged in to remove a vote',
-        },
-        { status: 401 }
-      );
+      throw ApiErrors.unauthorized('You must be logged in to remove a vote');
     }
 
     const feedbackId = params.id;
@@ -184,13 +154,7 @@ export async function DELETE(
     });
 
     if (!feedback) {
-      return NextResponse.json(
-        {
-          error: 'Not found',
-          message: 'Feedback item not found',
-        },
-        { status: 404 }
-      );
+      throw ApiErrors.notFound('Feedback', 'Feedback item not found');
     }
 
     // Find user's vote
@@ -204,13 +168,7 @@ export async function DELETE(
     });
 
     if (!vote) {
-      return NextResponse.json(
-        {
-          error: 'Not found',
-          message: 'You have not voted on this feedback',
-        },
-        { status: 404 }
-      );
+      throw ApiErrors.notFound('Vote', 'You have not voted on this feedback');
     }
 
     // Delete the vote
@@ -236,14 +194,7 @@ export async function DELETE(
     // Return 204 No Content
     return new NextResponse(null, { status: 204 });
   } catch (error) {
-    console.error('Error removing vote:', error);
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        message: 'Failed to remove vote. Please try again later.',
-      },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -267,13 +218,7 @@ export async function GET(
     // Check authentication
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        {
-          error: 'Unauthorized',
-          message: 'You must be logged in to check vote status',
-        },
-        { status: 401 }
-      );
+      throw ApiErrors.unauthorized('You must be logged in to check vote status');
     }
 
     const feedbackId = params.id;
@@ -287,13 +232,7 @@ export async function GET(
     });
 
     if (!feedback) {
-      return NextResponse.json(
-        {
-          error: 'Not found',
-          message: 'Feedback item not found',
-        },
-        { status: 404 }
-      );
+      throw ApiErrors.notFound('Feedback', 'Feedback item not found');
     }
 
     // Find user's vote
@@ -331,13 +270,6 @@ export async function GET(
         : null,
     });
   } catch (error) {
-    console.error('Error fetching vote status:', error);
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        message: 'Failed to fetch vote status. Please try again later.',
-      },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
