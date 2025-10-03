@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 import { NextRequest, NextResponse } from 'next/server'
 import { Role } from '@prisma/client'
 import { GET, POST } from '@/app/api/feedback/route'

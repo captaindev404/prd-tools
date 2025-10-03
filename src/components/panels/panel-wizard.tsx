@@ -232,33 +232,41 @@ export function PanelWizard() {
   /**
    * Step Progress Indicator
    */
-  const StepIndicator = () => (
-    <div className="mb-8 flex items-center justify-center space-x-4">
-      {[1, 2, 3].map((step) => (
-        <div key={step} className="flex items-center">
-          <div
-            className={`flex h-10 w-10 items-center justify-center rounded-full border-2 transition-colors ${
-              step === currentStep
-                ? 'border-primary bg-primary text-primary-foreground'
-                : step < currentStep
-                ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-muted-foreground/30 text-muted-foreground'
-            }`}
-            aria-current={step === currentStep ? 'step' : undefined}
-          >
-            {step < currentStep ? <Check className="h-5 w-5" /> : step}
-          </div>
-          {step < 3 && (
-            <div
-              className={`h-0.5 w-16 transition-colors ${
-                step < currentStep ? 'bg-primary' : 'bg-muted-foreground/30'
-              }`}
-            />
-          )}
-        </div>
-      ))}
-    </div>
-  );
+  const StepIndicator = () => {
+    const stepLabels = ['Panel Details', 'Eligibility Rules', 'Size & Quotas'];
+
+    return (
+      <nav aria-label="Panel creation progress" className="mb-8">
+        <ol className="flex items-center justify-center space-x-4" role="list">
+          {[1, 2, 3].map((step) => (
+            <li key={step} className="flex items-center" role="listitem">
+              <div
+                className={`flex h-10 w-10 items-center justify-center rounded-full border-2 transition-colors ${
+                  step === currentStep
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : step < currentStep
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-muted-foreground/30 text-muted-foreground'
+                }`}
+                aria-current={step === currentStep ? 'step' : undefined}
+                aria-label={`Step ${step}: ${stepLabels[step - 1]}${step === currentStep ? ' (current)' : step < currentStep ? ' (completed)' : ''}`}
+              >
+                {step < currentStep ? <Check className="h-5 w-5" aria-hidden="true" /> : step}
+              </div>
+              {step < 3 && (
+                <div
+                  className={`h-0.5 w-16 transition-colors ${
+                    step < currentStep ? 'bg-primary' : 'bg-muted-foreground/30'
+                  }`}
+                  aria-hidden="true"
+                />
+              )}
+            </li>
+          ))}
+        </ol>
+      </nav>
+    );
+  };
 
   return (
     <div>
@@ -284,12 +292,18 @@ export function PanelWizard() {
                     <FormItem>
                       <FormLabel>Panel Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., Early Adopters, Mobile Users, Power Users" {...field} />
+                        <Input
+                          placeholder="e.g., Early Adopters, Mobile Users, Power Users"
+                          aria-required="true"
+                          aria-invalid={!!step1Form.formState.errors.name}
+                          aria-describedby={step1Form.formState.errors.name ? "name-error" : "name-help"}
+                          {...field}
+                        />
                       </FormControl>
-                      <FormDescription>
+                      <FormDescription id="name-help">
                         A descriptive name for this research panel (3-100 characters)
                       </FormDescription>
-                      <FormMessage />
+                      <FormMessage id="name-error" role="alert" />
                     </FormItem>
                   )}
                 />
@@ -304,20 +318,22 @@ export function PanelWizard() {
                         <Textarea
                           placeholder="Describe the purpose and criteria for this panel..."
                           className="min-h-[120px]"
+                          aria-describedby={step1Form.formState.errors.description ? "description-error" : "description-help"}
+                          aria-invalid={!!step1Form.formState.errors.description}
                           {...field}
                         />
                       </FormControl>
-                      <FormDescription>
+                      <FormDescription id="description-help">
                         Optional description to help identify the panel's purpose (max 1000 characters)
                       </FormDescription>
-                      <FormMessage />
+                      <FormMessage id="description-error" role="alert" />
                     </FormItem>
                   )}
                 />
 
                 <div className="flex justify-end pt-4">
-                  <Button type="submit">
-                    Next <ChevronRight className="ml-2 h-4 w-4" />
+                  <Button type="submit" aria-label="Continue to step 2: Eligibility Rules">
+                    Next <ChevronRight className="ml-2 h-4 w-4" aria-hidden="true" />
                   </Button>
                 </div>
               </form>
@@ -477,11 +493,12 @@ export function PanelWizard() {
                     type="button"
                     variant="outline"
                     onClick={() => setCurrentStep(1)}
+                    aria-label="Go back to step 1: Panel Details"
                   >
-                    <ChevronLeft className="mr-2 h-4 w-4" /> Back
+                    <ChevronLeft className="mr-2 h-4 w-4" aria-hidden="true" /> Back
                   </Button>
-                  <Button type="submit">
-                    Next <ChevronRight className="ml-2 h-4 w-4" />
+                  <Button type="submit" aria-label="Continue to step 3: Size & Quotas">
+                    Next <ChevronRight className="ml-2 h-4 w-4" aria-hidden="true" />
                   </Button>
                 </div>
               </form>
@@ -553,11 +570,16 @@ export function PanelWizard() {
                     variant="outline"
                     onClick={() => setCurrentStep(2)}
                     disabled={isSubmitting}
+                    aria-label="Go back to step 2: Eligibility Rules"
                   >
-                    <ChevronLeft className="mr-2 h-4 w-4" /> Back
+                    <ChevronLeft className="mr-2 h-4 w-4" aria-hidden="true" /> Back
                   </Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting}
+                    aria-label="Create panel with specified configuration"
+                  >
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
                     {isSubmitting ? 'Creating Panel...' : 'Create Panel'}
                   </Button>
                 </div>

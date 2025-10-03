@@ -29,6 +29,14 @@ export default async function EditPanelPage({ params }: EditPanelPageProps) {
     notFound();
   }
 
+  // Parse quotas from JSON string
+  let quotas = [];
+  try {
+    quotas = JSON.parse(panel.quotas || '[]');
+  } catch (error) {
+    console.error('Error parsing quotas:', error);
+  }
+
   // Check permission - ADMIN, PM, PO, RESEARCHER can edit panels
   if (!['ADMIN', 'PM', 'PO', 'RESEARCHER'].includes(user.role)) {
     redirect(`/research/panels/${panelId}`);
@@ -48,9 +56,11 @@ export default async function EditPanelPage({ params }: EditPanelPageProps) {
         initialData={{
           id: panel.id,
           name: panel.name,
+          description: panel.description,
           sizeTarget: panel.sizeTarget,
           eligibilityRules: panel.eligibilityRules,
-        } as any}
+          quotas: quotas,
+        }}
       />
     </div>
   );

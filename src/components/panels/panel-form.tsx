@@ -20,7 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Eye } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { Role } from '@prisma/client';
 import {
@@ -29,6 +29,15 @@ import {
   eligibilityRulesSchema,
 } from '@/lib/validators/panel-eligibility';
 import { handleApiError } from '@/lib/api-error-handler';
+import { QuotaManager } from '@/components/research/QuotaManager';
+import type { Quota, EligibilityPreviewData } from '@/types/panel';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 const AVAILABLE_ROLES: Role[] = [...VALID_ROLES];
 const AVAILABLE_CONSENTS = [...VALID_CONSENTS];
@@ -70,6 +79,7 @@ const formSchema = z.object({
     .min(0, 'Tenure must be non-negative')
     .optional()
     .nullable(),
+  quotas: z.array(z.any()).optional(),
 }).refine(
   (data) => {
     // At least one eligibility criterion must be specified
@@ -95,6 +105,7 @@ interface PanelFormProps {
     description?: string | null;
     sizeTarget?: number | null;
     eligibilityRules?: string;
+    quotas?: Quota[];
   };
   mode: 'create' | 'edit';
 }
@@ -105,6 +116,10 @@ export function PanelForm({ initialData, mode }: PanelFormProps) {
   const [loading, setLoading] = useState(false);
   const [eligibleCount, setEligibleCount] = useState<number | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [quotas, setQuotas] = useState<Quota[]>(initialData?.quotas || []);
+  const [previewData, setPreviewData] = useState<EligibilityPreviewData | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [loadingPreview, setLoadingPreview] = useState(false);
 
   // Parse initial eligibility rules
   const parseEligibilityRules = () => {
@@ -147,6 +162,7 @@ export function PanelForm({ initialData, mode }: PanelFormProps) {
       includeVillages: eligibilityDefaults.includeVillages,
       requiredConsents: eligibilityDefaults.requiredConsents,
       minTenureDays: eligibilityDefaults.minTenureDays,
+      quotas: initialData?.quotas || [],
     },
   });
 
@@ -182,6 +198,45 @@ export function PanelForm({ initialData, mode }: PanelFormProps) {
     return Object.keys(form.formState.errors).length > 0 || validationErrors.length > 0;
   };
 
+  // Preview eligible users
+  const handlePreview = async () => {
+    try {
+      setLoadingPreview(true);
+      const values = form.getValues();
+      const eligibilityRules = buildEligibilityRules(values);
+
+      const endpoint = mode === 'edit' && initialData?.id
+        ? `/api/panels/${initialData.id}/eligibility-preview`
+        : '/api/panels/eligibility-preview';
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eligibilityRules }),
+      });
+
+      if (!response.ok) {
+        throw response;
+      }
+
+      const result = await response.json();
+      setPreviewData(result.data);
+      setIsPreviewOpen(true);
+    } catch (err) {
+      const errorResult = await handleApiError(err, {
+        context: 'Loading eligibility preview',
+      });
+
+      toast({
+        title: 'Error loading preview',
+        description: errorResult.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
+
   const onSubmit = async (values: FormValues) => {
     try {
       setLoading(true);
@@ -209,6 +264,10 @@ export function PanelForm({ initialData, mode }: PanelFormProps) {
         description: values.description || null,
         sizeTarget: values.sizeTarget || null,
         eligibilityRules,
+        quotas: quotas.map(q => ({
+          key: q.key,
+          targetPercentage: q.targetPercentage,
+        })),
       };
 
       const url = mode === 'create' ? '/api/panels' : `/api/panels/${initialData?.id}`;
@@ -273,12 +332,18 @@ export function PanelForm({ initialData, mode }: PanelFormProps) {
                 <FormItem>
                   <FormLabel>Panel Name *</FormLabel>
                   <FormControl>
-                    <Input placeholder="Research Panel Name" {...field} />
+                    <Input
+                      placeholder="Research Panel Name"
+                      aria-required="true"
+                      aria-invalid={!!form.formState.errors.name}
+                      aria-describedby={form.formState.errors.name ? "name-error" : "name-description"}
+                      {...field}
+                    />
                   </FormControl>
-                  <FormDescription>
+                  <FormDescription id="name-description">
                     A descriptive name for this research panel (3-100 characters)
                   </FormDescription>
-                  <FormMessage />
+                  <FormMessage id="name-error" role="alert" />
                 </FormItem>
               )}
             />
@@ -293,13 +358,15 @@ export function PanelForm({ initialData, mode }: PanelFormProps) {
                     <Textarea
                       placeholder="Describe the purpose of this panel..."
                       className="min-h-[100px]"
+                      aria-describedby={form.formState.errors.description ? "description-error" : "description-help"}
+                      aria-invalid={!!form.formState.errors.description}
                       {...field}
                     />
                   </FormControl>
-                  <FormDescription>
+                  <FormDescription id="description-help">
                     Optional description (max 1000 characters)
                   </FormDescription>
-                  <FormMessage />
+                  <FormMessage id="description-error" role="alert" />
                 </FormItem>
               )}
             />
@@ -314,15 +381,17 @@ export function PanelForm({ initialData, mode }: PanelFormProps) {
                     <Input
                       type="number"
                       placeholder="e.g., 150"
+                      aria-describedby={form.formState.errors.sizeTarget ? "sizeTarget-error" : "sizeTarget-help"}
+                      aria-invalid={!!form.formState.errors.sizeTarget}
                       {...field}
                       value={field.value || ''}
                       onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : null)}
                     />
                   </FormControl>
-                  <FormDescription>
+                  <FormDescription id="sizeTarget-help">
                     Optional maximum number of panel members
                   </FormDescription>
-                  <FormMessage />
+                  <FormMessage id="sizeTarget-error" role="alert" />
                 </FormItem>
               )}
             />
@@ -331,20 +400,19 @@ export function PanelForm({ initialData, mode }: PanelFormProps) {
 
         <Card>
           <CardContent className="pt-6 space-y-4">
-            <div className="space-y-2">
-              <h3 className="text-lg font-medium">Eligibility Criteria</h3>
-              <p className="text-sm text-muted-foreground">
-                Define who can be invited to this panel
+            <fieldset>
+              <legend className="text-lg font-medium mb-2">Eligibility Criteria</legend>
+              <p className="text-sm text-muted-foreground mb-4">
+                Define who can be invited to this panel. At least one criterion is required.
               </p>
-            </div>
 
             <FormField
               control={form.control}
               name="includeRoles"
               render={() => (
                 <FormItem>
-                  <FormLabel>Required Roles</FormLabel>
-                  <div className="space-y-2">
+                  <FormLabel id="roles-label">Required Roles</FormLabel>
+                  <div className="space-y-2" role="group" aria-labelledby="roles-label">
                     {AVAILABLE_ROLES.map((role) => (
                       <FormField
                         key={role}
@@ -358,7 +426,9 @@ export function PanelForm({ initialData, mode }: PanelFormProps) {
                             >
                               <FormControl>
                                 <Checkbox
+                                  id={`role-${role}`}
                                   checked={field.value?.includes(role)}
+                                  aria-label={`Include ${role} role`}
                                   onCheckedChange={(checked) => {
                                     return checked
                                       ? field.onChange([...(field.value || []), role])
@@ -368,17 +438,17 @@ export function PanelForm({ initialData, mode }: PanelFormProps) {
                                   }}
                                 />
                               </FormControl>
-                              <FormLabel className="font-normal">{role}</FormLabel>
+                              <FormLabel htmlFor={`role-${role}`} className="font-normal cursor-pointer">{role}</FormLabel>
                             </FormItem>
                           );
                         }}
                       />
                     ))}
                   </div>
-                  <FormDescription>
+                  <FormDescription id="roles-help">
                     Leave empty to allow all roles
                   </FormDescription>
-                  <FormMessage />
+                  <FormMessage role="alert" />
                 </FormItem>
               )}
             />
@@ -390,12 +460,17 @@ export function PanelForm({ initialData, mode }: PanelFormProps) {
                 <FormItem>
                   <FormLabel>Required Villages</FormLabel>
                   <FormControl>
-                    <Input placeholder="vlg-001, vlg-002 or 'all'" {...field} />
+                    <Input
+                      placeholder="vlg-001, vlg-002 or 'all'"
+                      aria-describedby={form.formState.errors.includeVillages ? "villages-error" : "villages-help"}
+                      aria-invalid={!!form.formState.errors.includeVillages}
+                      {...field}
+                    />
                   </FormControl>
-                  <FormDescription>
+                  <FormDescription id="villages-help">
                     Comma-separated village IDs, or 'all' for all villages
                   </FormDescription>
-                  <FormMessage />
+                  <FormMessage id="villages-error" role="alert" />
                 </FormItem>
               )}
             />
@@ -405,8 +480,8 @@ export function PanelForm({ initialData, mode }: PanelFormProps) {
               name="requiredConsents"
               render={() => (
                 <FormItem>
-                  <FormLabel>Required Consents</FormLabel>
-                  <div className="space-y-2">
+                  <FormLabel id="consents-label">Required Consents</FormLabel>
+                  <div className="space-y-2" role="group" aria-labelledby="consents-label">
                     {AVAILABLE_CONSENTS.map((consent) => (
                       <FormField
                         key={consent}
@@ -420,7 +495,9 @@ export function PanelForm({ initialData, mode }: PanelFormProps) {
                             >
                               <FormControl>
                                 <Checkbox
+                                  id={`consent-${consent}`}
                                   checked={field.value?.includes(consent)}
+                                  aria-label={`Require ${consent} consent`}
                                   onCheckedChange={(checked) => {
                                     return checked
                                       ? field.onChange([...(field.value || []), consent])
@@ -430,17 +507,17 @@ export function PanelForm({ initialData, mode }: PanelFormProps) {
                                   }}
                                 />
                               </FormControl>
-                              <FormLabel className="font-normal">{consent}</FormLabel>
+                              <FormLabel htmlFor={`consent-${consent}`} className="font-normal cursor-pointer">{consent}</FormLabel>
                             </FormItem>
                           );
                         }}
                       />
                     ))}
                   </div>
-                  <FormDescription>
+                  <FormDescription id="consents-help">
                     Users must have granted these consents to be eligible
                   </FormDescription>
-                  <FormMessage />
+                  <FormMessage role="alert" />
                 </FormItem>
               )}
             />
@@ -455,34 +532,60 @@ export function PanelForm({ initialData, mode }: PanelFormProps) {
                     <Input
                       type="number"
                       placeholder="e.g., 90"
+                      aria-describedby={form.formState.errors.minTenureDays ? "tenure-error" : "tenure-help"}
+                      aria-invalid={!!form.formState.errors.minTenureDays}
                       {...field}
                       value={field.value || ''}
                       onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : null)}
                     />
                   </FormControl>
-                  <FormDescription>
+                  <FormDescription id="tenure-help">
                     Minimum number of days since account creation
                   </FormDescription>
-                  <FormMessage />
+                  <FormMessage id="tenure-error" role="alert" />
                 </FormItem>
               )}
             />
+            </fieldset>
           </CardContent>
         </Card>
+
+        {/* Quota Management */}
+        <QuotaManager
+          quotas={quotas}
+          onChange={setQuotas}
+          totalMembers={form.watch('sizeTarget') || undefined}
+        />
 
         <div className="flex gap-4">
           <Button
             type="submit"
             disabled={loading || hasValidationErrors()}
+            aria-label={mode === 'create' ? 'Create new panel' : 'Update panel'}
           >
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
             {mode === 'create' ? 'Create Panel' : 'Update Panel'}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handlePreview}
+            disabled={loading || loadingPreview || hasValidationErrors()}
+            aria-label="Preview eligible users based on current criteria"
+          >
+            {loadingPreview ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Eye className="mr-2 h-4 w-4" aria-hidden="true" />
+            )}
+            Preview Eligible Users
           </Button>
           <Button
             type="button"
             variant="outline"
             onClick={() => router.back()}
             disabled={loading}
+            aria-label="Cancel and go back"
           >
             Cancel
           </Button>
@@ -494,6 +597,60 @@ export function PanelForm({ initialData, mode }: PanelFormProps) {
           </p>
         )}
       </form>
+
+      {/* Eligibility Preview Dialog */}
+      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogContent
+          className="max-w-2xl max-h-[80vh] overflow-y-auto"
+          aria-describedby="preview-description"
+        >
+          <DialogHeader>
+            <DialogTitle>Eligible Users Preview</DialogTitle>
+            <DialogDescription id="preview-description">
+              Based on your eligibility criteria, here are the users who would qualify for this panel
+            </DialogDescription>
+          </DialogHeader>
+
+          {previewData && (
+            <div className="space-y-4" role="region" aria-live="polite" aria-atomic="true">
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>{previewData.count} eligible users</strong> match your criteria
+                  {previewData.note && ` (${previewData.note})`}
+                </AlertDescription>
+              </Alert>
+
+              {previewData.sample.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm">Sample Users:</h4>
+                  <div className="border rounded-lg divide-y">
+                    {previewData.sample.map((user) => (
+                      <div key={user.id} className="p-3 flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">{user.displayName || 'Anonymous'}</p>
+                          <p className="text-sm text-muted-foreground">{user.email}</p>
+                        </div>
+                        <div className="text-right text-sm">
+                          <p className="font-medium">{user.role}</p>
+                          {user.villageId && (
+                            <p className="text-muted-foreground">{user.villageId}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {previewData.count > previewData.sample.length && (
+                    <p className="text-sm text-muted-foreground text-center">
+                      ...and {previewData.count - previewData.sample.length} more users
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Form>
   );
 }

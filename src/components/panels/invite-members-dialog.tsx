@@ -141,10 +141,10 @@ export function InviteMembersDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl" aria-describedby="invite-description">
         <DialogHeader>
           <DialogTitle>Invite Members</DialogTitle>
-          <DialogDescription>
+          <DialogDescription id="invite-description">
             Select users to invite to this panel
           </DialogDescription>
         </DialogHeader>
@@ -152,36 +152,47 @@ export function InviteMembersDialog({
         {!result ? (
           <>
             <div className="space-y-4">
-              <Input
-                placeholder="Search users..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+              <div>
+                <label htmlFor="user-search" className="sr-only">
+                  Search users
+                </label>
+                <Input
+                  id="user-search"
+                  placeholder="Search users..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  aria-label="Search eligible users by name or email"
+                />
+              </div>
 
               <ScrollArea className="h-[400px]">
                 {loading ? (
-                  <div className="flex items-center justify-center p-8">
-                    <Loader2 className="h-6 w-6 animate-spin" />
+                  <div className="flex items-center justify-center p-8" role="status" aria-live="polite">
+                    <Loader2 className="h-6 w-6 animate-spin" aria-hidden="true" />
+                    <span className="sr-only">Loading eligible users</span>
                   </div>
                 ) : filteredUsers.length === 0 ? (
-                  <p className="text-center text-muted-foreground p-8">
+                  <p className="text-center text-muted-foreground p-8" role="status">
                     No eligible users found
                   </p>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-2" role="list" aria-label="Eligible users">
                     {filteredUsers.map((user) => (
                       <div
                         key={user.id}
                         className="flex items-center space-x-2 p-2 hover:bg-muted rounded"
+                        role="listitem"
                       >
                         <Checkbox
+                          id={`user-${user.id}`}
                           checked={selectedUserIds.has(user.id)}
                           onCheckedChange={() => toggleUser(user.id)}
+                          aria-label={`Select ${user.displayName || user.email} for invitation`}
                         />
-                        <div className="flex-1">
+                        <label htmlFor={`user-${user.id}`} className="flex-1 cursor-pointer">
                           <p className="font-medium">{user.displayName}</p>
                           <p className="text-sm text-muted-foreground">{user.email}</p>
-                        </div>
+                        </label>
                       </div>
                     ))}
                   </div>
@@ -190,16 +201,21 @@ export function InviteMembersDialog({
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
+              <Button
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                aria-label="Cancel invitation"
+              >
                 Cancel
               </Button>
               <Button
                 onClick={handleInvite}
                 disabled={selectedUserIds.size === 0 || inviting}
+                aria-label={`Invite ${selectedUserIds.size} selected ${selectedUserIds.size === 1 ? 'user' : 'users'}`}
               >
                 {inviting ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
                     Inviting...
                   </>
                 ) : (
@@ -210,9 +226,9 @@ export function InviteMembersDialog({
           </>
         ) : (
           <>
-            <div className="space-y-4">
+            <div className="space-y-4" role="status" aria-live="polite">
               <div className="flex items-center gap-2 text-green-600">
-                <CheckCircle2 className="h-5 w-5" />
+                <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
                 <p className="font-medium">{result.added} users added successfully</p>
               </div>
 
@@ -222,10 +238,10 @@ export function InviteMembersDialog({
                     {result.skipped.length} users skipped:
                   </p>
                   <ScrollArea className="h-[200px]">
-                    <div className="space-y-1">
+                    <div className="space-y-1" role="list" aria-label="Skipped users">
                       {result.skipped.map((skip: any, index: number) => (
-                        <div key={index} className="text-sm flex items-start gap-2">
-                          <XCircle className="h-4 w-4 text-destructive mt-0.5" />
+                        <div key={index} className="text-sm flex items-start gap-2" role="listitem">
+                          <XCircle className="h-4 w-4 text-destructive mt-0.5" aria-hidden="true" />
                           <span>{skip.reason}</span>
                         </div>
                       ))}
@@ -236,7 +252,9 @@ export function InviteMembersDialog({
             </div>
 
             <DialogFooter>
-              <Button onClick={() => onOpenChange(false)}>Close</Button>
+              <Button onClick={() => onOpenChange(false)} aria-label="Close invitation results">
+                Close
+              </Button>
             </DialogFooter>
           </>
         )}

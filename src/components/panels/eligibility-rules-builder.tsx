@@ -76,47 +76,61 @@ export function EligibilityRulesBuilder({ rules, onChange }: EligibilityRulesBui
       {/* Roles Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Roles</CardTitle>
+          <CardTitle id="roles-section">Roles</CardTitle>
           <CardDescription>Select which user roles are eligible</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2">
-          {roles.map((role) => (
-            <div key={role} className="flex items-center space-x-2">
-              <Checkbox
-                id={`role-${role}`}
-                checked={rules.include_roles?.includes(role)}
-                onCheckedChange={(checked) => updateRoles(role, !!checked)}
-              />
-              <Label htmlFor={`role-${role}`}>{role}</Label>
+        <CardContent>
+          <fieldset>
+            <legend className="sr-only">User Roles</legend>
+            <div className="space-y-2" role="group" aria-labelledby="roles-section">
+              {roles.map((role) => (
+                <div key={role} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`role-${role}`}
+                    checked={rules.include_roles?.includes(role)}
+                    onCheckedChange={(checked) => updateRoles(role, !!checked)}
+                    aria-label={`Include ${role} role in eligibility`}
+                  />
+                  <Label htmlFor={`role-${role}`} className="cursor-pointer">{role}</Label>
+                </div>
+              ))}
             </div>
-          ))}
+          </fieldset>
         </CardContent>
       </Card>
 
       {/* Villages Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Villages</CardTitle>
+          <CardTitle id="villages-section">Villages</CardTitle>
           <CardDescription>Target specific villages or all villages</CardDescription>
         </CardHeader>
         <CardContent>
-          <Select
-            value={rules.include_villages === 'all' ? 'all' : 'specific'}
-            onValueChange={updateVillages}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Villages</SelectItem>
-              <SelectItem value="specific">Specific Villages</SelectItem>
-            </SelectContent>
-          </Select>
-          {rules.include_villages !== 'all' && (
-            <p className="text-sm text-muted-foreground mt-2">
-              Village selection UI to be added
-            </p>
-          )}
+          <fieldset>
+            <legend className="sr-only">Village Selection</legend>
+            <div role="group" aria-labelledby="villages-section">
+              <Label htmlFor="village-select" className="sr-only">
+                Select village targeting option
+              </Label>
+              <Select
+                value={rules.include_villages === 'all' ? 'all' : 'specific'}
+                onValueChange={updateVillages}
+              >
+                <SelectTrigger id="village-select" aria-label="Village targeting option">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Villages</SelectItem>
+                  <SelectItem value="specific">Specific Villages</SelectItem>
+                </SelectContent>
+              </Select>
+              {rules.include_villages !== 'all' && (
+                <p className="text-sm text-muted-foreground mt-2" role="status">
+                  Village selection UI to be added
+                </p>
+              )}
+            </div>
+          </fieldset>
         </CardContent>
       </Card>
 
@@ -125,81 +139,105 @@ export function EligibilityRulesBuilder({ rules, onChange }: EligibilityRulesBui
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Attribute Rules</CardTitle>
+              <CardTitle id="attributes-section">Attribute Rules</CardTitle>
               <CardDescription>Add custom attribute-based rules</CardDescription>
             </div>
-            <Button variant="outline" size="sm" onClick={addAttributePredicate}>
-              <Plus className="mr-2 h-4 w-4" /> Add Rule
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={addAttributePredicate}
+              aria-label="Add new attribute rule"
+            >
+              <Plus className="mr-2 h-4 w-4" aria-hidden="true" /> Add Rule
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {(rules.attributes_predicates || []).map((predicate, index) => (
-            <div key={index} className="flex gap-2 items-end">
-              <div className="flex-1">
-                <Label>Field</Label>
-                <Input
-                  placeholder="e.g., department"
-                  value={predicate.field}
-                  onChange={(e) => updatePredicate(index, { field: e.target.value })}
-                />
-              </div>
-              <div className="w-32">
-                <Label>Operator</Label>
-                <Select
-                  value={predicate.operator}
-                  onValueChange={(value) => updatePredicate(index, { operator: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="eq">Equals</SelectItem>
-                    <SelectItem value="in">In</SelectItem>
-                    <SelectItem value="contains">Contains</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex-1">
-                <Label>Value</Label>
-                <Input
-                  placeholder="Value"
-                  value={predicate.value}
-                  onChange={(e) => updatePredicate(index, { value: e.target.value })}
-                />
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => removePredicate(index)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+        <CardContent>
+          <fieldset>
+            <legend className="sr-only">Attribute Rules</legend>
+            <div className="space-y-4" role="list" aria-labelledby="attributes-section">
+              {(rules.attributes_predicates || []).map((predicate, index) => (
+                <div key={index} className="flex gap-2 items-end" role="listitem">
+                  <div className="flex-1">
+                    <Label htmlFor={`field-${index}`}>Field</Label>
+                    <Input
+                      id={`field-${index}`}
+                      placeholder="e.g., department"
+                      value={predicate.field}
+                      onChange={(e) => updatePredicate(index, { field: e.target.value })}
+                      aria-label={`Attribute field ${index + 1}`}
+                      aria-required="true"
+                    />
+                  </div>
+                  <div className="w-32">
+                    <Label htmlFor={`operator-${index}`}>Operator</Label>
+                    <Select
+                      value={predicate.operator}
+                      onValueChange={(value) => updatePredicate(index, { operator: value })}
+                    >
+                      <SelectTrigger id={`operator-${index}`} aria-label={`Operator for rule ${index + 1}`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="eq">Equals</SelectItem>
+                        <SelectItem value="in">In</SelectItem>
+                        <SelectItem value="contains">Contains</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex-1">
+                    <Label htmlFor={`value-${index}`}>Value</Label>
+                    <Input
+                      id={`value-${index}`}
+                      placeholder="Value"
+                      value={predicate.value}
+                      onChange={(e) => updatePredicate(index, { value: e.target.value })}
+                      aria-label={`Value for rule ${index + 1}`}
+                      aria-required="true"
+                    />
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removePredicate(index)}
+                    aria-label={`Remove attribute rule ${index + 1}`}
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    <span className="sr-only">Remove rule</span>
+                  </Button>
+                </div>
+              ))}
+              {(rules.attributes_predicates?.length || 0) === 0 && (
+                <p className="text-sm text-muted-foreground" role="status">No attribute rules defined</p>
+              )}
             </div>
-          ))}
-          {(rules.attributes_predicates?.length || 0) === 0 && (
-            <p className="text-sm text-muted-foreground">No attribute rules defined</p>
-          )}
+          </fieldset>
         </CardContent>
       </Card>
 
       {/* Required Consents Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Required Consents</CardTitle>
+          <CardTitle id="consents-section">Required Consents</CardTitle>
           <CardDescription>Users must have given these consents</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2">
-          {consents.map((consent) => (
-            <div key={consent} className="flex items-center space-x-2">
-              <Checkbox
-                id={`consent-${consent}`}
-                checked={rules.required_consents?.includes(consent)}
-                onCheckedChange={(checked) => updateConsents(consent, !!checked)}
-              />
-              <Label htmlFor={`consent-${consent}`}>{consent}</Label>
+        <CardContent>
+          <fieldset>
+            <legend className="sr-only">Required Consents</legend>
+            <div className="space-y-2" role="group" aria-labelledby="consents-section">
+              {consents.map((consent) => (
+                <div key={consent} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`consent-${consent}`}
+                    checked={rules.required_consents?.includes(consent)}
+                    onCheckedChange={(checked) => updateConsents(consent, !!checked)}
+                    aria-label={`Require ${consent} consent`}
+                  />
+                  <Label htmlFor={`consent-${consent}`} className="cursor-pointer">{consent}</Label>
+                </div>
+              ))}
             </div>
-          ))}
+          </fieldset>
         </CardContent>
       </Card>
     </div>

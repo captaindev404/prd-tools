@@ -224,15 +224,15 @@ export function QuotaManager({
           {!readOnly && (
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
+                <Button size="sm" aria-label="Add new quota">
+                  <Plus className="h-4 w-4 mr-2" aria-hidden="true" />
                   Add Quota
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent aria-describedby="quota-dialog-description">
                 <DialogHeader>
                   <DialogTitle>Add Quota</DialogTitle>
-                  <DialogDescription>
+                  <DialogDescription id="quota-dialog-description">
                     Define a demographic quota for representative sampling
                   </DialogDescription>
                 </DialogHeader>
@@ -247,7 +247,7 @@ export function QuotaManager({
                           <FormLabel>Quota Key</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
-                              <SelectTrigger>
+                              <SelectTrigger aria-required="true" aria-invalid={!!form.formState.errors.key}>
                                 <SelectValue placeholder="Select a quota key" />
                               </SelectTrigger>
                             </FormControl>
@@ -259,10 +259,10 @@ export function QuotaManager({
                               ))}
                             </SelectContent>
                           </Select>
-                          <FormDescription>
+                          <FormDescription id="quota-key-help">
                             The demographic attribute to track
                           </FormDescription>
-                          <FormMessage />
+                          <FormMessage role="alert" />
                         </FormItem>
                       )}
                     />
@@ -280,20 +280,23 @@ export function QuotaManager({
                               max="100"
                               step="0.1"
                               placeholder="e.g., 25"
+                              aria-required="true"
+                              aria-invalid={!!form.formState.errors.targetPercentage}
+                              aria-describedby="target-percentage-help"
                               {...field}
                               onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                             />
                           </FormControl>
-                          <FormDescription>
+                          <FormDescription id="target-percentage-help">
                             Target percentage for this demographic (0-100)
                           </FormDescription>
-                          <FormMessage />
+                          <FormMessage role="alert" />
                         </FormItem>
                       )}
                     />
 
                     <DialogFooter>
-                      <Button type="submit">Add Quota</Button>
+                      <Button type="submit" aria-label="Add quota to panel">Add Quota</Button>
                     </DialogFooter>
                   </form>
                 </Form>
@@ -305,54 +308,56 @@ export function QuotaManager({
 
       <CardContent className="space-y-4">
         {/* Validation Status */}
-        {!validation.isValid && validation.errors.length > 0 && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Validation Errors</AlertTitle>
-            <AlertDescription>
-              <ul className="list-disc list-inside space-y-1">
-                {validation.errors.map((error, index) => (
-                  <li key={index}>{error}</li>
-                ))}
-              </ul>
-            </AlertDescription>
-          </Alert>
-        )}
+        <div role="status" aria-live="polite" aria-atomic="true">
+          {!validation.isValid && validation.errors.length > 0 && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" aria-hidden="true" />
+              <AlertTitle>Validation Errors</AlertTitle>
+              <AlertDescription>
+                <ul className="list-disc list-inside space-y-1" role="list">
+                  {validation.errors.map((error, index) => (
+                    <li key={index} role="listitem">{error}</li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
 
-        {validation.warnings.length > 0 && (
-          <Alert>
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Warnings</AlertTitle>
-            <AlertDescription>
-              <ul className="list-disc list-inside space-y-1">
-                {validation.warnings.map((warning, index) => (
-                  <li key={index}>{warning}</li>
-                ))}
-              </ul>
-            </AlertDescription>
-          </Alert>
-        )}
+          {validation.warnings.length > 0 && (
+            <Alert>
+              <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+              <AlertTitle>Warnings</AlertTitle>
+              <AlertDescription>
+                <ul className="list-disc list-inside space-y-1" role="list">
+                  {validation.warnings.map((warning, index) => (
+                    <li key={index} role="listitem">{warning}</li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
 
-        {validation.isValid && internalQuotas.length > 0 && (
-          <Alert className="border-green-200 bg-green-50">
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
-            <AlertTitle className="text-green-900">Quota Configuration Valid</AlertTitle>
-            <AlertDescription className="text-green-800">
-              Total percentage: {validation.totalPercentage.toFixed(1)}%
-            </AlertDescription>
-          </Alert>
-        )}
+          {validation.isValid && internalQuotas.length > 0 && (
+            <Alert className="border-green-200 bg-green-50">
+              <CheckCircle2 className="h-4 w-4 text-green-600" aria-hidden="true" />
+              <AlertTitle className="text-green-900">Quota Configuration Valid</AlertTitle>
+              <AlertDescription className="text-green-800">
+                Total percentage: {validation.totalPercentage.toFixed(1)}%
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
 
         {/* Quota List */}
         {displayQuotas.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
+          <div className="text-center py-8 text-muted-foreground" role="status">
             <p>No quotas configured yet.</p>
             {!readOnly && (
               <p className="text-sm mt-2">Click "Add Quota" to create your first quota.</p>
             )}
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3" role="list" aria-label="Configured quotas">
             {displayQuotas.map((quota) => {
               const keyLabel = keyOptions.find(opt => opt.value === quota.key)?.label || quota.key;
               const compliance = getComplianceStatus(
@@ -364,13 +369,14 @@ export function QuotaManager({
                 <div
                   key={quota.id}
                   className="border rounded-lg p-4 space-y-3"
+                  role="listitem"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <h4 className="font-medium">{keyLabel}</h4>
+                        <h4 className="font-medium" id={`quota-${quota.id}-label`}>{keyLabel}</h4>
                         {quotasWithProgress && (
-                          <span className={cn('text-sm font-medium', compliance.color)}>
+                          <span className={cn('text-sm font-medium', compliance.color)} aria-label={`Current ${quota.currentPercentage?.toFixed(1)}% of target ${quota.targetPercentage}%`}>
                             {quota.currentPercentage?.toFixed(1)}% / {quota.targetPercentage}%
                           </span>
                         )}
@@ -397,8 +403,9 @@ export function QuotaManager({
                         size="sm"
                         onClick={() => handleRemoveQuota(quota.id)}
                         className="h-8 w-8 p-0"
+                        aria-label={`Remove ${keyLabel} quota`}
                       >
-                        <X className="h-4 w-4" />
+                        <X className="h-4 w-4" aria-hidden="true" />
                         <span className="sr-only">Remove quota</span>
                       </Button>
                     )}
@@ -406,7 +413,7 @@ export function QuotaManager({
 
                   {/* Progress Bar */}
                   {quotasWithProgress && (
-                    <div className="space-y-1">
+                    <div className="space-y-1" role="region" aria-labelledby={`quota-${quota.id}-label`}>
                       <Progress
                         value={(quota.currentPercentage || 0) / quota.targetPercentage * 100}
                         className={cn(
@@ -415,8 +422,9 @@ export function QuotaManager({
                           compliance.status === 'warning' && '[&>div]:bg-yellow-600',
                           compliance.status === 'critical' && '[&>div]:bg-red-600'
                         )}
+                        aria-label={`${keyLabel} quota progress: ${quota.currentPercentage?.toFixed(1)}% of ${quota.targetPercentage}% target`}
                       />
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground" aria-hidden="true">
                         <span>Current: {quota.currentPercentage?.toFixed(1)}%</span>
                         <span>Target: {quota.targetPercentage}%</span>
                       </div>

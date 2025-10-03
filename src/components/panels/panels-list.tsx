@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { PanelCard, type PanelCardData } from '@/components/panels/panel-card';
 import {
   Pagination,
@@ -13,6 +14,7 @@ import {
   PaginationEllipsis,
 } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
+import { usePanelPermissions } from '@/hooks/use-panel-permissions';
 
 interface PanelsListProps {
   initialPanels: PanelCardData[];
@@ -31,6 +33,23 @@ interface PanelsListProps {
  * - Shows "Showing X-Y of Z panels"
  * - Loading states
  */
+/**
+ * PanelCardWithPermissions - Wrapper that adds permission checks to PanelCard
+ */
+function PanelCardWithPermissions({ panel }: { panel: PanelCardData }) {
+  const { data: session } = useSession();
+  const { canEdit, canDelete } = usePanelPermissions(panel);
+
+  return (
+    <PanelCard
+      panel={panel}
+      currentUserId={session?.user?.id}
+      canEdit={canEdit}
+      canArchive={canDelete}
+    />
+  );
+}
+
 export function PanelsList({ initialPanels, initialTotal, initialPage, pageSize }: PanelsListProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -149,7 +168,7 @@ export function PanelsList({ initialPanels, initialTotal, initialPage, pageSize 
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {panels.map((panel) => (
-            <PanelCard key={panel.id} panel={panel} />
+            <PanelCardWithPermissions key={panel.id} panel={panel} />
           ))}
         </div>
       )}

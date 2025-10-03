@@ -90,28 +90,30 @@ export function ArchivePanelDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent aria-describedby="archive-description">
         <AlertDialogHeader>
           <AlertDialogTitle>Archive panel?</AlertDialogTitle>
-          <AlertDialogDescription>
+          <AlertDialogDescription id="archive-description">
             Are you sure you want to archive "{panelName}"? This will:
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <div className="my-4 space-y-2 text-sm text-muted-foreground">
+        <div className="my-4 space-y-2 text-sm text-muted-foreground" role="list" aria-label="Archive consequences">
           <ul className="list-disc list-inside space-y-1 ml-2">
-            <li>Remove the panel from the active panels list</li>
-            <li>Prevent new member invitations</li>
-            <li>Make the panel read-only for existing members</li>
-            <li>Preserve all panel data and history</li>
+            <li role="listitem">Remove the panel from the active panels list</li>
+            <li role="listitem">Prevent new member invitations</li>
+            <li role="listitem">Make the panel read-only for existing members</li>
+            <li role="listitem">Preserve all panel data and history</li>
           </ul>
-          <p className="mt-4 text-xs">
+          <p className="mt-4 text-xs" role="note">
             Note: Panel data can be recovered by contacting an administrator.
           </p>
         </div>
 
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isArchiving}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isArchiving} aria-label="Cancel archiving">
+            Cancel
+          </AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault();
@@ -119,10 +121,11 @@ export function ArchivePanelDialog({
             }}
             disabled={isArchiving}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            aria-label={`Archive panel ${panelName}`}
           >
             {isArchiving ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
                 Archiving...
               </>
             ) : (

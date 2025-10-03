@@ -13,6 +13,8 @@ import Link from 'next/link';
 import { InviteMembersDialog } from '@/components/panels/invite-members-dialog';
 import { handleApiError } from '@/lib/api-error-handler';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { usePanelPermissions } from '@/hooks/use-panel-permissions';
 
 interface PanelDetailPageProps {
   params: { id: string };
@@ -25,6 +27,9 @@ export default function PanelDetailPage({ params }: PanelDetailPageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ message: string; isRetryable: boolean } | null>(null);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+
+  // Permission checks using the hook
+  const { canEdit, canDelete, canInviteMembers, getTooltipMessage } = usePanelPermissions(panel);
 
   useEffect(() => {
     fetchPanel();
@@ -138,43 +143,90 @@ export default function PanelDetailPage({ params }: PanelDetailPageProps) {
   }
 
   return (
-    <div className="container py-10">
-      {/* Header */}
-      <div className="mb-8 flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <h1 className="text-3xl font-bold">{panel.name}</h1>
-            {panel.archived && <Badge variant="secondary">Archived</Badge>}
+    <TooltipProvider>
+      <div className="container py-10">
+        {/* Header */}
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <h1 className="text-3xl font-bold">{panel.name}</h1>
+              {panel.archived && <Badge variant="secondary">Archived</Badge>}
+            </div>
+            {panel.description && (
+              <p className="text-muted-foreground">{panel.description}</p>
+            )}
+            {panel.createdBy && (
+              <p className="text-sm text-muted-foreground mt-2">
+                Created by {panel.createdBy.displayName}
+              </p>
+            )}
           </div>
-          {panel.description && (
-            <p className="text-muted-foreground">{panel.description}</p>
-          )}
-          {panel.createdBy && (
-            <p className="text-sm text-muted-foreground mt-2">
-              Created by {panel.createdBy.displayName}
-            </p>
-          )}
-        </div>
 
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setInviteDialogOpen(true)}>
-            <UserPlus className="mr-2 h-4 w-4" />
-            Invite Members
-          </Button>
-          <Link href={`/research/panels/${params.id}/edit`}>
-            <Button variant="outline">
-              <Edit className="mr-2 h-4 w-4" />
-              Edit
-            </Button>
-          </Link>
-          {!panel.archived && (
-            <Button variant="outline" onClick={handleArchive}>
-              <Archive className="mr-2 h-4 w-4" />
-              Archive
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {/* Invite Members Button with permission check and tooltip */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    variant="outline"
+                    onClick={() => setInviteDialogOpen(true)}
+                    disabled={!canInviteMembers}
+                  >
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Invite Members
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {!canInviteMembers && (
+                <TooltipContent>
+                  <p>{getTooltipMessage('invite')}</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+
+            {/* Edit Button with permission check and tooltip */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Link href={canEdit ? `/research/panels/${params.id}/edit` : '#'} className={!canEdit ? 'pointer-events-none' : ''}>
+                    <Button variant="outline" disabled={!canEdit}>
+                      <Edit className="mr-2 h-4 w-4" />
+                      Edit
+                    </Button>
+                  </Link>
+                </span>
+              </TooltipTrigger>
+              {!canEdit && (
+                <TooltipContent>
+                  <p>{getTooltipMessage('edit')}</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+
+            {/* Archive Button with permission check and tooltip */}
+            {!panel.archived && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      variant="outline"
+                      onClick={handleArchive}
+                      disabled={!canDelete}
+                    >
+                      <Archive className="mr-2 h-4 w-4" />
+                      Archive
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!canDelete && (
+                  <TooltipContent>
+                    <p>{getTooltipMessage('delete')}</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            )}
+          </div>
         </div>
-      </div>
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-3 mb-8">
@@ -230,12 +282,13 @@ export default function PanelDetailPage({ params }: PanelDetailPageProps) {
         </TabsContent>
       </Tabs>
 
-      <InviteMembersDialog
-        panelId={params.id}
-        open={inviteDialogOpen}
-        onOpenChange={setInviteDialogOpen}
-        onSuccess={fetchPanel}
-      />
-    </div>
+        <InviteMembersDialog
+          panelId={params.id}
+          open={inviteDialogOpen}
+          onOpenChange={setInviteDialogOpen}
+          onSuccess={fetchPanel}
+        />
+      </div>
+    </TooltipProvider>
   );
 }

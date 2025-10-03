@@ -233,6 +233,12 @@ export async function PATCH(
       }
     }
 
+    if (body.quotas !== undefined) {
+      if (!Array.isArray(body.quotas)) {
+        errors.push({ field: 'quotas', message: 'Quotas must be an array' });
+      }
+    }
+
     if (errors.length > 0) {
       return NextResponse.json(
         {
@@ -261,6 +267,10 @@ export async function PATCH(
 
     if (body.sizeTarget !== undefined) {
       updateData.sizeTarget = body.sizeTarget;
+    }
+
+    if (body.quotas !== undefined) {
+      updateData.quotas = JSON.stringify(body.quotas);
     }
 
     // Update panel
