@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser, canCompleteSession } from '@/lib/auth-helpers';
+import { encryptSessionNotes } from '@/lib/session-encryption';
 import type { CompleteSessionInput } from '@/types/session';
 
 /**
@@ -78,7 +79,12 @@ export async function POST(
         completedBy: user.id,
         completedAt: new Date().toISOString(),
       };
-      notesUri = JSON.stringify(notesData);
+      const notesJson = JSON.stringify(notesData);
+
+      // Encrypt notes if session is marked as secure
+      notesUri = session.notesSecure
+        ? encryptSessionNotes(notesJson)
+        : notesJson;
     }
 
     // Update session status

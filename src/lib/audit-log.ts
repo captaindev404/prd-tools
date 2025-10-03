@@ -113,6 +113,27 @@ export function getUserAgent(request: Request): string | null {
  */
 export async function createAuditLog(entry: AuditLogEntry): Promise<void> {
   try {
+    // Store in dedicated AuditLog table
+    await prisma.auditLog.create({
+      data: {
+        userId: entry.actorId,
+        action: entry.action,
+        resourceId: entry.targetResourceId || null,
+        resourceType: entry.targetResourceType || null,
+        metadata: JSON.stringify({
+          actorEmail: entry.actorEmail,
+          actorRole: entry.actorRole,
+          targetUserId: entry.targetUserId,
+          metadata: entry.metadata,
+          success: entry.success,
+          errorMessage: entry.errorMessage,
+        }),
+        ipAddress: entry.ipAddress || null,
+        userAgent: entry.userAgent || null,
+      },
+    });
+
+    // Also create Event for event-driven pipeline
     await prisma.event.create({
       data: {
         type: entry.action,
@@ -348,31 +369,84 @@ export async function getUserAuditLogs(
   }
 
   if (actions && actions.length > 0) {
-    where.type = {
+    where.action = {
       in: actions,
     };
   }
 
   const [logs, total] = await Promise.all([
-    prisma.event.findMany({
+    prisma.auditLog.findMany({
       where,
       skip: offset,
       take: limit,
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
-        type: true,
-        payload: true,
+        userId: true,
+        action: true,
+        resourceId: true,
+        resourceType: true,
+        metadata: true,
+        ipAddress: true,
+        userAgent: true,
         createdAt: true,
       },
     }),
-    prisma.event.count({ where }),
+    prisma.auditLog.count({ where }),
   ]);
 
   return {
     logs: logs.map((log) => ({
       ...log,
-      payload: JSON.parse(log.payload),
+      metadata: JSON.parse(log.metadata),
+    })),
+    total,
+  };
+}
+
+/**
+ * Get all audit logs (admin only)
+ */
+export async function getAllAuditLogs(options: {
+  limit?: number;
+  offset?: number;
+  startDate?: Date;
+  endDate?: Date;
+  action?: string;
+  resourceType?: string;
+} = {}): Promise<{ logs: any[]; total: number }> {
+  const { limit = 100, offset = 0, startDate, endDate, action, resourceType } = options;
+
+  const where: any = {};
+
+  if (startDate || endDate) {
+    where.createdAt = {};
+    if (startDate) where.createdAt.gte = startDate;
+    if (endDate) where.createdAt.lte = endDate;
+  }
+
+  if (action) {
+    where.action = action;
+  }
+
+  if (resourceType) {
+    where.resourceType = resourceType;
+  }
+
+  const [logs, total] = await Promise.all([
+    prisma.auditLog.findMany({
+      where,
+      skip: offset,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.auditLog.count({ where }),
+  ]);
+
+  return {
+    logs: logs.map((log) => ({
+      ...log,
+      metadata: JSON.parse(log.metadata),
     })),
     total,
   };

@@ -463,3 +463,20 @@ model Notification {
   @@index([userId, readAt])
   @@index([userId, createdAt])
 }
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String   // User who performed the action
+  action     String   // e.g., "feedback.create", "vote.cast", "moderation.approve", "user.delete"
+  resourceId String?  // ID of the affected resource
+  resourceType String? // Type of resource (e.g., "feedback", "vote", "user")
+  metadata   String   @default("{}") // JSON object with additional context
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@index([resourceId])
+}

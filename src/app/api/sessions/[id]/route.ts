@@ -6,6 +6,7 @@ import {
   canEditSession,
   canDeleteSession,
 } from '@/lib/auth-helpers';
+import { decryptSessionNotes, isEncrypted } from '@/lib/session-encryption';
 import type { UpdateSessionInput } from '@/types/session';
 
 /**
@@ -95,6 +96,18 @@ export async function GET(
     const isFacilitator = facilitatorIds.includes(user.id);
     const canSeeNotes = isFacilitator || ['RESEARCHER', 'PM', 'ADMIN'].includes(user.role);
 
+    // Decrypt notes if user has permission and notes are encrypted
+    let notesUri = session.notesUri;
+    if (canSeeNotes && notesUri && session.notesSecure && isEncrypted(notesUri)) {
+      try {
+        notesUri = decryptSessionNotes(notesUri);
+      } catch (error) {
+        console.error('Failed to decrypt session notes:', error);
+        // Return null if decryption fails
+        notesUri = null;
+      }
+    }
+
     return NextResponse.json({
       id: session.id,
       type: session.type,
@@ -110,7 +123,7 @@ export async function GET(
       recordingEnabled: session.recordingEnabled,
       recordingStorageDays: session.recordingStorageDays,
       notesSecure: session.notesSecure,
-      notesUri: canSeeNotes ? session.notesUri : null,
+      notesUri: canSeeNotes ? notesUri : null,
       status: session.status,
       createdAt: session.createdAt.toISOString(),
       updatedAt: session.updatedAt.toISOString(),
