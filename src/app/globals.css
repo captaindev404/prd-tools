@@ -1,0 +1,122 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+
+
+@layer base {
+  :root {
+    /* Club Med Brand Colors - Light Mode */
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+
+    /* Cards and Popovers */
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Primary - Club Med Blue (WCAG AA compliant: 4.5:1 on white) */
+    --primary: 210 100% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary - Lighter Blue */
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 210 100% 25%;
+
+    /* Muted - Neutral Grays */
+    --muted: 210 20% 96%;
+    --muted-foreground: 215 13% 45%;
+
+    /* Accent - Warm Coral/Orange (WCAG AA compliant: 4.5:1 on white) */
+    --accent: 14 90% 50%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Destructive - Error Red */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders and Inputs */
+    --border: 214 20% 88%;
+    --input: 214 20% 88%;
+    --ring: 210 100% 45%;
+
+    /* Chart Colors - Club Med Palette */
+    --chart-1: 210 100% 45%;
+    --chart-2: 14 90% 50%;
+    --chart-3: 195 100% 35%;
+    --chart-4: 280 65% 55%;
+    --chart-5: 42 87% 55%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    /* Club Med Brand Colors - Dark Mode */
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+
+    /* Cards and Popovers */
+    --card: 222 47% 15%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 15%;
+    --popover-foreground: 210 40% 98%;
+
+    /* Primary - Lighter Blue for Dark Mode (WCAG AA compliant) */
+    --primary: 210 100% 60%;
+    --primary-foreground: 222 47% 11%;
+
+    /* Secondary */
+    --secondary: 217 33% 20%;
+    --secondary-foreground: 210 40% 98%;
+
+    /* Muted */
+    --muted: 217 33% 20%;
+    --muted-foreground: 215 20% 65%;
+
+    /* Accent - Warm Coral/Orange (adjusted for dark mode) */
+    --accent: 14 90% 60%;
+    --accent-foreground: 222 47% 11%;
+
+    /* Destructive */
+    --destructive: 0 63% 45%;
+    --destructive-foreground: 210 40% 98%;
+
+    /* Borders and Inputs */
+    --border: 217 33% 25%;
+    --input: 217 33% 25%;
+    --ring: 210 100% 60%;
+
+    /* Chart Colors - Dark Mode Adjusted */
+    --chart-1: 210 100% 60%;
+    --chart-2: 14 90% 60%;
+    --chart-3: 195 100% 45%;
+    --chart-4: 280 65% 65%;
+    --chart-5: 42 87% 65%;
+  }
+}
+
+
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}

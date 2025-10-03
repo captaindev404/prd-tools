@@ -1,0 +1,24 @@
+{
+  "name": "odyssey-orchestrator",
+  "version": "0.5.0",
+  "description": "Agent orchestration tools for Odyssey Feedback project",
+  "private": true,
+  "scripts": {
+    "orchestrate": "ts-node orchestrator.ts",
+    "progress": "ts-node progress-monitor.ts",
+    "dashboard": "ts-node build-dashboard.ts",
+    "web": "ts-node web-dashboard.ts",
+    "update-task": "ts-node task-updater.ts",
+    "setup": "npm install && node setup-redis.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.2.2",
+    "redis": "^4.6.12"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.8",
+    "@types/node": "^20.10.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
