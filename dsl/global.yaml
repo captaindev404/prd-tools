@@ -311,6 +311,26 @@ ui_hints:
     show_vote_counts_on_linked_feedback: true
   research:
     badge_consent_status: true
+  navigation:
+    layout: "sidebar_top_bar"          # sidebar_top_bar | top_bar_only | sidebar_only
+    sidebar:
+      default_state: "expanded"         # expanded | collapsed
+      persist_state: true               # Remember user preference in localStorage
+      collapsible: true                 # Allow user to collapse sidebar
+      mobile_behavior: "drawer"         # drawer | bottom_sheet
+      width_expanded: "280px"
+      width_collapsed: "80px"
+    breadcrumbs:
+      enabled: true
+      show_icons: false                 # Show icons in breadcrumb items
+      max_items: 4                      # Truncate long paths (e.g., Home > ... > Page)
+      separator: "chevron"              # chevron | slash | dot
+    mobile:
+      breakpoint: "lg"                  # sm | md | lg | xl (Tailwind breakpoint)
+      hamburger_position: "left"        # left | right
+    active_link:
+      indicator: "border_and_color"     # border_and_color | background | underline
+      show_icon_highlight: true
 
 # ---------- Example seed data ----------
 seed:
