@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Users, Settings, Archive, Edit, UserPlus, AlertCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { InviteMembersDialog } from '@/components/panels/invite-members-dialog';
+import { PanelMemberList } from '@/components/panels/panel-member-list';
 import { handleApiError } from '@/lib/api-error-handler';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -24,7 +25,9 @@ export default function PanelDetailPage({ params }: PanelDetailPageProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [panel, setPanel] = useState<any>(null);
+  const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMembers, setLoadingMembers] = useState(true);
   const [error, setError] = useState<{ message: string; isRetryable: boolean } | null>(null);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
@@ -33,6 +36,7 @@ export default function PanelDetailPage({ params }: PanelDetailPageProps) {
 
   useEffect(() => {
     fetchPanel();
+    fetchMembers();
   }, [params.id]);
 
   const fetchPanel = async () => {
@@ -68,6 +72,30 @@ export default function PanelDetailPage({ params }: PanelDetailPageProps) {
     }
   };
 
+  const fetchMembers = async () => {
+    setLoadingMembers(true);
+
+    try {
+      const response = await fetch(`/api/panels/${params.id}/members`);
+
+      if (!response.ok) {
+        throw response;
+      }
+
+      const data = await response.json();
+      setMembers(data.members || []);
+    } catch (err) {
+      const errorResult = await handleApiError(err, {
+        context: 'Fetching panel members',
+      });
+
+      // Don't set error state for members, just show empty state
+      console.error('Error fetching members:', errorResult.message);
+    } finally {
+      setLoadingMembers(false);
+    }
+  };
+
   const handleArchive = async () => {
     if (!confirm('Are you sure you want to archive this panel?')) return;
 
@@ -93,12 +121,68 @@ export default function PanelDetailPage({ params }: PanelDetailPageProps) {
     }
   };
 
+  const handleRemoveMember = async (userId: string) => {
+    if (!confirm('Are you sure you want to remove this member?')) return;
+
+    try {
+      const response = await fetch(`/api/panels/${params.id}/members/${userId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw response;
+      }
+
+      toast({ title: 'Member removed successfully' });
+      fetchMembers(); // Refresh the member list
+    } catch (err) {
+      const errorResult = await handleApiError(err, {
+        context: 'Removing member',
+      });
+
+      toast({
+        title: 'Error removing member',
+        description: errorResult.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleInviteSuccess = () => {
+    fetchPanel(); // Refresh panel to update member count
+    fetchMembers(); // Refresh member list
+  };
+
   if (loading) {
     return (
-      <div className="container py-10">
-        <Skeleton className="h-10 w-1/2 mb-4" />
-        <Skeleton className="h-6 w-1/3 mb-8" />
-        <Skeleton className="h-96 w-full" />
+      <div className="container py-10" role="status" aria-label="Loading panel details">
+        {/* Header skeleton */}
+        <div className="mb-8 flex items-start justify-between">
+          <div className="flex-1">
+            <Skeleton className="h-10 w-2/3 mb-2" />
+            <Skeleton className="h-5 w-1/2 mb-2" />
+            <Skeleton className="h-4 w-1/3" />
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-10 w-[140px]" />
+            <Skeleton className="h-10 w-[100px]" />
+            <Skeleton className="h-10 w-[100px]" />
+          </div>
+        </div>
+
+        {/* Stats cards skeleton */}
+        <div className="grid gap-4 md:grid-cols-3 mb-8">
+          <Skeleton className="h-[120px] w-full" />
+          <Skeleton className="h-[120px] w-full" />
+          <Skeleton className="h-[120px] w-full" />
+        </div>
+
+        {/* Tabs skeleton */}
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-[200px]" />
+          <Skeleton className="h-[300px] w-full" />
+        </div>
+        <span className="sr-only">Loading panel information...</span>
       </div>
     );
   }
@@ -260,7 +344,13 @@ export default function PanelDetailPage({ params }: PanelDetailPageProps) {
               <CardDescription>Users who are part of this research panel</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground">Member list component to be implemented</p>
+              <PanelMemberList
+                members={members}
+                canManage={canInviteMembers}
+                onRemoveMember={handleRemoveMember}
+                onInviteMembers={() => setInviteDialogOpen(true)}
+                isLoading={loadingMembers}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -286,7 +376,7 @@ export default function PanelDetailPage({ params }: PanelDetailPageProps) {
           panelId={params.id}
           open={inviteDialogOpen}
           onOpenChange={setInviteDialogOpen}
-          onSuccess={fetchPanel}
+          onSuccess={handleInviteSuccess}
         />
       </div>
     </TooltipProvider>

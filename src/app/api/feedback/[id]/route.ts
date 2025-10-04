@@ -42,6 +42,12 @@ export async function GET(
             status: true,
           },
         },
+        village: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         duplicateOf: {
           select: {
             id: true,

@@ -29,6 +29,8 @@ import {
   eligibilityRulesSchema,
 } from '@/lib/validators/panel-eligibility';
 import { handleApiError } from '@/lib/api-error-handler';
+import { QuotaManager } from '@/components/research/QuotaManager';
+import type { Quota } from '@/types/panel';
 
 const AVAILABLE_ROLES: Role[] = [...VALID_ROLES];
 const AVAILABLE_CONSENTS = [
@@ -80,6 +82,12 @@ const step2Schema = z.object({
 // Step 3 Schema: Size and Quotas
 const step3Schema = z.object({
   sizeTarget: z.number().int().positive('Size target must be a positive number').optional().nullable(),
+  quotas: z.array(z.object({
+    id: z.string(),
+    key: z.string(),
+    targetPercentage: z.number(),
+    distribution: z.string().optional(),
+  })).optional(),
 });
 
 type Step1Data = z.infer<typeof step1Schema>;
@@ -106,6 +114,7 @@ export function PanelWizard() {
   const [currentStep, setCurrentStep] = useState(1);
   const [step1Data, setStep1Data] = useState<Step1Data | null>(null);
   const [step2Data, setStep2Data] = useState<Step2Data | null>(null);
+  const [quotas, setQuotas] = useState<Quota[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Step 1 Form
@@ -133,6 +142,7 @@ export function PanelWizard() {
     resolver: zodResolver(step3Schema),
     defaultValues: {
       sizeTarget: null,
+      quotas: [],
     },
   });
 
@@ -199,6 +209,7 @@ export function PanelWizard() {
           description: step1Data.description || null,
           eligibilityRules,
           sizeTarget: data.sizeTarget || null,
+          quotas: quotas.length > 0 ? quotas : null,
         }),
       });
 
@@ -542,6 +553,23 @@ export function PanelWizard() {
                   )}
                 />
 
+                {/* Quota Manager */}
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">Demographic Quotas (Optional)</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Define quotas to ensure balanced representation across different demographics.
+                      Drag to reorder or use arrow buttons for keyboard navigation.
+                    </p>
+                  </div>
+                  <QuotaManager
+                    quotas={quotas}
+                    onChange={setQuotas}
+                    readOnly={false}
+                    totalMembers={step3Form.watch('sizeTarget') || undefined}
+                  />
+                </div>
+
                 <div className="rounded-lg border border-muted bg-muted/50 p-4">
                   <h4 className="font-medium mb-2">Summary</h4>
                   <dl className="space-y-1 text-sm">
@@ -559,6 +587,12 @@ export function PanelWizard() {
                       <div className="flex justify-between">
                         <dt className="text-muted-foreground">Required Consents:</dt>
                         <dd className="font-medium">{step2Data.requiredConsents.length}</dd>
+                      </div>
+                    )}
+                    {quotas.length > 0 && (
+                      <div className="flex justify-between">
+                        <dt className="text-muted-foreground">Quotas Configured:</dt>
+                        <dd className="font-medium">{quotas.length}</dd>
                       </div>
                     )}
                   </dl>

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { MapPin } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { VoteButton } from '@/components/feedback/vote-button';
@@ -31,6 +32,14 @@ const stateLabels: Record<string, string> = {
   closed: 'Closed',
 };
 
+const productAreaColors: Record<string, string> = {
+  Reservations: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+  CheckIn: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+  Payments: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
+  Housekeeping: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
+  Backoffice: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300',
+};
+
 export function FeedbackCard({ feedback, isAuthenticated }: FeedbackCardProps) {
   return (
     <Card className="hover:shadow-md transition-shadow">
@@ -50,9 +59,21 @@ export function FeedbackCard({ feedback, isAuthenticated }: FeedbackCardProps) {
                 {formatDistanceToNow(feedback.createdAt)}
               </time>
               {feedback.productArea && (
+                <Badge
+                  className={productAreaColors[feedback.productArea] || productAreaColors.Backoffice}
+                  variant="secondary"
+                  aria-label={`Product area: ${feedback.productArea}`}
+                >
+                  {feedback.productArea}
+                </Badge>
+              )}
+              {feedback.village && (
                 <>
                   <span className="text-muted-foreground/50">•</span>
-                  <span className="font-medium text-foreground">{feedback.productArea}</span>
+                  <div className="flex items-center gap-1" aria-label={`Village: ${feedback.village.name}`}>
+                    <MapPin className="h-3.5 w-3.5" />
+                    <span>{feedback.village.name}</span>
+                  </div>
                 </>
               )}
             </div>

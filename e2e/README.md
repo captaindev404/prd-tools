@@ -19,6 +19,7 @@ The E2E test suite covers critical user journeys including:
 - `voting.spec.ts` - Voting functionality
 - `roadmap.spec.ts` - Roadmap interactions
 - `questionnaire.spec.ts` - Basic questionnaire tests
+- `panels.spec.ts` - Research panel management (PRD003-PANEL-UI-023)
 
 ### Comprehensive Test Suites
 - `questionnaire-flow.spec.ts` - **Complete questionnaire flow (TASK-202)**
@@ -29,6 +30,15 @@ The E2E test suite covers critical user journeys including:
   - CSV export with PII (RESEARCHER only)
   - Language toggle EN/FR
   - Screenshot tests
+
+- `panels.spec.ts` - **Complete panel flow (PRD003-PANEL-UI-023)**
+  - RESEARCHER creates panel with eligibility rules
+  - Preview shows matching users
+  - Invite members with eligibility check
+  - Edit panel configuration
+  - Archive panel (soft delete)
+  - Permission checks (USER cannot create panel)
+  - All tests with screenshots on failure
 
 ### Helpers
 - `helpers/auth.ts` - Authentication utilities and test user fixtures

@@ -14,7 +14,9 @@ import {
   PaginationEllipsis,
 } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePanelPermissions } from '@/hooks/use-panel-permissions';
+import { Users, SearchX, Plus } from 'lucide-react';
 
 interface PanelsListProps {
   initialPanels: PanelCardData[];
@@ -136,14 +138,38 @@ export function PanelsList({ initialPanels, initialTotal, initialPage, pageSize 
 
   if (panels.length === 0 && !isLoading) {
     const searchQuery = searchParams.get('search');
+
+    // Show "no search results" empty state
+    if (searchQuery) {
+      const clearSearch = () => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.delete('search');
+        router.push(`?${params.toString()}`, { scroll: false });
+      };
+
+      return (
+        <EmptyState
+          icon={SearchX}
+          title="No panels found"
+          description={`No panels match "${searchQuery}". Try adjusting your search terms or filters.`}
+          action={{
+            label: 'Clear Search',
+            onClick: clearSearch,
+            variant: 'outline',
+          }}
+          size="md"
+        />
+      );
+    }
+
+    // Show "no panels" empty state (handled in parent page.tsx, this is a fallback)
     return (
-      <div className="text-center py-12 border-2 border-dashed rounded-lg">
-        <p className="text-muted-foreground">
-          {searchQuery
-            ? `No panels found matching "${searchQuery}". Try a different search term.`
-            : 'No research panels found.'}
-        </p>
-      </div>
+      <EmptyState
+        icon={Users}
+        title="No panels available"
+        description="There are no research panels at the moment."
+        size="md"
+      />
     );
   }
 

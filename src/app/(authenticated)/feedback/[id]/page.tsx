@@ -34,6 +34,14 @@ const stateLabels: Record<string, string> = {
   closed: 'Closed',
 };
 
+const productAreaColors: Record<string, string> = {
+  Reservations: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+  CheckIn: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+  Payments: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
+  Housekeeping: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
+  Backoffice: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300',
+};
+
 // Mock data for development
 const mockFeedback: Feedback = {
   id: 'fb_01HXQJ9K2M3N4P5Q6R7S8T9V0W',
@@ -299,7 +307,25 @@ export default function FeedbackDetailPage() {
                 <Tag className="h-4 w-4 mt-0.5 text-muted-foreground" />
                 <div>
                   <p className="text-sm font-medium">Product Area</p>
-                  <p className="text-sm text-muted-foreground">{feedback.productArea}</p>
+                  <Badge
+                    className={productAreaColors[feedback.productArea] || productAreaColors.Backoffice}
+                    variant="secondary"
+                    aria-label={`Product area: ${feedback.productArea}`}
+                  >
+                    {feedback.productArea}
+                  </Badge>
+                </div>
+              </div>
+            )}
+
+            {feedback.village && (
+              <div className="flex items-start gap-2">
+                <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Village</p>
+                  <p className="text-sm text-muted-foreground" aria-label={`Village: ${feedback.village.name}`}>
+                    {feedback.village.name}
+                  </p>
                 </div>
               </div>
             )}

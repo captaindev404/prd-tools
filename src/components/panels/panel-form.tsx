@@ -611,7 +611,12 @@ export function PanelForm({ initialData, mode }: PanelFormProps) {
             </DialogDescription>
           </DialogHeader>
 
-          {previewData && (
+          {loadingPreview ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-4" role="status" aria-live="polite">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" aria-hidden="true" />
+              <p className="text-sm text-muted-foreground">Loading eligible users...</p>
+            </div>
+          ) : previewData ? (
             <div className="space-y-4" role="region" aria-live="polite" aria-atomic="true">
               <Alert>
                 <AlertCircle className="h-4 w-4" />
@@ -648,7 +653,7 @@ export function PanelForm({ initialData, mode }: PanelFormProps) {
                 </div>
               )}
             </div>
-          )}
+          ) : null}
         </DialogContent>
       </Dialog>
     </Form>

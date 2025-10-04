@@ -348,6 +348,12 @@ export async function GET(request: NextRequest) {
                 area: true,
               },
             },
+            village: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
             _count: {
               select: {
                 votes: true,
@@ -385,6 +391,12 @@ export async function GET(request: NextRequest) {
                 id: true,
                 title: true,
                 area: true,
+              },
+            },
+            village: {
+              select: {
+                id: true,
+                name: true,
               },
             },
             _count: {

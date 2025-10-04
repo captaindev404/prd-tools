@@ -11,20 +11,12 @@ export interface TestUser {
   id: string;
   email: string;
   displayName: string;
-  role: 'USER' | 'RESEARCHER' | 'PM' | 'ADMIN' | 'MODERATOR';
+  role: 'USER' | 'RESEARCHER' | 'PM' | 'PO' | 'ADMIN' | 'MODERATOR';
   employeeId: string;
   preferredLanguage: 'en' | 'fr';
 }
 
 export const TEST_USERS = {
-  researcher: {
-    id: 'usr_researcher_test_001',
-    email: 'researcher@clubmed.test',
-    displayName: 'Test Researcher',
-    role: 'RESEARCHER' as const,
-    employeeId: 'EMP-RES-001',
-    preferredLanguage: 'en' as const,
-  },
   user: {
     id: 'usr_user_test_001',
     email: 'user@clubmed.test',
@@ -39,6 +31,30 @@ export const TEST_USERS = {
     displayName: 'Test PM',
     role: 'PM' as const,
     employeeId: 'EMP-PM-001',
+    preferredLanguage: 'en' as const,
+  },
+  po: {
+    id: 'usr_po_test_001',
+    email: 'po@clubmed.test',
+    displayName: 'Test PO',
+    role: 'PO' as const,
+    employeeId: 'EMP-PO-001',
+    preferredLanguage: 'en' as const,
+  },
+  researcher: {
+    id: 'usr_researcher_test_001',
+    email: 'researcher@clubmed.test',
+    displayName: 'Test Researcher',
+    role: 'RESEARCHER' as const,
+    employeeId: 'EMP-RES-001',
+    preferredLanguage: 'en' as const,
+  },
+  moderator: {
+    id: 'usr_moderator_test_001',
+    email: 'moderator@clubmed.test',
+    displayName: 'Test Moderator',
+    role: 'MODERATOR' as const,
+    employeeId: 'EMP-MOD-001',
     preferredLanguage: 'en' as const,
   },
   admin: {
@@ -81,10 +97,21 @@ export async function mockAuth(page: Page, user: TestUser) {
  * Clear authentication session
  */
 export async function clearAuth(page: Page) {
-  await page.evaluate(() => {
-    localStorage.removeItem('test-session');
-    sessionStorage.removeItem('test-user');
-  });
+  try {
+    await page.context().clearCookies();
+    // Only try to access localStorage if page is already loaded
+    const url = page.url();
+    if (url && !url.startsWith('about:blank')) {
+      await page.evaluate(() => {
+        localStorage.removeItem('test-session');
+        sessionStorage.removeItem('test-user');
+      }).catch(() => {
+        // Ignore errors if localStorage is not accessible
+      });
+    }
+  } catch (error) {
+    // Ignore errors during cleanup
+  }
 }
 
 /**

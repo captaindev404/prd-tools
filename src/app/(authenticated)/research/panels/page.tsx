@@ -1,11 +1,12 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { PanelsList } from '@/components/panels/panels-list';
 import { PanelSearch } from '@/components/panels/panel-search';
 import { getCurrentUser, canCreatePanel } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
-import { Plus } from 'lucide-react';
+import { Plus, Users, UserPlus } from 'lucide-react';
 
 export const metadata = {
   title: 'Research Panels | Odyssey Feedback',
@@ -63,14 +64,12 @@ export default async function PanelsPage({ searchParams }: PanelsPageProps) {
             </div>
           </div>
 
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">
-              You are not a member of any research panels yet.
-            </p>
-            <p className="text-sm text-muted-foreground mt-2">
-              You will receive a notification when you are invited to a panel.
-            </p>
-          </div>
+          <EmptyState
+            icon={UserPlus}
+            title="Not a member of any panels yet"
+            description="You will receive a notification when you are invited to join a research panel. Researchers use panels to organize and target specific groups of users for studies, surveys, and feedback sessions."
+            size="lg"
+          />
         </div>
       );
     }
@@ -149,21 +148,18 @@ export default async function PanelsPage({ searchParams }: PanelsPageProps) {
 
       {/* Panels list with pagination */}
       {totalPanels === 0 && !searchQuery ? (
-        <div className="text-center py-12 border-2 border-dashed rounded-lg">
-          <p className="text-muted-foreground">
-            {canManage
-              ? 'No research panels created yet. Create your first panel to get started.'
-              : 'You are not a member of any research panels yet.'}
-          </p>
-          {canManage && (
-            <Link href="/research/panels/new">
-              <Button className="mt-4">
-                <Plus className="h-4 w-4 mr-2" />
-                Create Your First Panel
-              </Button>
-            </Link>
-          )}
-        </div>
+        <EmptyState
+          icon={Users}
+          title="Create your first panel"
+          description="Research panels help you organize and target specific groups of users for studies, surveys, and feedback sessions. Start by creating your first panel to build a community of engaged users."
+          action={{
+            label: 'Create Panel',
+            href: '/research/panels/new',
+            icon: Plus,
+            variant: 'default',
+          }}
+          size="lg"
+        />
       ) : (
         <PanelsList
           initialPanels={panelsWithDetails}

@@ -78,6 +78,21 @@ async function main() {
         ]),
       },
     }),
+    // Product Owner
+    prisma.user.create({
+      data: {
+        id: `usr_${ulid()}`,
+        employeeId: 'E234568',
+        email: 'po@dev.local',
+        displayName: 'PO Dev',
+        role: Role.PO,
+        currentVillageId: village.id,
+        consents: JSON.stringify(['email_updates', 'usage_analytics']),
+        villageHistory: JSON.stringify([
+          { village_id: 'vlg-001', from: '2023-06-01', to: null }
+        ]),
+      },
+    }),
     // Researcher
     prisma.user.create({
       data: {
@@ -125,7 +140,7 @@ async function main() {
   ]);
   console.log('✅ Created', users.length, 'users');
 
-  const [admin, moderator, pm, researcher, user1, user2] = users;
+  const [admin, moderator, pm, po, researcher, user1, user2] = users;
 
   // ========== 3. CREATE FEATURES ==========
   const features = await Promise.all([
@@ -423,6 +438,7 @@ async function main() {
           distribution: 'proportional'
         }
       ]),
+      createdBy: { connect: { id: researcher.id } },
     },
   });
   console.log('✅ Created panel:', panel.name);
@@ -621,6 +637,7 @@ async function main() {
   console.log(`   - admin@dev.local (ADMIN)`);
   console.log(`   - moderator@dev.local (MODERATOR)`);
   console.log(`   - pm@dev.local (PM)`);
+  console.log(`   - po@dev.local (PO)`);
   console.log(`   - researcher@dev.local (RESEARCHER)`);
   console.log(`   - user@dev.local (USER)`);
   console.log(`   - user2@dev.local (USER)`);

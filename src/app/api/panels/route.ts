@@ -216,6 +216,34 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Validate quotas if provided
+    if (body.quotas !== undefined && body.quotas !== null) {
+      if (!Array.isArray(body.quotas)) {
+        errors.push({ field: 'quotas', message: 'Quotas must be an array' });
+      } else {
+        // Validate each quota
+        body.quotas.forEach((quota: any, index: number) => {
+          if (!quota.id || typeof quota.id !== 'string') {
+            errors.push({ field: `quotas[${index}].id`, message: 'Quota ID is required' });
+          }
+          if (!quota.key || typeof quota.key !== 'string') {
+            errors.push({ field: `quotas[${index}].key`, message: 'Quota key is required' });
+          }
+          if (typeof quota.targetPercentage !== 'number' || quota.targetPercentage < 0 || quota.targetPercentage > 100) {
+            errors.push({ field: `quotas[${index}].targetPercentage`, message: 'Target percentage must be between 0 and 100' });
+          }
+        });
+
+        // Check total percentage doesn't exceed 100% (with some tolerance)
+        if (body.quotas.length > 0) {
+          const totalPercentage = body.quotas.reduce((sum: number, q: any) => sum + (q.targetPercentage || 0), 0);
+          if (totalPercentage > 105) {
+            errors.push({ field: 'quotas', message: `Total quota percentage (${totalPercentage.toFixed(1)}%) exceeds 100%` });
+          }
+        }
+      }
+    }
+
     if (errors.length > 0) {
       return NextResponse.json(
         {
@@ -235,7 +263,7 @@ export async function POST(request: NextRequest) {
         description: body.description || null,
         eligibilityRules: JSON.stringify(body.eligibilityRules),
         sizeTarget: body.sizeTarget || null,
-        quotas: '[]',
+        quotas: body.quotas ? JSON.stringify(body.quotas) : '[]',
         createdById: user.id,
       },
       include: {

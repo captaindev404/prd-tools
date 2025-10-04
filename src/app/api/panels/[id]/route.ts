@@ -38,6 +38,7 @@ export async function GET(
                 displayName: true,
                 email: true,
                 role: true,
+                consents: true,
                 currentVillageId: true,
                 currentVillage: {
                   select: {

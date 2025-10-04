@@ -4,7 +4,24 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Plus, X, AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { Plus, X, AlertCircle, CheckCircle2, AlertTriangle, GripVertical, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -139,6 +156,172 @@ function getComplianceStatus(current: number, target: number): {
 }
 
 /**
+ * SortableQuotaItem Component
+ * Individual quota item with drag-and-drop capability
+ */
+interface SortableQuotaItemProps {
+  quota: any;
+  keyLabel: string;
+  compliance?: { status: 'good' | 'warning' | 'critical'; color: string };
+  totalMembers?: number;
+  quotasWithProgress?: any[];
+  readOnly: boolean;
+  onRemove: (id: string) => void;
+  onMoveUp?: (id: string) => void;
+  onMoveDown?: (id: string) => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
+}
+
+function SortableQuotaItem({
+  quota,
+  keyLabel,
+  compliance,
+  totalMembers,
+  quotasWithProgress,
+  readOnly,
+  onRemove,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp,
+  canMoveDown,
+}: SortableQuotaItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: quota.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'border rounded-lg p-4 space-y-3 bg-background',
+        isDragging && 'shadow-lg ring-2 ring-primary ring-opacity-50'
+      )}
+      role="listitem"
+    >
+      <div className="flex items-start gap-2">
+        {/* Drag Handle */}
+        {!readOnly && (
+          <button
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing mt-1 touch-none"
+            aria-label={`Drag to reorder ${keyLabel} quota`}
+            type="button"
+          >
+            <GripVertical className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+          </button>
+        )}
+
+        {/* Quota Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <h4 className="font-medium" id={`quota-${quota.id}-label`}>{keyLabel}</h4>
+            {quotasWithProgress && compliance && (
+              <span className={cn('text-sm font-medium', compliance.color)} aria-label={`Current ${quota.currentPercentage?.toFixed(1)}% of target ${quota.targetPercentage}%`}>
+                {quota.currentPercentage?.toFixed(1)}% / {quota.targetPercentage}%
+              </span>
+            )}
+          </div>
+
+          {totalMembers && (
+            <p className="text-sm text-muted-foreground mt-1">
+              {quotasWithProgress ? (
+                <>
+                  {quota.currentCount || 0} of {Math.round((quota.targetPercentage / 100) * totalMembers)} members
+                </>
+              ) : (
+                <>
+                  Target: {Math.round((quota.targetPercentage / 100) * totalMembers)} members ({quota.targetPercentage}%)
+                </>
+              )}
+            </p>
+          )}
+
+          {/* Progress Bar */}
+          {quotasWithProgress && compliance && (
+            <div className="space-y-1 mt-2" role="region" aria-labelledby={`quota-${quota.id}-label`}>
+              <Progress
+                value={(quota.currentPercentage || 0) / quota.targetPercentage * 100}
+                className={cn(
+                  'h-2',
+                  compliance.status === 'good' && '[&>div]:bg-green-600',
+                  compliance.status === 'warning' && '[&>div]:bg-yellow-600',
+                  compliance.status === 'critical' && '[&>div]:bg-red-600'
+                )}
+                aria-label={`${keyLabel} quota progress: ${quota.currentPercentage?.toFixed(1)}% of ${quota.targetPercentage}% target`}
+              />
+              <div className="flex items-center justify-between text-xs text-muted-foreground" aria-hidden="true">
+                <span>Current: {quota.currentPercentage?.toFixed(1)}%</span>
+                <span>Target: {quota.targetPercentage}%</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-1">
+          {/* Keyboard Reordering Buttons */}
+          {!readOnly && onMoveUp && onMoveDown && (
+            <div className="flex flex-col gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onMoveUp(quota.id)}
+                disabled={!canMoveUp}
+                className="h-6 w-6 p-0"
+                aria-label={`Move ${keyLabel} quota up`}
+                type="button"
+              >
+                <ChevronUp className="h-3 w-3" aria-hidden="true" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onMoveDown(quota.id)}
+                disabled={!canMoveDown}
+                className="h-6 w-6 p-0"
+                aria-label={`Move ${keyLabel} quota down`}
+                type="button"
+              >
+                <ChevronDown className="h-3 w-3" aria-hidden="true" />
+              </Button>
+            </div>
+          )}
+
+          {/* Remove Button */}
+          {!readOnly && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onRemove(quota.id)}
+              className="h-8 w-8 p-0"
+              aria-label={`Remove ${keyLabel} quota`}
+              type="button"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+              <span className="sr-only">Remove quota</span>
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * QuotaManager Component
  *
  * Manages demographic quotas for research panels to ensure representative sampling.
@@ -161,6 +344,14 @@ export function QuotaManager({
   }, [quotas]);
 
   const keyOptions = customKeyOptions || QUOTA_KEY_OPTIONS;
+
+  // Configure drag-and-drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const form = useForm<QuotaFormValues>({
     resolver: zodResolver(quotaSchema),
@@ -200,6 +391,49 @@ export function QuotaManager({
 
     if (onChange) {
       onChange(updatedQuotas);
+    }
+  };
+
+  // Handle drag end event
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = internalQuotas.findIndex(q => q.id === active.id);
+      const newIndex = internalQuotas.findIndex(q => q.id === over.id);
+
+      const reorderedQuotas = arrayMove(internalQuotas, oldIndex, newIndex);
+      setInternalQuotas(reorderedQuotas);
+
+      if (onChange) {
+        onChange(reorderedQuotas);
+      }
+    }
+  };
+
+  // Handle keyboard move up
+  const handleMoveUp = (quotaId: string) => {
+    const index = internalQuotas.findIndex(q => q.id === quotaId);
+    if (index > 0) {
+      const reorderedQuotas = arrayMove(internalQuotas, index, index - 1);
+      setInternalQuotas(reorderedQuotas);
+
+      if (onChange) {
+        onChange(reorderedQuotas);
+      }
+    }
+  };
+
+  // Handle keyboard move down
+  const handleMoveDown = (quotaId: string) => {
+    const index = internalQuotas.findIndex(q => q.id === quotaId);
+    if (index < internalQuotas.length - 1) {
+      const reorderedQuotas = arrayMove(internalQuotas, index, index + 1);
+      setInternalQuotas(reorderedQuotas);
+
+      if (onChange) {
+        onChange(reorderedQuotas);
+      }
     }
   };
 
@@ -357,83 +591,43 @@ export function QuotaManager({
             )}
           </div>
         ) : (
-          <div className="space-y-3" role="list" aria-label="Configured quotas">
-            {displayQuotas.map((quota) => {
-              const keyLabel = keyOptions.find(opt => opt.value === quota.key)?.label || quota.key;
-              const compliance = getComplianceStatus(
-                quota.currentPercentage || 0,
-                quota.targetPercentage
-              );
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={displayQuotas.map(q => q.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-3" role="list" aria-label="Configured quotas">
+                {displayQuotas.map((quota, index) => {
+                  const keyLabel = keyOptions.find(opt => opt.value === quota.key)?.label || quota.key;
+                  const compliance = getComplianceStatus(
+                    quota.currentPercentage || 0,
+                    quota.targetPercentage
+                  );
 
-              return (
-                <div
-                  key={quota.id}
-                  className="border rounded-lg p-4 space-y-3"
-                  role="listitem"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-medium" id={`quota-${quota.id}-label`}>{keyLabel}</h4>
-                        {quotasWithProgress && (
-                          <span className={cn('text-sm font-medium', compliance.color)} aria-label={`Current ${quota.currentPercentage?.toFixed(1)}% of target ${quota.targetPercentage}%`}>
-                            {quota.currentPercentage?.toFixed(1)}% / {quota.targetPercentage}%
-                          </span>
-                        )}
-                      </div>
-
-                      {totalMembers && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {quotasWithProgress ? (
-                            <>
-                              {quota.currentCount || 0} of {Math.round((quota.targetPercentage / 100) * totalMembers)} members
-                            </>
-                          ) : (
-                            <>
-                              Target: {Math.round((quota.targetPercentage / 100) * totalMembers)} members
-                            </>
-                          )}
-                        </p>
-                      )}
-                    </div>
-
-                    {!readOnly && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveQuota(quota.id)}
-                        className="h-8 w-8 p-0"
-                        aria-label={`Remove ${keyLabel} quota`}
-                      >
-                        <X className="h-4 w-4" aria-hidden="true" />
-                        <span className="sr-only">Remove quota</span>
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Progress Bar */}
-                  {quotasWithProgress && (
-                    <div className="space-y-1" role="region" aria-labelledby={`quota-${quota.id}-label`}>
-                      <Progress
-                        value={(quota.currentPercentage || 0) / quota.targetPercentage * 100}
-                        className={cn(
-                          'h-2',
-                          compliance.status === 'good' && '[&>div]:bg-green-600',
-                          compliance.status === 'warning' && '[&>div]:bg-yellow-600',
-                          compliance.status === 'critical' && '[&>div]:bg-red-600'
-                        )}
-                        aria-label={`${keyLabel} quota progress: ${quota.currentPercentage?.toFixed(1)}% of ${quota.targetPercentage}% target`}
-                      />
-                      <div className="flex items-center justify-between text-xs text-muted-foreground" aria-hidden="true">
-                        <span>Current: {quota.currentPercentage?.toFixed(1)}%</span>
-                        <span>Target: {quota.targetPercentage}%</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                  return (
+                    <SortableQuotaItem
+                      key={quota.id}
+                      quota={quota}
+                      keyLabel={keyLabel}
+                      compliance={compliance}
+                      totalMembers={totalMembers}
+                      quotasWithProgress={quotasWithProgress}
+                      readOnly={readOnly}
+                      onRemove={handleRemoveQuota}
+                      onMoveUp={handleMoveUp}
+                      onMoveDown={handleMoveDown}
+                      canMoveUp={index > 0}
+                      canMoveDown={index < displayQuotas.length - 1}
+                    />
+                  );
+                })}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
 
         {/* Summary */}

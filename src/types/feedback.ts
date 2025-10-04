@@ -40,6 +40,10 @@ export interface Feedback {
   source: FeedbackSource;
   productArea?: ProductArea;
   villageContext?: string;
+  village?: {
+    id: string;
+    name: string;
+  } | null;
   featureRefs?: Feature[];
   duplicateOf?: string;
   moderationStatus: ModerationStatus;
@@ -60,6 +64,10 @@ export interface FeedbackListItem {
   };
   state: FeedbackState;
   productArea?: ProductArea;
+  village?: {
+    id: string;
+    name: string;
+  } | null;
   voteCount: number;
   voteWeight: number;
   totalWeight?: number; // Alias for voteWeight from API

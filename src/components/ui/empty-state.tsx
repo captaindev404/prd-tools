@@ -52,7 +52,8 @@ import { cn } from '@/lib/utils';
 
 export interface EmptyStateAction {
   label: string;
-  href: string;
+  href?: string;
+  onClick?: () => void;
   variant?: 'default' | 'outline' | 'secondary' | 'ghost';
   icon?: LucideIcon;
 }
@@ -159,6 +160,23 @@ export function EmptyState({
             {actionButtons.map((actionItem, index) => {
               const ActionIcon = actionItem.icon;
 
+              // If onClick is provided, use button without Link
+              if (actionItem.onClick) {
+                return (
+                  <Button
+                    key={index}
+                    variant={actionItem.variant || 'default'}
+                    size="default"
+                    onClick={actionItem.onClick}
+                    className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] inline-flex items-center gap-2"
+                  >
+                    {ActionIcon && <ActionIcon className="h-4 w-4" />}
+                    {actionItem.label}
+                  </Button>
+                );
+              }
+
+              // Otherwise use Link with href
               return (
                 <Button
                   key={index}
@@ -168,7 +186,7 @@ export function EmptyState({
                   className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px]"
                 >
                   <Link
-                    href={actionItem.href}
+                    href={actionItem.href || '#'}
                     className="inline-flex items-center gap-2"
                   >
                     {ActionIcon && <ActionIcon className="h-4 w-4" />}

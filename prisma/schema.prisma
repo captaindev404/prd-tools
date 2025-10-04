@@ -91,7 +91,8 @@ model Village {
   updatedAt DateTime @updatedAt
 
   // Relations
-  users User[]
+  users     User[]
+  feedbacks Feedback[]
 }
 
 model User {
@@ -203,6 +204,7 @@ model Feedback {
 
   // Context
   villageId        String? // optional per DSL
+  village          Village?         @relation(fields: [villageId], references: [id])
   visibility       Visibility       @default(public)
   source           Source           @default(app)
   productArea      ProductArea?
