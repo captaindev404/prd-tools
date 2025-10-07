@@ -59,10 +59,13 @@ export interface UserNavProps {
  */
 function getUserInitials(name?: string | null, email?: string): string {
   if (name && name.trim()) {
-    const parts = name.trim().split(/\s+/);
+    const parts = name.trim().split(/\s+/).filter(p => p.length > 0);
     if (parts.length >= 2) {
-      // First and last name initials
-      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+      const firstInitial = parts[0]?.[0];
+      const lastInitial = parts[parts.length - 1]?.[0];
+      if (firstInitial && lastInitial) {
+        return (firstInitial + lastInitial).toUpperCase();
+      }
     }
     // Single name - first two letters
     return name.slice(0, 2).toUpperCase();
@@ -71,11 +74,17 @@ function getUserInitials(name?: string | null, email?: string): string {
   // Fallback to email
   if (email) {
     const emailName = email.split("@")[0];
-    const parts = emailName.split(/[._-]/);
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
+    if (emailName) {
+      const parts = emailName.split(/[._-]/).filter(p => p.length > 0);
+      if (parts.length >= 2) {
+        const firstInitial = parts[0]?.[0];
+        const secondInitial = parts[1]?.[0];
+        if (firstInitial && secondInitial) {
+          return (firstInitial + secondInitial).toUpperCase();
+        }
+      }
+      return emailName.slice(0, 2).toUpperCase();
     }
-    return emailName.slice(0, 2).toUpperCase();
   }
 
   return "U";

@@ -7,12 +7,11 @@ import type { RoadmapItem } from '@/types/roadmap';
 import { Breadcrumbs } from '@/components/navigation/breadcrumbs';
 
 interface EditRoadmapPageProps {
-  params: {
-    id: string;
-  };
+  params: Promise<{ id: string; }>;
 }
 
 export default async function EditRoadmapPage({ params }: EditRoadmapPageProps) {
+  const { id } = await params;
   const session = await auth();
 
   // Check if user is authenticated
@@ -22,7 +21,7 @@ export default async function EditRoadmapPage({ params }: EditRoadmapPageProps) 
 
   // Fetch roadmap item
   const roadmapItem = await prisma.roadmapItem.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       createdBy: {
         select: {
@@ -65,7 +64,7 @@ export default async function EditRoadmapPage({ params }: EditRoadmapPageProps) 
     session.user.id === roadmapItem.createdById;
 
   if (!canEdit) {
-    redirect(`/roadmap/${params.id}`);
+    redirect(`/roadmap/${id}`);
   }
 
   // Transform data for form
@@ -111,7 +110,7 @@ export default async function EditRoadmapPage({ params }: EditRoadmapPageProps) 
         <Breadcrumbs
           items={[
             { title: 'Roadmap', href: '/roadmap' },
-            { title: truncatedTitle, href: `/roadmap/${params.id}` },
+            { title: truncatedTitle, href: `/roadmap/${id}` },
             { title: 'Edit' }
           ]}
         />

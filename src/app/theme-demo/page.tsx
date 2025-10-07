@@ -23,7 +23,7 @@ export default function ThemeDemoPage() {
   return (
     <div className="container mx-auto p-8 space-y-8">
       <div className="space-y-2">
-        <h1 className="text-4xl font-bold">Odyssey Feedback - Theme Demo</h1>
+        <h1 className="text-4xl font-bold">Gentil Feedback - Theme Demo</h1>
         <p className="text-muted-foreground">
           Club Med brand colors with Shadcn UI components
         </p>

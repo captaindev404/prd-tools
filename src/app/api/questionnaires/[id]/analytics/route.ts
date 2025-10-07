@@ -32,9 +32,10 @@ import {
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
@@ -54,7 +55,7 @@ export async function GET(
       );
     }
 
-    const questionnaireId = params.id;
+    const { id: questionnaireId } = await params;
 
     // Get segmentation parameter
     const searchParams = request.nextUrl.searchParams;
@@ -112,14 +113,18 @@ export async function GET(
     // Calculate responses by date
     const responsesByDate: Record<string, number> = {};
     responses.forEach((r) => {
-      const date = r.completedAt.toISOString().split('T')[0];
-      responsesByDate[date] = (responsesByDate[date] || 0) + 1;
+      const date = r.completedAt.toISOString().split('T')[0] || '';
+      if (date) {
+        responsesByDate[date] = (responsesByDate[date] || 0) + 1;
+      }
     });
 
     // Get last response date
-    const lastResponseAt = responses.reduce((latest, r) => {
-      return r.completedAt > latest ? r.completedAt : latest;
-    }, responses[0].completedAt);
+    const lastResponseAt = responses.length > 0
+      ? responses.reduce((latest, r) => {
+          return r.completedAt > latest ? r.completedAt : latest;
+        }, responses[0]!.completedAt)
+      : null;
 
     // Calculate question-level analytics
     const questionAnalytics: QuestionAnalytics[] = questions.map((question) => {
@@ -175,10 +180,13 @@ export async function GET(
         segmentation = {
           type: 'village',
           segments: Object.keys(segments).reduce((acc, villageId) => {
-            acc[villageId] = {
-              count: segments[villageId].length,
-              percentage: Math.round((segments[villageId].length / totalResponses) * 100),
-            };
+            const segment = segments[villageId];
+            if (segment) {
+              acc[villageId] = {
+                count: segment.length,
+                percentage: Math.round((segment.length / totalResponses) * 100),
+              };
+            }
             return acc;
           }, {} as Record<string, any>),
         };
@@ -199,10 +207,13 @@ export async function GET(
         segmentation = {
           type: 'role',
           segments: Object.keys(segments).reduce((acc, role) => {
-            acc[role] = {
-              count: segments[role].length,
-              percentage: Math.round((segments[role].length / totalResponses) * 100),
-            };
+            const segment = segments[role];
+            if (segment) {
+              acc[role] = {
+                count: segment.length,
+                percentage: Math.round((segment.length / totalResponses) * 100),
+              };
+            }
             return acc;
           }, {} as Record<string, any>),
         };
@@ -276,22 +287,22 @@ function calculateLikertAnalytics(answers: number[], scale: number): LikertAnaly
 
   answers.forEach((answer) => {
     if (answer >= 1 && answer <= scale) {
-      distribution[answer]++;
+      distribution[answer] = (distribution[answer] || 0) + 1;
     }
   });
 
   const sorted = [...answers].sort((a, b) => a - b);
   const mean = answers.reduce((sum, a) => sum + a, 0) / answers.length;
-  const median = sorted[Math.floor(sorted.length / 2)];
+  const median = sorted[Math.floor(sorted.length / 2)] || 0;
 
   // Calculate mode
   const frequency: Record<number, number> = {};
   let maxFreq = 0;
-  let mode = sorted[0];
+  let mode = sorted[0] || 0;
   answers.forEach((answer) => {
     frequency[answer] = (frequency[answer] || 0) + 1;
-    if (frequency[answer] > maxFreq) {
-      maxFreq = frequency[answer];
+    if ((frequency[answer] || 0) > maxFreq) {
+      maxFreq = frequency[answer] || 0;
       mode = answer;
     }
   });
@@ -375,7 +386,10 @@ function calculateMCQAnalytics(answers: any[], question: Question): MCQAnalytics
   // Calculate percentages
   const total = answers.length;
   Object.keys(distribution).forEach((optionId) => {
-    percentages[optionId] = Math.round((distribution[optionId] / total) * 10000) / 100;
+    const count = distribution[optionId];
+    if (count !== undefined) {
+      percentages[optionId] = Math.round((count / total) * 10000) / 100;
+    }
   });
 
   return {
@@ -422,7 +436,7 @@ function calculateRatingAnalytics(answers: number[], maxRating: number): RatingA
 
   answers.forEach((answer) => {
     if (answer >= 1 && answer <= maxRating) {
-      distribution[answer]++;
+      distribution[answer] = (distribution[answer] || 0) + 1;
     }
   });
 

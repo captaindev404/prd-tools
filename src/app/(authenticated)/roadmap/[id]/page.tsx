@@ -23,19 +23,18 @@ import type { RoadmapItem } from '@/types/roadmap';
 import { Breadcrumbs } from '@/components/navigation/breadcrumbs';
 
 interface RoadmapDetailPageProps {
-  params: {
-    id: string;
-  };
+  params: Promise<{ id: string; }>;
 }
 
 export default async function RoadmapDetailPage({
   params,
 }: RoadmapDetailPageProps) {
+  const { id } = await params;
   const session = await auth();
 
   // Fetch roadmap item
   const roadmapItem = await prisma.roadmapItem.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       createdBy: {
         select: {
@@ -158,7 +157,7 @@ export default async function RoadmapDetailPage({
           <div className="flex items-center gap-3 mb-4">
             <RoadmapStageBadge stage={roadmapData.stage} />
             {roadmapData.visibility === 'internal' && (
-              <Badge variant="outline" className="border-orange-500 text-orange-600">
+              <Badge variant="outline" className="border-amber-500 text-amber-600">
                 Internal
               </Badge>
             )}
@@ -325,7 +324,7 @@ export default async function RoadmapDetailPage({
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
                   <span className="text-lg font-medium text-gray-600">
-                    {(roadmapData.createdBy.displayName || 'U')[0].toUpperCase()}
+                    {((roadmapData.createdBy.displayName || 'U')[0] || 'U').toUpperCase()}
                   </span>
                 </div>
                 <div>

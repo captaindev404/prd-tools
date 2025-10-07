@@ -60,6 +60,12 @@ export function parseJiraUrl(url: string): { projectKey: string; issueNumber: st
     if (match) {
       const projectKey = match[1];
       const issueNumber = match[2];
+
+      // Validate required parts exist
+      if (!projectKey || !issueNumber) {
+        return null;
+      }
+
       const issueKey = `${projectKey}-${issueNumber}`;
 
       return {
@@ -138,6 +144,7 @@ export async function fetchJiraIssue(url: string): Promise<{
         'Authorization': `Basic ${Buffer.from(`${JIRA_API_USER}:${JIRA_API_TOKEN}`).toString('base64')}`,
         'Content-Type': 'application/json',
       },
+      next: { revalidate: 300 }, // Cache for 5 minutes - Jira data doesn't change frequently
     });
 
     if (!response.ok) {

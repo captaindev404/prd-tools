@@ -45,7 +45,7 @@ export function generateRoadmapUpdateHTML(params: RoadmapUpdateParams): string {
       currentStage: 'Current Stage:',
       ctaButton: 'View Roadmap Details',
       footer: 'Stay informed about our product development and share your feedback.',
-      footerNote: 'This is an automated message from Odyssey Feedback.',
+      footerNote: 'This is an automated message from Gentil Feedback.',
       unsubscribe: 'If you no longer wish to receive these emails, please update your preferences.',
     },
     fr: {
@@ -60,7 +60,7 @@ export function generateRoadmapUpdateHTML(params: RoadmapUpdateParams): string {
       currentStage: 'Étape actuelle :',
       ctaButton: 'Voir les détails de la feuille de route',
       footer: 'Restez informé(e) de notre développement produit et partagez vos retours.',
-      footerNote: 'Ceci est un message automatique d\'Odyssey Feedback.',
+      footerNote: 'Ceci est un message automatique d\'Gentil Feedback.',
       unsubscribe: 'Si vous ne souhaitez plus recevoir ces emails, veuillez mettre à jour vos préférences.',
     },
   };
@@ -176,7 +176,7 @@ export function generateRoadmapUpdateText(params: RoadmapUpdateParams): string {
       currentStage: 'Current Stage:',
       linkLabel: 'View roadmap details at:',
       footer: 'Stay informed about our product development and share your feedback.',
-      footerNote: 'This is an automated message from Odyssey Feedback.',
+      footerNote: 'This is an automated message from Gentil Feedback.',
     },
     fr: {
       greeting: 'Bonjour,',
@@ -190,7 +190,7 @@ export function generateRoadmapUpdateText(params: RoadmapUpdateParams): string {
       currentStage: 'Étape actuelle :',
       linkLabel: 'Voir les détails de la feuille de route à :',
       footer: 'Restez informé(e) de notre développement produit et partagez vos retours.',
-      footerNote: 'Ceci est un message automatique d\'Odyssey Feedback.',
+      footerNote: 'Ceci est un message automatique d\'Gentil Feedback.',
     },
   };
 

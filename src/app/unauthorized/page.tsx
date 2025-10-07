@@ -19,13 +19,13 @@ export default async function UnauthorizedPage() {
   const session = await getSession();
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-red-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-red-100 p-4">
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
-            <div className="h-16 w-16 rounded-full bg-orange-100 flex items-center justify-center">
+            <div className="h-16 w-16 rounded-full bg-amber-100 flex items-center justify-center">
               <svg
-                className="h-8 w-8 text-orange-600"
+                className="h-8 w-8 text-amber-600"
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
@@ -89,15 +89,15 @@ export default async function UnauthorizedPage() {
             </div>
           )}
 
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-            <h3 className="font-semibold text-sm text-orange-900 mb-2">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <h3 className="font-semibold text-sm text-amber-900 mb-2">
               What can I do?
             </h3>
-            <ul className="list-disc list-inside space-y-1 text-sm text-orange-800">
+            <ul className="list-disc list-inside space-y-1 text-sm text-amber-800">
               <li>Contact your manager to request elevated permissions</li>
               <li>Verify you&apos;re accessing the correct resource</li>
               <li>
-                Reach out to the Odyssey Feedback support team for assistance
+                Reach out to the Gentil Feedback support team for assistance
               </li>
             </ul>
           </div>

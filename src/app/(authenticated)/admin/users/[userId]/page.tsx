@@ -12,9 +12,9 @@ import { RoleBadge } from '@/components/admin/role-badge';
 import { format } from 'date-fns';
 
 interface UserDetailPageProps {
-  params: {
+  params: Promise<{
     userId: string;
-  };
+  }>;
 }
 
 async function getUserDetails(userId: string) {
@@ -57,9 +57,11 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
     redirect('/unauthorized');
   }
 
+  const { userId } = await params;
+
   const [targetUser, activity] = await Promise.all([
-    getUserDetails(params.userId),
-    getUserActivity(params.userId),
+    getUserDetails(userId),
+    getUserActivity(userId),
   ]);
 
   if (!targetUser) {
@@ -69,7 +71,7 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
   const getInitials = (name: string | null, email: string) => {
     if (name) {
       const parts = name.split(' ');
-      return parts.length > 1
+      return parts.length > 1 && parts[0] && parts[1]
         ? `${parts[0][0]}${parts[1][0]}`.toUpperCase()
         : name.substring(0, 2).toUpperCase();
     }

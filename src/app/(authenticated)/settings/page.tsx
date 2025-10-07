@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { SettingsClient } from './settings-client';
 
 export const metadata = {
-  title: 'Settings - Odyssey Feedback',
+  title: 'Settings - Gentil Feedback',
   description: 'Manage your profile, consent preferences, and account settings',
 };
 

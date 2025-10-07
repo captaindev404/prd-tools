@@ -1,8 +1,8 @@
-# Odyssey Feedback User Guide
+# Gentil Feedback User Guide
 
 **Version**: 0.5.0
 
-Welcome to the Odyssey Feedback Platform! This guide will help you understand how to use the platform based on your role.
+Welcome to the Gentil Feedback Platform! This guide will help you understand how to use the platform based on your role.
 
 ---
 
@@ -20,7 +20,7 @@ Welcome to the Odyssey Feedback Platform! This guide will help you understand ho
 
 ## Introduction
 
-Odyssey Feedback is Club Med's platform for:
+Gentil Feedback is Club Med's platform for:
 - Collecting product feedback from employees
 - Prioritizing features through weighted voting
 - Communicating roadmap updates
@@ -772,11 +772,11 @@ A: We use encryption, access controls, PII redaction, and regular security audit
 
 ### Feedback on the Platform
 
-We welcome feedback about the Odyssey Feedback platform itself! Submit your suggestions, bugs, or feature requests through the platform.
+We welcome feedback about the Gentil Feedback platform itself! Submit your suggestions, bugs, or feature requests through the platform.
 
 ---
 
 **Last Updated**: 2025-10-02
 **Version**: 0.5.0
 
-Thank you for using Odyssey Feedback!
+Thank you for using Gentil Feedback!

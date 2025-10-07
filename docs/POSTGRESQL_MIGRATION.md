@@ -1,6 +1,6 @@
 # PostgreSQL Migration Guide
 
-This guide provides a comprehensive path for migrating the Odyssey Feedback platform from SQLite to PostgreSQL for production deployment.
+This guide provides a comprehensive path for migrating the Gentil Feedback platform from SQLite to PostgreSQL for production deployment.
 
 ## Table of Contents
 
@@ -696,4 +696,4 @@ For migration assistance:
 
 **Document Version**: 1.0
 **Last Updated**: 2025-10-02
-**Maintained By**: Odyssey Feedback Platform Team
+**Maintained By**: Gentil Feedback Platform Team

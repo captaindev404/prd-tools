@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { useState } from "react";
 
 /**
- * Sign In Page for Odyssey Feedback Platform
+ * Sign In Page for Gentil Feedback Platform
  *
  * Provides multiple authentication options:
  * - Azure AD for Club Med employees
@@ -124,7 +124,7 @@ export default function SignInPage() {
           </div>
           <div>
             <CardTitle className="text-3xl font-bold text-gray-900">
-              Odyssey Feedback
+              Gentil Feedback
             </CardTitle>
             <CardDescription className="text-base mt-2">
               Club Med Product Feedback Platform
@@ -269,7 +269,7 @@ export default function SignInPage() {
                       "Loading..."
                     ) : (
                       <span className="flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+                        <span className="w-2 h-2 rounded-full bg-amber-500"></span>
                         Moderator
                       </span>
                     )}

@@ -112,7 +112,7 @@ describe('Vote API Integration Tests', () => {
         method: 'POST',
       })
 
-      const response = await POST(request, { params: { id: 'fb_123' } })
+      const response = await POST(request, { params: Promise.resolve({ id: 'fb_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(201)
@@ -167,7 +167,7 @@ describe('Vote API Integration Tests', () => {
         method: 'POST',
       })
 
-      const response = await POST(request, { params: { id: 'fb_123' } })
+      const response = await POST(request, { params: Promise.resolve({ id: 'fb_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(201)
@@ -214,7 +214,7 @@ describe('Vote API Integration Tests', () => {
         method: 'POST',
       })
 
-      const response = await POST(request, { params: { id: 'fb_123' } })
+      const response = await POST(request, { params: Promise.resolve({ id: 'fb_123' }) })
 
       expect(response.status).toBe(201)
       expect(mockPrisma.vote.create).toHaveBeenCalled()
@@ -227,7 +227,7 @@ describe('Vote API Integration Tests', () => {
         method: 'POST',
       })
 
-      const response = await POST(request, { params: { id: 'fb_123' } })
+      const response = await POST(request, { params: Promise.resolve({ id: 'fb_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(401)
@@ -242,7 +242,7 @@ describe('Vote API Integration Tests', () => {
         method: 'POST',
       })
 
-      const response = await POST(request, { params: { id: 'fb_nonexistent' } })
+      const response = await POST(request, { params: Promise.resolve({ id: 'fb_nonexistent' }) })
       const data = await response.json()
 
       expect(response.status).toBe(404)
@@ -266,7 +266,7 @@ describe('Vote API Integration Tests', () => {
         method: 'POST',
       })
 
-      const response = await POST(request, { params: { id: 'fb_123' } })
+      const response = await POST(request, { params: Promise.resolve({ id: 'fb_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(409)
@@ -310,7 +310,7 @@ describe('Vote API Integration Tests', () => {
         method: 'POST',
       })
 
-      const response = await POST(request, { params: { id: 'fb_123' } })
+      const response = await POST(request, { params: Promise.resolve({ id: 'fb_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(201)
@@ -350,7 +350,7 @@ describe('Vote API Integration Tests', () => {
         method: 'DELETE',
       })
 
-      const response = await DELETE(request, { params: { id: 'fb_123' } })
+      const response = await DELETE(request, { params: Promise.resolve({ id: 'fb_123' }) })
 
       expect(response.status).toBe(204)
       expect(mockPrisma.vote.delete).toHaveBeenCalledWith({
@@ -372,7 +372,7 @@ describe('Vote API Integration Tests', () => {
         method: 'DELETE',
       })
 
-      const response = await DELETE(request, { params: { id: 'fb_123' } })
+      const response = await DELETE(request, { params: Promise.resolve({ id: 'fb_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(401)
@@ -387,7 +387,7 @@ describe('Vote API Integration Tests', () => {
         method: 'DELETE',
       })
 
-      const response = await DELETE(request, { params: { id: 'fb_nonexistent' } })
+      const response = await DELETE(request, { params: Promise.resolve({ id: 'fb_nonexistent' }) })
       const data = await response.json()
 
       expect(response.status).toBe(404)
@@ -404,7 +404,7 @@ describe('Vote API Integration Tests', () => {
         method: 'DELETE',
       })
 
-      const response = await DELETE(request, { params: { id: 'fb_123' } })
+      const response = await DELETE(request, { params: Promise.resolve({ id: 'fb_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(404)
@@ -447,7 +447,7 @@ describe('Vote API Integration Tests', () => {
 
       const request = new NextRequest('http://localhost/api/feedback/fb_123/vote')
 
-      const response = await GET(request, { params: { id: 'fb_123' } })
+      const response = await GET(request, { params: Promise.resolve({ id: 'fb_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(200)
@@ -465,7 +465,7 @@ describe('Vote API Integration Tests', () => {
 
       const request = new NextRequest('http://localhost/api/feedback/fb_123/vote')
 
-      const response = await GET(request, { params: { id: 'fb_123' } })
+      const response = await GET(request, { params: Promise.resolve({ id: 'fb_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(200)
@@ -478,7 +478,7 @@ describe('Vote API Integration Tests', () => {
 
       const request = new NextRequest('http://localhost/api/feedback/fb_123/vote')
 
-      const response = await GET(request, { params: { id: 'fb_123' } })
+      const response = await GET(request, { params: Promise.resolve({ id: 'fb_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(401)
@@ -491,7 +491,7 @@ describe('Vote API Integration Tests', () => {
 
       const request = new NextRequest('http://localhost/api/feedback/fb_nonexistent/vote')
 
-      const response = await GET(request, { params: { id: 'fb_nonexistent' } })
+      const response = await GET(request, { params: Promise.resolve({ id: 'fb_nonexistent' }) })
       const data = await response.json()
 
       expect(response.status).toBe(404)
@@ -521,7 +521,7 @@ describe('Vote API Integration Tests', () => {
 
       const request = new NextRequest('http://localhost/api/feedback/fb_123/vote')
 
-      const response = await GET(request, { params: { id: 'fb_123' } })
+      const response = await GET(request, { params: Promise.resolve({ id: 'fb_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(200)
@@ -574,7 +574,7 @@ describe('Vote API Integration Tests', () => {
       const request1 = new NextRequest('http://localhost/api/feedback/fb_123/vote', {
         method: 'POST',
       })
-      const response1 = await POST(request1, { params: { id: 'fb_123' } })
+      const response1 = await POST(request1, { params: Promise.resolve({ id: 'fb_123' }) })
       expect(response1.status).toBe(201)
 
       // Second vote attempt - should fail
@@ -588,7 +588,7 @@ describe('Vote API Integration Tests', () => {
       const request2 = new NextRequest('http://localhost/api/feedback/fb_123/vote', {
         method: 'POST',
       })
-      const response2 = await POST(request2, { params: { id: 'fb_123' } })
+      const response2 = await POST(request2, { params: Promise.resolve({ id: 'fb_123' }) })
       const data2 = await response2.json()
 
       expect(response2.status).toBe(409)

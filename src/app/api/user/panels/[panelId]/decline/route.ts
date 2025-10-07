@@ -9,7 +9,7 @@ import { getCurrentUser } from '@/lib/auth-helpers';
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { panelId: string } }
+  { params }: { params: Promise<{ panelId: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -20,7 +20,7 @@ export async function POST(
       );
     }
 
-    const panelId = params.panelId;
+    const { panelId: panelId } = await params;
 
     // Fetch membership
     const membership = await prisma.panelMembership.findUnique({

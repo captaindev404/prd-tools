@@ -2,7 +2,7 @@
 /**
  * HRIS Sync Script
  *
- * Syncs employee data from HRIS to Odyssey Feedback user database
+ * Syncs employee data from HRIS to Gentil Feedback user database
  * - Matches users by employeeId
  * - Updates displayName, currentVillageId, email
  * - Creates new users if not exists
@@ -53,6 +53,7 @@ async function fetchHRISData(): Promise<HRISEmployee[]> {
           'Authorization': `Bearer ${HRIS_API_KEY}`,
           'Content-Type': 'application/json',
         },
+        cache: 'no-store', // HRIS data should be fresh for each sync
       });
 
       if (!response.ok) {
@@ -132,7 +133,7 @@ async function handleVillageTransfer(
     return { transferred: false, newHistory: currentHistory };
   }
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString().split('T')[0] || new Date().toISOString().substring(0, 10);
   const updatedHistory = [...currentHistory];
 
   // Find the current active entry (where to is null)
@@ -140,7 +141,10 @@ async function handleVillageTransfer(
 
   if (activeEntryIndex >= 0) {
     // Close the current entry
-    updatedHistory[activeEntryIndex].to = today;
+    const activeEntry = updatedHistory[activeEntryIndex];
+    if (activeEntry) {
+      activeEntry.to = today;
+    }
   }
 
   // Add new entry for the new village
@@ -226,7 +230,7 @@ async function syncEmployee(employee: HRISEmployee, result: SyncResult): Promise
       const villageHistory: VillageHistoryEntry[] = [
         {
           village_id: employee.village_id,
-          from: new Date().toISOString().split('T')[0],
+          from: new Date().toISOString().split('T')[0] || new Date().toISOString().substring(0, 10),
           to: null,
         },
       ];

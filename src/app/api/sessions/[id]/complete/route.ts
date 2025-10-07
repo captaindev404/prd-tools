@@ -12,9 +12,10 @@ import type { CompleteSessionInput } from '@/types/session';
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
@@ -24,7 +25,7 @@ export async function POST(
     }
 
     const session = await prisma.session.findUnique({
-      where: { id: params.id },
+      where: { id: id },
     });
 
     if (!session) {
@@ -89,7 +90,7 @@ export async function POST(
 
     // Update session status
     const completedSession = await prisma.session.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         status: 'completed',
         notesUri,

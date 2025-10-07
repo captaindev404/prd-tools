@@ -31,10 +31,10 @@ import { sendRoadmapUpdateNotifications } from '@/lib/notifications';
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // Check authentication
     const user = await getCurrentUser();

@@ -6,7 +6,7 @@
 
 ## Summary
 
-Successfully implemented comprehensive API tests for all panel endpoints in the Odyssey Feedback platform. Created 36 test cases covering CRUD operations, authentication, authorization, validation, and business logic.
+Successfully implemented comprehensive API tests for all panel endpoints in the Gentil Feedback platform. Created 36 test cases covering CRUD operations, authentication, authorization, validation, and business logic.
 
 ## What Was Built
 

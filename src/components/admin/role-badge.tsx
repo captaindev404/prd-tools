@@ -9,7 +9,7 @@ interface RoleBadgeProps {
 
 const roleStyles: Record<Role, string> = {
   ADMIN: 'bg-red-100 text-red-800 hover:bg-red-100 border-red-200',
-  MODERATOR: 'bg-orange-100 text-orange-800 hover:bg-orange-100 border-orange-200',
+  MODERATOR: 'bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200',
   PM: 'bg-purple-100 text-purple-800 hover:bg-purple-100 border-purple-200',
   PO: 'bg-indigo-100 text-indigo-800 hover:bg-indigo-100 border-indigo-200',
   RESEARCHER: 'bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200',

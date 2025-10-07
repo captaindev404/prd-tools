@@ -15,7 +15,7 @@ import { getCurrentUser } from '@/lib/auth-helpers';
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check authentication and authorization
@@ -37,7 +37,7 @@ export async function POST(
       );
     }
 
-    const feedbackId = params.id;
+    const { id: feedbackId } = await params;
 
     // Check if feedback exists
     const feedback = await prisma.feedback.findUnique({

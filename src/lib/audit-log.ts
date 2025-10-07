@@ -89,7 +89,8 @@ export function getIpAddress(request: Request): string | null {
   // Check X-Forwarded-For (proxy/load balancer)
   const forwarded = request.headers.get('x-forwarded-for');
   if (forwarded) {
-    return forwarded.split(',')[0].trim();
+    const firstIp = forwarded.split(',')[0];
+    return firstIp ? firstIp.trim() : null;
   }
 
   // Check X-Real-IP

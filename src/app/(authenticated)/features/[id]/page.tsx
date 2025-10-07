@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
@@ -52,7 +52,8 @@ interface FeatureDetail {
   updatedAt: string;
 }
 
-export default function FeatureDetailPage({ params }: { params: { id: string } }) {
+export default function FeatureDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const router = useRouter();
   const { data: session } = useSession();
   const [feature, setFeature] = useState<FeatureDetail | null>(null);
@@ -68,14 +69,14 @@ export default function FeatureDetailPage({ params }: { params: { id: string } }
 
   useEffect(() => {
     fetchFeature();
-  }, [params.id]);
+  }, [id]);
 
   const fetchFeature = async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`/api/features/${params.id}`);
+      const response = await fetch(`/api/features/${id}`);
       if (!response.ok) {
         if (response.status === 404) {
           throw new Error('Feature not found');
@@ -99,7 +100,7 @@ export default function FeatureDetailPage({ params }: { params: { id: string } }
 
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/features/${params.id}`, {
+      const response = await fetch(`/api/features/${id}`, {
         method: 'DELETE',
       });
 

@@ -23,7 +23,13 @@ export default function AuthErrorPage() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
 
-  const errorDetails = getErrorDetails(error);
+  const errorDetailsRaw = getErrorDetails(error);
+  const errorDetails = errorDetailsRaw || {
+    title: "Unknown Error",
+    description: "An unexpected error occurred.",
+    explanation: "We encountered an unexpected error during authentication.",
+    suggestions: ["Try signing in again", "Clear your browser cache and retry"],
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-orange-100 p-4">

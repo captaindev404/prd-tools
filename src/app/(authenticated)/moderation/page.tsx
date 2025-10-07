@@ -173,7 +173,7 @@ export default function ModerationQueuePage() {
               <CardTitle className="text-sm font-medium">Approaching SLA</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">{stats.approachingSla}</div>
+              <div className="text-2xl font-bold text-amber-600">{stats.approachingSla}</div>
               <p className="text-xs text-muted-foreground">Over 24h old</p>
             </CardContent>
           </Card>

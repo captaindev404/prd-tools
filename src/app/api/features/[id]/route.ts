@@ -16,10 +16,11 @@ import type { FeatureStatus } from '@prisma/client';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const featureId = params.id;
+    const { id } = await params;
+    const { id: featureId } = await params;
 
     // Fetch feature with all relations
     const feature = await prisma.feature.findUnique({
@@ -130,7 +131,7 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check authentication
@@ -142,7 +143,7 @@ export async function PATCH(
       );
     }
 
-    const featureId = params.id;
+    const { id: featureId } = await params;
 
     // Fetch existing feature
     const existingFeature = await prisma.feature.findUnique({
@@ -314,7 +315,7 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check authentication
@@ -337,7 +338,7 @@ export async function DELETE(
       );
     }
 
-    const featureId = params.id;
+    const { id: featureId } = await params;
 
     // Check if feature exists and count roadmap items
     const feature = await prisma.feature.findUnique({

@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 
 /**
- * Public Landing Page for Odyssey Feedback Platform
+ * Public Landing Page for Gentil Feedback Platform
  *
  * This page serves as the entry point for the application.
  * - If the user is authenticated, they are redirected to /dashboard
@@ -54,7 +54,7 @@ export default async function HomePage() {
               CM
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Odyssey Feedback</h1>
+              <h1 className="text-xl font-bold text-gray-900">Gentil Feedback</h1>
               <p className="text-xs text-gray-600">Club Med Product Platform</p>
             </div>
           </div>
@@ -80,7 +80,7 @@ export default async function HomePage() {
             </span>
           </h2>
           <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-            Odyssey Feedback brings together feedback collection, voting, roadmap communication,
+            Gentil Feedback brings together feedback collection, voting, roadmap communication,
             and user research in one comprehensive platform designed for Club Med teams.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -229,10 +229,10 @@ export default async function HomePage() {
           </Card>
 
           {/* Questionnaires */}
-          <Card className="border-2 hover:border-orange-200 transition-colors">
+          <Card className="border-2 hover:border-amber-200 transition-colors">
             <CardHeader>
-              <div className="h-12 w-12 rounded-lg bg-orange-100 flex items-center justify-center mb-4">
-                <ClipboardCheck className="h-6 w-6 text-orange-600" />
+              <div className="h-12 w-12 rounded-lg bg-amber-100 flex items-center justify-center mb-4">
+                <ClipboardCheck className="h-6 w-6 text-amber-600" />
               </div>
               <CardTitle>Questionnaires</CardTitle>
               <CardDescription>
@@ -293,7 +293,7 @@ export default async function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h3 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Why Choose Odyssey Feedback?
+              Why Choose Gentil Feedback?
             </h3>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
               Built specifically for Club Med with multi-village support and enterprise-grade security.
@@ -398,7 +398,7 @@ export default async function HomePage() {
                 CM
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-900">Odyssey Feedback</p>
+                <p className="text-sm font-semibold text-gray-900">Gentil Feedback</p>
                 <p className="text-xs text-gray-600">v0.5.0 - In Development</p>
               </div>
             </div>

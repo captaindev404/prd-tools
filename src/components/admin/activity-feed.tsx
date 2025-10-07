@@ -33,7 +33,7 @@ const eventColors: Record<string, string> = {
   'feedback.created': 'text-blue-600',
   'vote.cast': 'text-green-600',
   'questionnaire.response.recorded': 'text-purple-600',
-  'panel.membership.joined': 'text-orange-600',
+  'panel.membership.joined': 'text-amber-600',
   'session.completed': 'text-pink-600',
   'village.changed': 'text-indigo-600',
   'admin.user.role_changed': 'text-red-600',

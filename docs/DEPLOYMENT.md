@@ -1,9 +1,9 @@
 # Deployment Guide
 
-**Odyssey Feedback Platform**
+**Gentil Feedback Platform**
 Version: 0.5.0
 
-This guide covers deployment options and configurations for the Odyssey Feedback platform in production environments.
+This guide covers deployment options and configurations for the Gentil Feedback platform in production environments.
 
 ---
 
@@ -118,7 +118,7 @@ KEYCLOAK_ISSUER="https://keycloak.clubmed.com/realms/clubmed"
 # SendGrid Email
 SENDGRID_API_KEY="your-sendgrid-api-key"
 SENDGRID_FROM_EMAIL="noreply@clubmed.com"
-SENDGRID_FROM_NAME="Odyssey Feedback"
+SENDGRID_FROM_NAME="Gentil Feedback"
 
 # App URLs
 NEXT_PUBLIC_APP_URL="https://feedback.clubmed.com"
@@ -167,7 +167,7 @@ Example output: `xK8Qm3n9Lp2Rv4Hw7Gj1Nq5Ts6Yz0Ax=`
    # In Vercel dashboard
    # Go to Storage > Create Database > Postgres
    # Or use Vercel CLI:
-   vercel postgres create odyssey-feedback-db
+   vercel postgres create gentil-feedback-db
    ```
 
 2. **Get Connection String**

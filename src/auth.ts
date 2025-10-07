@@ -8,7 +8,7 @@ import { ulid } from "ulid";
 import { Role } from "@prisma/client";
 
 /**
- * NextAuth v5 Configuration for Odyssey Feedback platform
+ * NextAuth v5 Configuration for Gentil Feedback platform
  *
  * Supports multi-village identity management with:
  * - Azure AD provider for Club Med employees

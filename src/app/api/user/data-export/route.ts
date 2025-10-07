@@ -237,7 +237,7 @@ export async function POST(request: NextRequest) {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Content-Disposition': `attachment; filename="odyssey-feedback-data-export-${user.id}-${Date.now()}.json"`,
+        'Content-Disposition': `attachment; filename="gentil-feedback-data-export-${user.id}-${Date.now()}.json"`,
         'X-Export-Size-KB': fileSizeKB.toString(),
       },
     });

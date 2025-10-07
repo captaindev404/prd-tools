@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
@@ -12,7 +12,8 @@ import { FeatureForm, type FeatureFormValues } from '@/components/features/featu
 import { ArrowLeft } from 'lucide-react';
 import { Breadcrumbs } from '@/components/navigation/breadcrumbs';
 
-export default function EditFeaturePage({ params }: { params: { id: string } }) {
+export default function EditFeaturePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const router = useRouter();
   const { data: session, status } = useSession();
   const [feature, setFeature] = useState<FeatureFormValues | null>(null);
@@ -43,14 +44,14 @@ export default function EditFeaturePage({ params }: { params: { id: string } }) 
     if (status === 'loading' || !session) return;
 
     fetchFeature();
-  }, [params.id, session, status]);
+  }, [id, session, status]);
 
   const fetchFeature = async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`/api/features/${params.id}`);
+      const response = await fetch(`/api/features/${id}`);
       if (!response.ok) {
         if (response.status === 404) {
           throw new Error('Feature not found');
@@ -103,7 +104,7 @@ export default function EditFeaturePage({ params }: { params: { id: string } }) 
     return (
       <div className="container mx-auto px-4 py-8 max-w-3xl">
         <Button variant="ghost" asChild className="mb-6">
-          <Link href={`/features/${params.id}`}>
+          <Link href={`/features/${id}`}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Feature
           </Link>
@@ -127,7 +128,7 @@ export default function EditFeaturePage({ params }: { params: { id: string } }) 
         <Breadcrumbs
           items={[
             { title: 'Features', href: '/features' },
-            { title: truncatedTitle, href: `/features/${params.id}` },
+            { title: truncatedTitle, href: `/features/${id}` },
             { title: 'Edit' }
           ]}
         />
@@ -152,7 +153,7 @@ export default function EditFeaturePage({ params }: { params: { id: string } }) 
         <CardContent>
           <FeatureForm
             initialData={feature}
-            featureId={params.id}
+            featureId={id}
             onSuccess={(featureId) => router.push(`/features/${featureId}`)}
           />
         </CardContent>

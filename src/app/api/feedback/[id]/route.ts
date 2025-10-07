@@ -17,10 +17,11 @@ import type { UpdateFeedbackInput } from '@/types/feedback';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const feedbackId = params.id;
+    const { id } = await params;
+    const { id: feedbackId } = await params;
 
     // Fetch feedback with all relations
     const feedback = await prisma.feedback.findUnique({
@@ -134,7 +135,7 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check authentication
@@ -143,7 +144,7 @@ export async function PATCH(
       throw ApiErrors.unauthorized('You must be logged in to edit feedback');
     }
 
-    const feedbackId = params.id;
+    const { id: feedbackId } = await params;
 
     // Fetch existing feedback
     const existingFeedback = await prisma.feedback.findUnique({

@@ -127,7 +127,7 @@ function getPieChartColor(index: number): string {
     '#65a30d', // lime-600
     '#c026d3', // fuchsia-600
   ];
-  return colors[index % colors.length];
+  return colors[index % colors.length] || '#6b7280'; // Fallback to gray
 }
 
 /**

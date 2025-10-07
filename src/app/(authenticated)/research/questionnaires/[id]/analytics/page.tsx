@@ -11,7 +11,9 @@ import type { QuestionnaireAnalytics, Question } from '@/types/questionnaire';
 import { Breadcrumbs } from '@/components/navigation/breadcrumbs';
 import { getLocalizedText } from '@/lib/utils';
 
-export default async function QuestionnaireAnalyticsPage({ params }: { params: { id: string } }) {
+export default async function QuestionnaireAnalyticsPage({ params }: { params: Promise<{ id: string; }> }) {
+  const { id } = await params;
+
   const session = await auth();
   if (!session?.user) {
     redirect('/api/auth/signin');
@@ -27,7 +29,7 @@ export default async function QuestionnaireAnalyticsPage({ params }: { params: {
 
   // Fetch questionnaire
   const questionnaire = await prisma.questionnaire.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       createdBy: {
         select: {
@@ -54,7 +56,7 @@ export default async function QuestionnaireAnalyticsPage({ params }: { params: {
 
   // Fetch analytics
   const responses = await prisma.questionnaireResponse.findMany({
-    where: { questionnaireId: params.id },
+    where: { questionnaireId: id },
     include: {
       respondent: {
         select: {
@@ -72,11 +74,13 @@ export default async function QuestionnaireAnalyticsPage({ params }: { params: {
   const totalResponses = responses.length;
   const responsesByDate: Record<string, number> = {};
   responses.forEach((r) => {
-    const date = r.completedAt.toISOString().split('T')[0];
-    responsesByDate[date] = (responsesByDate[date] || 0) + 1;
+    const date = r.completedAt.toISOString().split('T')[0] || '';
+    if (date) {
+      responsesByDate[date] = (responsesByDate[date] || 0) + 1;
+    }
   });
 
-  const lastResponseAt = responses.length > 0
+  const lastResponseAt = responses.length > 0 && responses[0]
     ? responses.reduce((latest, r) => (r.completedAt > latest ? r.completedAt : latest), responses[0].completedAt)
     : null;
 
@@ -102,7 +106,7 @@ export default async function QuestionnaireAnalyticsPage({ params }: { params: {
           items={[
             { title: 'Research', href: '/research/questionnaires' },
             { title: 'Questionnaires', href: '/research/questionnaires' },
-            { title: truncatedTitle, href: `/research/questionnaires/${params.id}` },
+            { title: truncatedTitle, href: `/research/questionnaires/${id}` },
             { title: 'Analytics' }
           ]}
         />
@@ -182,7 +186,7 @@ export default async function QuestionnaireAnalyticsPage({ params }: { params: {
           <TabsContent value="questions" className="space-y-6 mt-6">
             <p className="text-sm text-muted-foreground">
               Note: For full analytics with charts, please use the API endpoint at{' '}
-              <code className="bg-muted px-1 py-0.5 rounded">/api/questionnaires/{params.id}/analytics</code>
+              <code className="bg-muted px-1 py-0.5 rounded">/api/questionnaires/{id}/analytics</code>
             </p>
             {questions.map((question, index) => (
               <Card key={question.id}>

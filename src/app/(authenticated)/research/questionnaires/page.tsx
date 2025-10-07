@@ -12,8 +12,10 @@ import type { QuestionnaireListItem } from '@/types/questionnaire';
 export default async function QuestionnairesPage({
   searchParams,
 }: {
-  searchParams: { status?: string; search?: string };
+  searchParams: Promise<{ status?: string; search?: string }>;
 }) {
+  const { status: statusParam, search: searchParam } = await searchParams;
+
   const session = await auth();
   if (!session?.user) {
     redirect('/api/auth/signin');
@@ -29,8 +31,8 @@ export default async function QuestionnairesPage({
     redirect('/research/my-questionnaires');
   }
 
-  const status = searchParams.status || 'all';
-  const search = searchParams.search || '';
+  const status = statusParam || 'all';
+  const search = searchParam || '';
 
   // Build where clause
   const where: any = {};

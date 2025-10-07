@@ -14,7 +14,7 @@ import { getCurrentUser, canManagePanelMembers } from '@/lib/auth-helpers';
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string; userId: string } }
+  { params }: { params: Promise<{ id: string; userId: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -25,8 +25,7 @@ export async function PATCH(
       );
     }
 
-    const panelId = params.id;
-    const targetUserId = params.userId;
+    const { id: panelId, userId: targetUserId } = await params;
 
     // Fetch membership
     const membership = await prisma.panelMembership.findUnique({
@@ -190,7 +189,7 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; userId: string } }
+  { params }: { params: Promise<{ id: string; userId: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -212,8 +211,7 @@ export async function DELETE(
       );
     }
 
-    const panelId = params.id;
-    const targetUserId = params.userId;
+    const { id: panelId, userId: targetUserId } = await params;
 
     // Find the panel member record
     const membership = await prisma.panelMembership.findFirst({

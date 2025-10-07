@@ -2,7 +2,7 @@
 
 ## Task Completion: TASK-001
 
-Successfully initialized Next.js 14 project with TypeScript for the Odyssey Feedback platform.
+Successfully initialized Next.js 14 project with TypeScript for the Gentil Feedback platform.
 
 ### What Was Implemented
 

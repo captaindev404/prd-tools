@@ -1,6 +1,6 @@
-# E2E Tests - Odyssey Feedback Platform
+# E2E Tests - Gentil Feedback Platform
 
-This directory contains end-to-end (E2E) tests for the Odyssey Feedback platform using Playwright.
+This directory contains end-to-end (E2E) tests for the Gentil Feedback platform using Playwright.
 
 ## Overview
 

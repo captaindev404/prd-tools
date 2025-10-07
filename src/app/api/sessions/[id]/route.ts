@@ -17,9 +17,10 @@ import type { UpdateSessionInput } from '@/types/session';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
@@ -29,7 +30,7 @@ export async function GET(
     }
 
     const session = await prisma.session.findUnique({
-      where: { id: params.id },
+      where: { id: id },
       include: {
         panel: {
           select: {
@@ -151,9 +152,10 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
@@ -163,7 +165,7 @@ export async function PATCH(
     }
 
     const session = await prisma.session.findUnique({
-      where: { id: params.id },
+      where: { id: id },
     });
 
     if (!session) {
@@ -320,7 +322,7 @@ export async function PATCH(
 
     // Update session
     const updatedSession = await prisma.session.update({
-      where: { id: params.id },
+      where: { id: id },
       data: updateData,
       include: {
         panel: {
@@ -374,9 +376,10 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
@@ -386,7 +389,7 @@ export async function DELETE(
     }
 
     const session = await prisma.session.findUnique({
-      where: { id: params.id },
+      where: { id: id },
     });
 
     if (!session) {
@@ -409,7 +412,7 @@ export async function DELETE(
 
     // Update status to cancelled
     const cancelledSession = await prisma.session.update({
-      where: { id: params.id },
+      where: { id: id },
       data: { status: 'cancelled' },
     });
 

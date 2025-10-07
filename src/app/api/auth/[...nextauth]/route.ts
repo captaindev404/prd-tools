@@ -3,7 +3,7 @@ import { handlers } from "@/auth";
 /**
  * NextAuth v5 API Route Handler
  *
- * This route handles all authentication requests for the Odyssey Feedback platform.
+ * This route handles all authentication requests for the Gentil Feedback platform.
  *
  * Endpoints provided by NextAuth:
  * - GET  /api/auth/signin - Sign in page

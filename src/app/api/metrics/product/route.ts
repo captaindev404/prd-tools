@@ -234,11 +234,11 @@ export async function GET(request: NextRequest) {
               let key: string;
 
               if (timeRange === '7d' || timeRange === '30d') {
-                key = date.toISOString().split('T')[0];
+                key = date.toISOString().split('T')[0] || '';
               } else if (timeRange === '90d') {
                 const weekStart = new Date(date);
                 weekStart.setDate(date.getDate() - date.getDay());
-                key = weekStart.toISOString().split('T')[0];
+                key = weekStart.toISOString().split('T')[0] || '';
               } else {
                 key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
               }

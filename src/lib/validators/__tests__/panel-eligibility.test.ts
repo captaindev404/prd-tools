@@ -64,8 +64,8 @@ describe('Panel Eligibility Validation', () => {
       const result = eligibilityRulesSchema.safeParse(invalidRules);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.errors.length).toBeGreaterThan(0);
-        const errorMessages = result.error.errors.map(e => e.message).join(' ');
+        expect(result.error.issues?.length || result.error.errors?.length || 0).toBeGreaterThan(0);
+        const errorMessages = (result.error.issues || result.error.errors || []).map((e: any) => e.message).join(' ');
         expect(errorMessages).toContain('Invalid role');
       }
     });
@@ -78,7 +78,7 @@ describe('Panel Eligibility Validation', () => {
       const result = eligibilityRulesSchema.safeParse(invalidRules);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.errors.length).toBeGreaterThan(0);
+        expect(result.error.issues?.length || result.error.errors?.length || 0).toBeGreaterThan(0);
         const errorMessages = result.error.errors.map(e => e.message).join(' ');
         expect(errorMessages).toContain('at least one role');
       }
@@ -92,7 +92,7 @@ describe('Panel Eligibility Validation', () => {
       const result = eligibilityRulesSchema.safeParse(invalidRules);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.errors.length).toBeGreaterThan(0);
+        expect(result.error.issues?.length || result.error.errors?.length || 0).toBeGreaterThan(0);
         const errorMessages = result.error.errors.map(e => e.message).join(' ');
         expect(errorMessages).toContain('at least one village');
       }
@@ -106,7 +106,7 @@ describe('Panel Eligibility Validation', () => {
       const result = eligibilityRulesSchema.safeParse(invalidRules);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.errors.length).toBeGreaterThan(0);
+        expect(result.error.issues?.length || result.error.errors?.length || 0).toBeGreaterThan(0);
         const errorMessages = result.error.errors.map(e => e.message).join(' ');
         expect(errorMessages).toContain('Invalid consent type');
       }
@@ -186,7 +186,7 @@ describe('Panel Eligibility Validation', () => {
       const result = attributePredicateSchema.safeParse(invalidPredicate);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.errors.length).toBeGreaterThan(0);
+        expect(result.error.issues?.length || result.error.errors?.length || 0).toBeGreaterThan(0);
       }
     });
 
@@ -200,7 +200,7 @@ describe('Panel Eligibility Validation', () => {
       const result = attributePredicateSchema.safeParse(invalidPredicate);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.errors.length).toBeGreaterThan(0);
+        expect(result.error.issues?.length || result.error.errors?.length || 0).toBeGreaterThan(0);
       }
     });
 
@@ -214,7 +214,7 @@ describe('Panel Eligibility Validation', () => {
       const result = attributePredicateSchema.safeParse(invalidPredicate);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.errors.length).toBeGreaterThan(0);
+        expect(result.error.issues?.length || result.error.errors?.length || 0).toBeGreaterThan(0);
       }
     });
 
@@ -228,7 +228,7 @@ describe('Panel Eligibility Validation', () => {
       const result = attributePredicateSchema.safeParse(invalidPredicate);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.errors.length).toBeGreaterThan(0);
+        expect(result.error.issues?.length || result.error.errors?.length || 0).toBeGreaterThan(0);
       }
     });
   });
@@ -258,7 +258,7 @@ describe('Panel Eligibility Validation', () => {
       const result = panelFormSchema.safeParse(invalidData);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.errors.length).toBeGreaterThan(0);
+        expect(result.error.issues?.length || result.error.errors?.length || 0).toBeGreaterThan(0);
         const errorMessages = result.error.errors.map(e => e.message).join(' ');
         expect(errorMessages).toContain('at least 3 characters');
       }
@@ -273,7 +273,7 @@ describe('Panel Eligibility Validation', () => {
       const result = panelFormSchema.safeParse(invalidData);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.errors.length).toBeGreaterThan(0);
+        expect(result.error.issues?.length || result.error.errors?.length || 0).toBeGreaterThan(0);
         const errorMessages = result.error.errors.map(e => e.message).join(' ');
         expect(errorMessages).toContain('100 characters');
       }
@@ -289,7 +289,7 @@ describe('Panel Eligibility Validation', () => {
       const result = panelFormSchema.safeParse(invalidData);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.errors.length).toBeGreaterThan(0);
+        expect(result.error.issues?.length || result.error.errors?.length || 0).toBeGreaterThan(0);
         const errorMessages = result.error.errors.map(e => e.message).join(' ');
         expect(errorMessages).toContain('positive');
       }
@@ -305,7 +305,7 @@ describe('Panel Eligibility Validation', () => {
       const result = panelFormSchema.safeParse(invalidData);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.errors.length).toBeGreaterThan(0);
+        expect(result.error.issues?.length || result.error.errors?.length || 0).toBeGreaterThan(0);
         const errorMessages = result.error.errors.map(e => e.message).join(' ');
         expect(errorMessages).toContain('whole number');
       }

@@ -11,9 +11,10 @@ import { getCurrentUser, canEditSession } from '@/lib/auth-helpers';
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
@@ -23,7 +24,7 @@ export async function POST(
     }
 
     const session = await prisma.session.findUnique({
-      where: { id: params.id },
+      where: { id: id },
       include: {
         panel: {
           include: {
@@ -100,7 +101,7 @@ export async function POST(
 
     // Update session
     const updatedSession = await prisma.session.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         participantIds: JSON.stringify(newParticipantIds),
       },
@@ -148,9 +149,10 @@ export async function POST(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
@@ -160,7 +162,7 @@ export async function DELETE(
     }
 
     const session = await prisma.session.findUnique({
-      where: { id: params.id },
+      where: { id: id },
     });
 
     if (!session) {
@@ -212,7 +214,7 @@ export async function DELETE(
 
     // Update session
     const updatedSession = await prisma.session.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         participantIds: JSON.stringify(newParticipantIds),
       },

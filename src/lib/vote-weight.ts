@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma';
 import type { Role } from '@prisma/client';
 
 /**
- * Vote Weight Calculation for Odyssey Feedback Platform
+ * Vote Weight Calculation for Gentil Feedback Platform
  *
  * Implements weighted voting system per DSL spec:
  * - Role multipliers: USER=1.0, PM=2.0, PO=3.0, RESEARCHER=1.5, MODERATOR=1.0, ADMIN=1.0
@@ -103,7 +103,7 @@ export async function calculateBaseVoteWeight(
   // For now, we default to medium priority (1.0)
   // In future iterations, village priority could be stored in a Village table
   // or as metadata in the Feedback model
-  const villagePriorityMultiplier = VILLAGE_PRIORITY_WEIGHTS.medium;
+  const villagePriorityMultiplier = VILLAGE_PRIORITY_WEIGHTS.medium || 1.0;
   weight *= villagePriorityMultiplier;
 
   return weight;

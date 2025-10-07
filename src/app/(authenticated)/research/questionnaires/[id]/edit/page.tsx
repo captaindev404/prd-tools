@@ -3,10 +3,12 @@ import Link from 'next/link';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Construction } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
+import { QuestionnaireEditForm } from '@/components/questionnaires/questionnaire-edit-form';
+import { Breadcrumbs } from '@/components/navigation/breadcrumbs';
 
-export default async function EditQuestionnairePage({ params }: { params: { id: string } }) {
+export default async function EditQuestionnairePage({ params }: { params: Promise<{ id: string; }> }) {
+  const { id } = await params;
   const session = await auth();
   if (!session?.user) {
     redirect('/api/auth/signin');
@@ -17,12 +19,27 @@ export default async function EditQuestionnairePage({ params }: { params: { id: 
   // Check if user is researcher/PM/ADMIN
   const isResearcher = ['RESEARCHER', 'PM', 'ADMIN'].includes(user.role || '');
   if (!isResearcher) {
-    redirect('/research/my-questionnaires');
+    redirect('/research/questionnaires');
   }
 
   // Fetch questionnaire
   const questionnaire = await prisma.questionnaire.findUnique({
-    where: { id: params.id },
+    where: { id },
+    include: {
+      createdBy: {
+        select: {
+          id: true,
+          displayName: true,
+          email: true,
+        },
+      },
+      panels: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
   });
 
   if (!questionnaire) {
@@ -38,65 +55,92 @@ export default async function EditQuestionnairePage({ params }: { params: { id: 
     );
   }
 
+  // Check if user owns this questionnaire or is ADMIN
+  if (questionnaire.createdById !== user.id && user.role !== 'ADMIN') {
+    redirect('/research/questionnaires');
+  }
+
+  // Parse JSON fields
+  const questions = JSON.parse(questionnaire.questions || '[]');
+  const panelIds = JSON.parse(questionnaire.panelIds || '[]');
+  const adHocFilters = JSON.parse(questionnaire.adHocFilters || '{}');
+
+  // Fetch all available panels for the dropdown
+  const availablePanels = await prisma.panel.findMany({
+    where: { archived: false },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      _count: {
+        select: { memberships: true },
+      },
+    },
+    orderBy: { name: 'asc' },
+  });
+
+  // Determine targeting type
+  let targetingType = 'all_users';
+  if (panelIds.length > 0) {
+    targetingType = 'specific_panels';
+  } else if (adHocFilters.villages?.length > 0) {
+    targetingType = 'specific_villages';
+  } else if (adHocFilters.roles?.length > 0) {
+    targetingType = 'by_role';
+  }
+
+  const initialData = {
+    id: questionnaire.id,
+    title: questionnaire.title,
+    version: parseInt(questionnaire.version),
+    status: questionnaire.status,
+    questions,
+    targeting: {
+      type: targetingType,
+      panelIds,
+      villageIds: adHocFilters.villages || [],
+      roles: adHocFilters.roles || [],
+    },
+    anonymous: questionnaire.anonymous,
+    responseLimit: questionnaire.responseLimit === 0 ? null : questionnaire.responseLimit.toString(),
+    startAt: questionnaire.startAt?.toISOString() || null,
+    endAt: questionnaire.endAt?.toISOString() || null,
+    maxResponses: questionnaire.maxResponses,
+  };
+
   return (
-    <div className="container mx-auto py-8 space-y-6">
+    <div className="container mx-auto py-6 space-y-6">
+      {/* Breadcrumbs */}
+      <Breadcrumbs
+        items={[
+          { title: 'Research', href: '/research' },
+          { title: 'Questionnaires', href: '/research/questionnaires' },
+          { title: questionnaire.title, href: `/research/questionnaires/${questionnaire.id}` },
+          { title: 'Edit' },
+        ]}
+      />
+
+      {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
-          <Link href="/research/questionnaires">
+          <Link href={`/research/questionnaires/${questionnaire.id}`}>
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight">Edit Questionnaire</h1>
-          <p className="text-muted-foreground mt-1">{questionnaire.title}</p>
+          <p className="text-muted-foreground mt-1">
+            Update questions, targeting, and settings for your questionnaire
+          </p>
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Construction className="h-5 w-5 text-yellow-600" />
-            <CardTitle>Questionnaire Editor</CardTitle>
-          </div>
-          <CardDescription>
-            The full questionnaire editor UI is under development. You can update questionnaires using the API.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="bg-muted p-4 rounded-lg">
-            <h3 className="font-semibold mb-2">Current Data:</h3>
-            <pre className="text-xs overflow-x-auto">
-              {JSON.stringify(
-                {
-                  id: questionnaire.id,
-                  title: questionnaire.title,
-                  version: questionnaire.version,
-                  status: questionnaire.status,
-                  questions: JSON.parse(questionnaire.questions || '[]'),
-                },
-                null,
-                2
-              )}
-            </pre>
-          </div>
-
-          <div className="bg-muted p-4 rounded-lg">
-            <h3 className="font-semibold mb-2">API Endpoint:</h3>
-            <code className="text-sm">PATCH /api/questionnaires/{questionnaire.id}</code>
-          </div>
-
-          <div className="flex gap-2">
-            <Button asChild>
-              <Link href="/research/questionnaires">Back to List</Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link href={`/research/questionnaires/${questionnaire.id}/analytics`}>
-                View Analytics
-              </Link>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Edit Form */}
+      <QuestionnaireEditForm
+        questionnaire={initialData}
+        availablePanels={availablePanels}
+        canEdit={questionnaire.status === 'draft'}
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 /**
- * Additional TypeScript types for Odyssey Feedback
+ * Additional TypeScript types for Gentil Feedback
  * These complement the Prisma-generated types with domain-specific structures
  */
 

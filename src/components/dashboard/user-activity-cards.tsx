@@ -162,6 +162,7 @@ async function getUserActivityData(userId: string): Promise<ActivityCardData[]> 
     // Calculate if user has recent activity (feedback in last 7 days)
     const hasRecentFeedback =
       recentFeedbackWithVotes.length > 0 &&
+      recentFeedbackWithVotes[0] &&
       new Date(recentFeedbackWithVotes[0].createdAt).getTime() >
         Date.now() - 7 * 24 * 60 * 60 * 1000;
 
@@ -271,7 +272,7 @@ export async function UserActivityCards({ userId }: UserActivityCardsProps) {
             Activity Summary
           </h2>
           <p className="text-xs sm:text-sm text-muted-foreground">
-            Your engagement with Odyssey Feedback
+            Your engagement with Gentil Feedback
           </p>
         </div>
         <Lightbulb className="h-5 w-5 text-yellow-500 flex-shrink-0" aria-hidden="true" />
@@ -285,14 +286,14 @@ export async function UserActivityCards({ userId }: UserActivityCardsProps) {
       </div>
 
       {/* Helpful Tips Section - Mobile optimized */}
-      {cards[0].count === 0 && cards[1].count === 0 && (
+      {cards[0] && cards[1] && cards[0].count === 0 && cards[1].count === 0 && (
         <Card className="bg-blue-50/50 border-blue-200" role="region" aria-label="Getting started guide">
           <CardContent className="pt-4 sm:pt-6 pb-4 sm:pb-6">
             <div className="flex items-start gap-3">
               <Lightbulb className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" aria-hidden="true" />
               <div className="space-y-2 flex-1">
                 <h3 className="font-semibold text-sm text-blue-900">
-                  Get Started with Odyssey Feedback
+                  Get Started with Gentil Feedback
                 </h3>
                 <p className="text-xs text-blue-800 leading-relaxed">
                   Share your ideas and vote on features you care about. Your
@@ -359,7 +360,7 @@ function ActivityCard({
           'hover:border-primary/50 active:scale-95 sm:hover:scale-105',
           variant === 'primary' && 'border-blue-200 bg-blue-50/30',
           variant === 'success' && 'border-green-200 bg-green-50/30',
-          variant === 'warning' && 'border-orange-200 bg-orange-50/30',
+          variant === 'warning' && 'border-amber-200 bg-amber-50/30',
           variant === 'info' && 'border-purple-200 bg-purple-50/30'
         )}
       >
@@ -383,7 +384,7 @@ function ActivityCard({
                 variant === 'default' && 'text-muted-foreground',
                 variant === 'primary' && 'text-blue-600',
                 variant === 'success' && 'text-green-600',
-                variant === 'warning' && 'text-orange-600',
+                variant === 'warning' && 'text-amber-600',
                 variant === 'info' && 'text-purple-600'
               )}
               aria-hidden="true"
@@ -471,7 +472,7 @@ export function UserActivityCardsEmpty() {
         <div>
           <h2 className="text-xl font-bold tracking-tight">Activity Summary</h2>
           <p className="text-sm text-muted-foreground">
-            Your engagement with Odyssey Feedback
+            Your engagement with Gentil Feedback
           </p>
         </div>
       </div>
@@ -484,7 +485,7 @@ export function UserActivityCardsEmpty() {
               <MessageSquare className="h-8 w-8 text-muted-foreground" />
             </div>
             <div className="space-y-2">
-              <h3 className="font-semibold text-lg">Welcome to Odyssey Feedback!</h3>
+              <h3 className="font-semibold text-lg">Welcome to Gentil Feedback!</h3>
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
                 Get started by sharing your ideas or voting on existing feedback.
                 Your input helps shape the future of our products.

@@ -15,7 +15,7 @@ import { getCurrentUser, canCreateFeature } from '@/lib/auth-helpers';
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check authentication
@@ -38,7 +38,7 @@ export async function POST(
       );
     }
 
-    const feedbackId = params.id;
+    const { id: feedbackId } = await params;
 
     // Parse request body
     const body = await request.json();
@@ -162,7 +162,7 @@ export async function POST(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check authentication
@@ -185,7 +185,7 @@ export async function DELETE(
       );
     }
 
-    const feedbackId = params.id;
+    const { id: feedbackId } = await params;
 
     // Check if feedback exists
     const feedback = await prisma.feedback.findUnique({

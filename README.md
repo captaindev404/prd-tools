@@ -1,4 +1,4 @@
-# Odyssey Feedback Platform
+# Gentil Feedback Platform
 
 **Version**: 1.0.0
 **Status**: Complete (100% - 119/119 tasks)
@@ -27,7 +27,7 @@ A comprehensive product feedback and user research platform for Club Med with mu
 
 ## Overview
 
-Odyssey Feedback is a multi-tenant feedback and research platform designed for Club Med's global village network. It enables:
+Gentil Feedback is a multi-tenant feedback and research platform designed for Club Med's global village network. It enables:
 
 - Product teams to collect, prioritize, and communicate about feature requests
 - Researchers to conduct user studies, surveys, and usability testing
@@ -43,7 +43,7 @@ Built with a **domain-specific language (DSL)** approach, the entire platform sc
 ### Completed Features (100%)
 
 #### Foundation (100%)
-- Next.js 14 with App Router and TypeScript
+- Next.js 15.5 with App Router and TypeScript
 - Shadcn UI component library with Club Med branding
 - Prisma ORM with comprehensive database schema (12 models, 9 enums)
 - SQLite for development, PostgreSQL-ready for production
@@ -87,7 +87,7 @@ Built with a **domain-specific language (DSL)** approach, the entire platform sc
 ## Tech Stack
 
 ### Core Framework
-- **Next.js 14** - React framework with App Router
+- **Next.js 15.5** - React framework with App Router and Turbopack dev server
 - **TypeScript** - Type-safe development
 - **React 18** - UI library
 
@@ -126,7 +126,7 @@ Built with a **domain-specific language (DSL)** approach, the entire platform sc
 
 Before you begin, ensure you have the following installed:
 
-- **Node.js** - Version 18.x or higher
+- **Node.js** - Version 18.18.0 or higher (Next.js 15.5 requirement)
 - **npm** - Version 9.x or higher (comes with Node.js)
 - **Git** - For version control
 
@@ -142,7 +142,7 @@ Optional but recommended:
 
 ```bash
 git clone <repository-url>
-cd odyssey-feedback
+cd gentil-feedback
 ```
 
 ### 2. Install Dependencies
@@ -247,8 +247,8 @@ KEYCLOAK_ISSUER="https://your-keycloak-domain/realms/your-realm"
 #### SendGrid (email notifications)
 ```env
 SENDGRID_API_KEY="your-api-key"
-SENDGRID_FROM_EMAIL="noreply@odyssey-feedback.com"
-SENDGRID_FROM_NAME="Odyssey Feedback"
+SENDGRID_FROM_EMAIL="noreply@gentil-feedback.com"
+SENDGRID_FROM_NAME="Gentil Feedback"
 ```
 
 #### HRIS Integration
@@ -276,7 +276,7 @@ See `.env.example` for the complete list with descriptions.
 ## Project Structure
 
 ```
-odyssey-feedback/
+gentil-feedback/
 ├── dsl/
 │   └── global.yaml              # Domain-specific language schema (source of truth)
 ├── prisma/
@@ -549,7 +549,7 @@ Full GDPR compliance with:
 - **[API.md](./docs/API.md)** - Complete API reference with examples
 - **[USER_GUIDE.md](./docs/USER_GUIDE.md)** - User guide for PMs, Researchers, and Moderators
 - **[DEPLOYMENT.md](./docs/DEPLOYMENT.md)** - Deployment instructions
-- **[PRD.md](./docs/PRD.md)** - Product requirements document
+- **[PRD.md](docs/prd/PRD.md)** - Product requirements document
 - **[AUTHENTICATION.md](./docs/AUTHENTICATION.md)** - Authentication setup guide
 - **[API_TESTING.md](./docs/API_TESTING.md)** - API testing examples
 - **[CLAUDE.md](./CLAUDE.md)** - Project overview for AI assistants

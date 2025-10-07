@@ -77,7 +77,7 @@ export function StatsCard({
         'transition-all hover:shadow-md',
         variant === 'primary' && 'border-primary/50 bg-primary/5',
         variant === 'success' && 'border-green-500/50 bg-green-50/50',
-        variant === 'warning' && 'border-orange-500/50 bg-orange-50/50'
+        variant === 'warning' && 'border-amber-500/50 bg-amber-50/50'
       )}
       role="article"
       aria-label={ariaLabel}
@@ -93,7 +93,7 @@ export function StatsCard({
               variant === 'default' && 'text-muted-foreground',
               variant === 'primary' && 'text-primary',
               variant === 'success' && 'text-green-600',
-              variant === 'warning' && 'text-orange-600'
+              variant === 'warning' && 'text-amber-600'
             )}
             aria-hidden="true"
           />

@@ -15,7 +15,7 @@ interface AppLayoutProps {
 /**
  * AppLayout Component
  *
- * Main layout wrapper for authenticated pages in the Odyssey Feedback platform.
+ * Main layout wrapper for authenticated pages in the Gentil Feedback platform.
  * Integrates the sidebar navigation, header with breadcrumbs, and main content area.
  *
  * Features:

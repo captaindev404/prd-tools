@@ -179,7 +179,7 @@ interface AppSidebarProps {
 /**
  * AppSidebar Component
  *
- * Main navigation sidebar for the Odyssey Feedback platform.
+ * Main navigation sidebar for the Gentil Feedback platform.
  * Features:
  * - Role-based navigation filtering
  * - Collapsible sections for hierarchical navigation

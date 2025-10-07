@@ -78,11 +78,15 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
 
     const newQuestions = [...questions];
     const newIndex = direction === 'up' ? index - 1 : index + 1;
-    [newQuestions[index], newQuestions[newIndex]] = [
-      newQuestions[newIndex],
-      newQuestions[index],
-    ];
-    onChange(newQuestions);
+    const currentQuestion = newQuestions[index];
+    const targetQuestion = newQuestions[newIndex];
+    if (currentQuestion && targetQuestion) {
+      [newQuestions[index], newQuestions[newIndex]] = [
+        targetQuestion,
+        currentQuestion,
+      ];
+      onChange(newQuestions);
+    }
   };
 
   return (

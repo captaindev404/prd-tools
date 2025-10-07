@@ -17,9 +17,10 @@ import { sendQuestionnaireNotifications } from '@/lib/notifications';
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
@@ -39,7 +40,7 @@ export async function POST(
       );
     }
 
-    const questionnaireId = params.id;
+    const { id: questionnaireId } = await params;
 
     const questionnaire = await prisma.questionnaire.findUnique({
       where: { id: questionnaireId },

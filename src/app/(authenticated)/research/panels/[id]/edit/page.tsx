@@ -4,21 +4,22 @@ import { getCurrentUser, canEditPanel } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
 
 export const metadata = {
-  title: 'Edit Panel | Odyssey Feedback',
+  title: 'Edit Panel | Gentil Feedback',
 };
 
 interface EditPanelPageProps {
-  params: { id: string };
+  params: Promise<{ id: string; }>;
 }
 
 export default async function EditPanelPage({ params }: EditPanelPageProps) {
+  const { id } = await params;
   const user = await getCurrentUser();
 
   if (!user) {
     redirect('/api/auth/signin');
   }
 
-  const panelId = params.id;
+  const panelId = id;
 
   // Fetch panel
   const panel = await prisma.panel.findUnique({

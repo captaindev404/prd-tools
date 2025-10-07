@@ -18,8 +18,8 @@ test.describe('Authentication', () => {
   test('should display sign-in page for unauthenticated users', async ({ page }) => {
     await page.goto('/feedback')
 
-    // Should be redirected to sign-in or see sign-in prompt
-    await expect(page).toHaveURL(/\/(sign-in|api\/auth\/signin)/)
+    // Should be redirected to sign-in page (app uses /auth/signin)
+    await expect(page).toHaveURL(/\/(auth\/signin|sign-in|api\/auth\/signin)/)
   })
 
   test('should show sign-in button on home page', async ({ page }) => {

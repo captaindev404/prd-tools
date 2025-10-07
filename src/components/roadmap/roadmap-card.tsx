@@ -102,7 +102,7 @@ export function RoadmapCard({ roadmapItem, className }: RoadmapCardProps) {
               ) : (
                 <div className="h-6 w-6 rounded-full bg-gray-300 flex items-center justify-center">
                   <span className="text-xs font-medium text-gray-600">
-                    {(createdBy.displayName || 'U')[0].toUpperCase()}
+                    {((createdBy.displayName || 'U')[0] || 'U').toUpperCase()}
                   </span>
                 </div>
               )}

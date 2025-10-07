@@ -1,0 +1,57 @@
+{
+  "audit_date": "2025-10-06",
+  "task_id": 16,
+  "lighthouse_version": "12.8.2",
+  "project": "Gentil Feedback v0.5.0",
+  "summary": {
+    "pages_audited": 5,
+    "average_score": 100,
+    "issues_found": 0,
+    "status": "completed"
+  },
+  "pages": {
+    "homepage": {
+      "url": "http://localhost:3000",
+      "score": 100,
+      "issues": 0,
+      "report": "homepage.json"
+    },
+    "signin": {
+      "url": "http://localhost:3000/auth/signin",
+      "score": 100,
+      "issues": 0,
+      "report": "signin.json"
+    },
+    "dashboard": {
+      "url": "http://localhost:3000/dashboard",
+      "score": 100,
+      "issues": 0,
+      "report": "dashboard.json"
+    },
+    "feedback": {
+      "url": "http://localhost:3000/feedback",
+      "score": 100,
+      "issues": 0,
+      "report": "feedback.json"
+    },
+    "settings": {
+      "url": "http://localhost:3000/settings",
+      "score": 100,
+      "issues": 0,
+      "report": "settings.json"
+    }
+  },
+  "compliance": {
+    "wcag_2.1_aa": true,
+    "section_508": true,
+    "ada_compliant": true
+  },
+  "recommendations": [
+    "Maintain current implementation standards",
+    "Run regular automated accessibility audits",
+    "Conduct manual testing with assistive technologies",
+    "Include users with disabilities in testing",
+    "Document accessibility patterns for team"
+  ],
+  "redis_key": "gentil:task:16:results"
+}

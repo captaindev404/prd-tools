@@ -26,7 +26,7 @@ function getEncryptionKey(): Buffer {
         'Set SESSION_ENCRYPTION_KEY in production!'
     );
     // Derive key from a passphrase (for dev only)
-    const passphrase = process.env.SESSION_ENCRYPTION_PASSPHRASE || 'odyssey-feedback-dev-key-change-in-prod';
+    const passphrase = process.env.SESSION_ENCRYPTION_PASSPHRASE || 'gentil-feedback-dev-key-change-in-prod';
     const salt = Buffer.from('odyssey-salt-v1'); // Static salt for deterministic key in dev
     return scryptSync(passphrase, salt, KEY_LENGTH);
   }
@@ -98,6 +98,11 @@ export function decryptSessionNotes(encrypted: string): string {
     }
 
     const [saltHex, ivHex, authTagHex, ciphertext] = parts;
+
+    // Validate all parts exist
+    if (!saltHex || !ivHex || !authTagHex || !ciphertext) {
+      throw new Error('Invalid encrypted data format - missing parts');
+    }
 
     // Convert from hex
     const salt = Buffer.from(saltHex, 'hex');

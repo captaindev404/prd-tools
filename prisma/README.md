@@ -1,6 +1,6 @@
 # Prisma Database Setup
 
-This directory contains the complete database schema and seed data for the Odyssey Feedback platform.
+This directory contains the complete database schema and seed data for the Gentil Feedback platform.
 
 ## Overview
 
