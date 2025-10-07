@@ -9,7 +9,7 @@ import { prisma } from '@/lib/prisma';
 import { Plus, Users, UserPlus } from 'lucide-react';
 
 export const metadata = {
-  title: 'Research Panels | Odyssey Feedback',
+  title: 'Research Panels | Gentil Feedback',
   description: 'Manage research panels for user testing and feedback collection',
 };
 

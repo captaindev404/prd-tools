@@ -54,7 +54,8 @@ export function EligibilityRulesBuilder({ rules, onChange }: EligibilityRulesBui
 
   const updatePredicate = (index: number, updates: Partial<any>) => {
     const predicates = [...(rules.attributes_predicates || [])];
-    predicates[index] = { ...predicates[index], ...updates };
+    const currentPredicate = predicates[index] || { field: '', operator: 'eq', value: '' };
+    predicates[index] = { ...currentPredicate, ...updates };
     onChange({ ...rules, attributes_predicates: predicates });
   };
 

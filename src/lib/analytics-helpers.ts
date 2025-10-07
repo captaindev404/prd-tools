@@ -1,5 +1,5 @@
 /**
- * Analytics helper functions for Odyssey Feedback
+ * Analytics helper functions for Gentil Feedback
  *
  * Provides utility functions for calculating metrics, formatting data,
  * and exporting analytics data.
@@ -220,7 +220,8 @@ export function generateCSV(data: Record<string, unknown>[], headers?: string[])
   if (data.length === 0) return '';
 
   // Get headers from first object if not provided
-  const csvHeaders = headers || Object.keys(data[0]);
+  const firstItem = data[0];
+  const csvHeaders = headers || (firstItem ? Object.keys(firstItem) : []);
 
   // Create header row
   const headerRow = csvHeaders.join(',');
@@ -251,7 +252,7 @@ export function generateCSV(data: Record<string, unknown>[], headers?: string[])
  * @returns Filename with timestamp
  */
 export function generateExportFilename(prefix: string, format: ExportFormat): string {
-  const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  const timestamp = new Date().toISOString().split('T')[0] || ''; // YYYY-MM-DD
   return `${prefix}-${timestamp}.${format}`;
 }
 
@@ -344,13 +345,13 @@ export function groupDatesByPeriod(
       case '7d':
       case '30d':
         // Group by day
-        key = date.toISOString().split('T')[0];
+        key = date.toISOString().split('T')[0] || '';
         break;
       case '90d':
         // Group by week
         const weekStart = new Date(date);
         weekStart.setDate(date.getDate() - date.getDay());
-        key = weekStart.toISOString().split('T')[0];
+        key = weekStart.toISOString().split('T')[0] || '';
         break;
       case '1y':
       case 'all':
@@ -358,7 +359,7 @@ export function groupDatesByPeriod(
         key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         break;
       default:
-        key = date.toISOString().split('T')[0];
+        key = date.toISOString().split('T')[0] || '';
     }
 
     if (!groups.has(key)) {
@@ -433,5 +434,5 @@ export function getChartColor(category: string, index: number = 0): string {
     '#84cc16',
   ];
 
-  return palette[index % palette.length];
+  return palette[index % palette.length] || '#6b7280'; // Gray fallback
 }

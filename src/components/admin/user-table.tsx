@@ -49,7 +49,7 @@ export function UserTable({ users, villages, onUserUpdated }: UserTableProps) {
   const getInitials = (name: string | null, email: string) => {
     if (name) {
       const parts = name.split(' ');
-      return parts.length > 1
+      return parts.length > 1 && parts[0] && parts[1]
         ? `${parts[0][0]}${parts[1][0]}`.toUpperCase()
         : name.substring(0, 2).toUpperCase();
     }

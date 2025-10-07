@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Prisma Setup Script for Odyssey Feedback
+# Prisma Setup Script for Gentil Feedback
 # This script should be run after Next.js initialization
 
 set -e
 
-echo "🚀 Setting up Prisma for Odyssey Feedback..."
+echo "🚀 Setting up Prisma for Gentil Feedback..."
 echo ""
 
 # Check if package.json exists

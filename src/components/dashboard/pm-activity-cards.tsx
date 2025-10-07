@@ -95,12 +95,12 @@ export function PMActivityCards({ metrics, userRole }: PMActivityCardsProps) {
       {/* Metrics Cards Grid - Single column on mobile for readability */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Moderation Queue Card */}
-        <Card className={isQueueUrgent || isSlaNearBreach ? 'border-red-500/50 bg-red-50/50' : moderationQueueCount > 0 ? 'border-orange-500/50 bg-orange-50/50' : ''}>
+        <Card className={isQueueUrgent || isSlaNearBreach ? 'border-red-500/50 bg-red-50/50' : moderationQueueCount > 0 ? 'border-amber-500/50 bg-amber-50/50' : ''}>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 px-4 sm:px-6 pt-4 sm:pt-6">
             <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
               Moderation Queue
             </CardTitle>
-            <Inbox className={isQueueUrgent || isSlaNearBreach ? 'h-4 w-4 text-red-600 flex-shrink-0' : moderationQueueCount > 0 ? 'h-4 w-4 text-orange-600 flex-shrink-0' : 'h-4 w-4 text-muted-foreground flex-shrink-0'} />
+            <Inbox className={isQueueUrgent || isSlaNearBreach ? 'h-4 w-4 text-red-600 flex-shrink-0' : moderationQueueCount > 0 ? 'h-4 w-4 text-amber-600 flex-shrink-0' : 'h-4 w-4 text-muted-foreground flex-shrink-0'} />
           </CardHeader>
           <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
             <div className="space-y-2">

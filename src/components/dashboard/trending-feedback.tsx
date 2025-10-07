@@ -57,7 +57,7 @@ export async function TrendingFeedback({
       <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            <TrendingUp className="h-5 w-5 text-orange-500 flex-shrink-0" aria-hidden="true" />
+            <TrendingUp className="h-5 w-5 text-amber-500 flex-shrink-0" aria-hidden="true" />
             <CardTitle id="trending-heading" className="text-lg sm:text-xl truncate">Trending Feedback</CardTitle>
           </div>
           <Link
@@ -137,7 +137,7 @@ const TrendingFeedbackItem = memo(function TrendingFeedbackItem({
                 w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm
                 ${rank === 1 ? 'bg-yellow-100 text-yellow-700 border-2 border-yellow-300' : ''}
                 ${rank === 2 ? 'bg-gray-200 text-gray-700 border-2 border-gray-300' : ''}
-                ${rank === 3 ? 'bg-orange-100 text-orange-700 border-2 border-orange-300' : ''}
+                ${rank === 3 ? 'bg-amber-100 text-amber-700 border-2 border-amber-300' : ''}
                 ${rank > 3 ? 'bg-muted text-muted-foreground' : ''}
               `}
               aria-label={`Rank ${rank}`}

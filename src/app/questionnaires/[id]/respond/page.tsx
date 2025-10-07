@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +10,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import type { Question } from '@/types/questionnaire';
 
-export default function QuestionnaireResponsePage({ params }: { params: { id: string } }) {
+export default function QuestionnaireResponsePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -22,11 +23,11 @@ export default function QuestionnaireResponsePage({ params }: { params: { id: st
 
   useEffect(() => {
     fetchQuestionnaire();
-  }, [params.id]);
+  }, [id]);
 
   const fetchQuestionnaire = async () => {
     try {
-      const response = await fetch(`/api/questionnaires/${params.id}`);
+      const response = await fetch(`/api/questionnaires/${id}`);
       if (!response.ok) {
         throw new Error('Failed to fetch questionnaire');
       }
@@ -91,7 +92,7 @@ export default function QuestionnaireResponsePage({ params }: { params: { id: st
     setSubmitting(true);
 
     try {
-      const response = await fetch(`/api/questionnaires/${params.id}/responses`, {
+      const response = await fetch(`/api/questionnaires/${id}/responses`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

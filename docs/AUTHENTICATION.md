@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Odyssey Feedback platform uses **NextAuth.js v5** for authentication, providing a secure, scalable, and flexible authentication system that supports multiple identity providers.
+The Gentil Feedback platform uses **NextAuth.js v5** for authentication, providing a secure, scalable, and flexible authentication system that supports multiple identity providers.
 
 ## Features
 
@@ -542,4 +542,4 @@ For issues or questions:
 
 **Last Updated:** October 2, 2025
 **Version:** 1.0.0
-**Maintainer:** Odyssey Feedback Team
+**Maintainer:** Gentil Feedback Team

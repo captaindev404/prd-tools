@@ -14,10 +14,11 @@ import { findDuplicates } from '@/lib/fuzzy-match';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const feedbackId = params.id;
+    const { id } = await params;
+    const { id: feedbackId } = await params;
 
     // Get the feedback item to check for duplicates
     const feedback = await prisma.feedback.findUnique({

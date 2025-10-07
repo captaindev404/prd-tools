@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the complete Prisma ORM setup for the Odyssey Feedback platform, including database schema, migrations, and seed data.
+This document describes the complete Prisma ORM setup for the Gentil Feedback platform, including database schema, migrations, and seed data.
 
 ## Status: READY FOR DEPLOYMENT
 

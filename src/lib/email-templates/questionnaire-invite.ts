@@ -25,7 +25,7 @@ export function generateQuestionnaireInviteHTML(params: QuestionnaireInviteParam
       noDeadline: 'No deadline specified',
       ctaButton: 'Complete Questionnaire',
       footer: 'Your feedback helps us improve our products and services.',
-      footerNote: 'This is an automated message from Odyssey Feedback.',
+      footerNote: 'This is an automated message from Gentil Feedback.',
       unsubscribe: 'If you no longer wish to receive these emails, please update your preferences.',
     },
     fr: {
@@ -36,7 +36,7 @@ export function generateQuestionnaireInviteHTML(params: QuestionnaireInviteParam
       noDeadline: 'Aucune date limite spécifiée',
       ctaButton: 'Compléter le questionnaire',
       footer: 'Vos retours nous aident à améliorer nos produits et services.',
-      footerNote: 'Ceci est un message automatique d\'Odyssey Feedback.',
+      footerNote: 'Ceci est un message automatique d\'Gentil Feedback.',
       unsubscribe: 'Si vous ne souhaitez plus recevoir ces emails, veuillez mettre à jour vos préférences.',
     },
   };
@@ -63,7 +63,7 @@ export function generateQuestionnaireInviteHTML(params: QuestionnaireInviteParam
           <tr>
             <td style="background: linear-gradient(135deg, #0066CC 0%, #0052A3 100%); padding: 40px 40px 30px; border-radius: 8px 8px 0 0;">
               <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">
-                Odyssey Feedback
+                Gentil Feedback
               </h1>
             </td>
           </tr>
@@ -141,7 +141,7 @@ export function generateQuestionnaireInviteText(params: QuestionnaireInviteParam
       noDeadline: 'No deadline specified',
       linkLabel: 'Complete the questionnaire at:',
       footer: 'Your feedback helps us improve our products and services.',
-      footerNote: 'This is an automated message from Odyssey Feedback.',
+      footerNote: 'This is an automated message from Gentil Feedback.',
     },
     fr: {
       greeting: 'Bonjour,',
@@ -150,7 +150,7 @@ export function generateQuestionnaireInviteText(params: QuestionnaireInviteParam
       noDeadline: 'Aucune date limite spécifiée',
       linkLabel: 'Compléter le questionnaire à :',
       footer: 'Vos retours nous aident à améliorer nos produits et services.',
-      footerNote: 'Ceci est un message automatique d\'Odyssey Feedback.',
+      footerNote: 'Ceci est un message automatique d\'Gentil Feedback.',
     },
   };
 

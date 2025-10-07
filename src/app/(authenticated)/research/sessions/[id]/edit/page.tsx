@@ -8,12 +8,13 @@ import { Breadcrumbs } from '@/components/navigation/breadcrumbs';
 export default async function EditSessionPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string; }>;
 }) {
+  const { id } = await params;
   const session = await requireAnyRole([Role.RESEARCHER, Role.PM, Role.ADMIN, Role.USER]);
 
   const sessionData = await prisma.session.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       panel: {
         select: {
@@ -40,7 +41,7 @@ export default async function EditSessionPage({
 
   // Cannot edit completed sessions
   if (sessionData.status === 'completed') {
-    redirect(`/research/sessions/${params.id}`);
+    redirect(`/research/sessions/${id}`);
   }
 
   // Fetch panels for the form
@@ -132,7 +133,7 @@ export default async function EditSessionPage({
           items={[
             { title: 'Research', href: '/research/sessions' },
             { title: 'Sessions', href: '/research/sessions' },
-            { title: truncatedTitle, href: `/research/sessions/${params.id}` },
+            { title: truncatedTitle, href: `/research/sessions/${id}` },
             { title: 'Edit' }
           ]}
         />
@@ -146,7 +147,7 @@ export default async function EditSessionPage({
       </div>
 
       <SessionEditForm
-        sessionId={params.id}
+        sessionId={id}
         initialData={initialData}
         panels={panels}
         panelMembers={panelMembers}

@@ -22,9 +22,10 @@ import { prisma } from '@/lib/prisma';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     // Check authentication
     const user = await getCurrentUser();
     if (!user) {
@@ -75,7 +76,7 @@ export async function GET(
 
     // Fetch questionnaire with responses
     const questionnaire = await prisma.questionnaire.findUnique({
-      where: { id: params.id },
+      where: { id: id },
       include: {
         responses: {
           include: {
@@ -163,7 +164,7 @@ export async function GET(
 
     // Generate filename with timestamp
     const timestamp = new Date().toISOString().split('T')[0];
-    const filename = `questionnaire-${params.id}-export-${timestamp}.${format}`;
+    const filename = `questionnaire-${id}-export-${timestamp}.${format}`;
 
     // Return based on format
     if (format === 'csv') {

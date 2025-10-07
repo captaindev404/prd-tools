@@ -12,9 +12,10 @@ import { checkEligibility, type EligibilityCriteria, buildEligibilityWhereClause
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
@@ -36,7 +37,7 @@ export async function GET(
 
     // Get panel
     const panel = await prisma.panel.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!panel) {

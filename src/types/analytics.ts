@@ -1,5 +1,5 @@
 /**
- * Analytics type definitions for Odyssey Feedback
+ * Analytics type definitions for Gentil Feedback
  *
  * Defines the data structures for analytics across feedback, research, and product metrics.
  */

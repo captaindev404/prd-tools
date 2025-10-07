@@ -95,7 +95,7 @@ export function RecentActivity({ items, showViewAll = true }: RecentActivityProp
           <EmptyState
             icon={Activity}
             title="No recent activity"
-            description="Get started with Odyssey Feedback by submitting ideas or voting on existing feedback."
+            description="Get started with Gentil Feedback by submitting ideas or voting on existing feedback."
             actions={[
               {
                 label: 'Submit Feedback',

@@ -2,8 +2,8 @@ import * as sgMail from '@sendgrid/mail';
 
 // Initialize SendGrid
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || '';
-const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || 'noreply@odyssey-feedback.com';
-const SENDGRID_FROM_NAME = process.env.SENDGRID_FROM_NAME || 'Odyssey Feedback';
+const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || 'noreply@gentil-feedback.com';
+const SENDGRID_FROM_NAME = process.env.SENDGRID_FROM_NAME || 'Gentil Feedback';
 const IS_DEVELOPMENT = process.env.NODE_ENV === 'development';
 
 if (SENDGRID_API_KEY && !IS_DEVELOPMENT) {

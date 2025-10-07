@@ -11,7 +11,7 @@ import { applyRateLimit, addRateLimitHeaders } from '@/middleware/rate-limit';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // Apply rate limit
   const rateLimitResult = await applyRateLimit(request);
@@ -24,7 +24,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     const notification = await markNotificationAsRead(id, user.id);
 

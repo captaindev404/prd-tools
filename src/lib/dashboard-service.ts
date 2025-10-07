@@ -879,8 +879,10 @@ export async function getPMActivityMetrics(userRole: Role): Promise<PMActivityMe
     let moderationOldestItemAge: number | null = null;
     if (moderationQueue.length > 0) {
       const oldestItem = moderationQueue[0];
-      const ageInMs = now.getTime() - oldestItem.createdAt.getTime();
-      moderationOldestItemAge = Math.floor(ageInMs / (1000 * 60 * 60)); // Convert to hours
+      if (oldestItem) {
+        const ageInMs = now.getTime() - oldestItem.createdAt.getTime();
+        moderationOldestItemAge = Math.floor(ageInMs / (1000 * 60 * 60)); // Convert to hours
+      }
     }
 
     return {

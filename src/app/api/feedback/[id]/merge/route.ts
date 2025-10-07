@@ -22,7 +22,7 @@ import type { MergeFeedbackInput } from '@/types/feedback';
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check authentication
@@ -45,7 +45,7 @@ export async function POST(
       );
     }
 
-    const sourceFeedbackId = params.id;
+    const { id: sourceFeedbackId } = await params;
 
     // Parse request body
     const body: MergeFeedbackInput = await request.json();

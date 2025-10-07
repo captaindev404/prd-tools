@@ -1,7 +1,7 @@
 # Feedback UI Implementation Summary
 
 ## Overview
-Completed implementation of all feedback-related UI pages for the Odyssey Feedback platform using Shadcn UI components with responsive design and accessibility.
+Completed implementation of all feedback-related UI pages for the Gentil Feedback platform using Shadcn UI components with responsive design and accessibility.
 
 ## Files Created
 

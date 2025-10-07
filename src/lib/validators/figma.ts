@@ -70,12 +70,18 @@ export function parseFigmaUrl(url: string): {
     const pathMatch = parsedUrl.pathname.match(/^\/(file|proto|design)\/([^/]+)(?:\/(.+))?$/);
 
     if (pathMatch) {
-      const type = pathMatch[1] as 'file' | 'proto' | 'design';
+      const type = pathMatch[1] as 'file' | 'proto' | 'design' | undefined;
       const id = pathMatch[2];
+
+      // Validate required parts exist
+      if (!type || !id) {
+        return null;
+      }
+
       const name = pathMatch[3] ? decodeURIComponent(pathMatch[3]) : undefined;
 
       return {
-        type,
+        type: type as 'file' | 'proto' | 'design',
         id,
         name,
       };

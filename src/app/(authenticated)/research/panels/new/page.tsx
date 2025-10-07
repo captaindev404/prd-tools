@@ -3,7 +3,7 @@ import { PanelWizard } from '@/components/panels/panel-wizard';
 import { getCurrentUser, canCreatePanel } from '@/lib/auth-helpers';
 
 export const metadata = {
-  title: 'Create Research Panel | Odyssey Feedback',
+  title: 'Create Research Panel | Gentil Feedback',
   description: 'Create a new research panel for user testing',
 };
 

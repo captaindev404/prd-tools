@@ -14,9 +14,10 @@ import type { SubmitResponseInput, Question } from '@/types/questionnaire';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
@@ -36,7 +37,7 @@ export async function GET(
       );
     }
 
-    const questionnaireId = params.id;
+    const { id: questionnaireId } = await params;
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
@@ -125,9 +126,10 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
@@ -136,7 +138,7 @@ export async function POST(
       );
     }
 
-    const questionnaireId = params.id;
+    const { id: questionnaireId } = await params;
 
     const questionnaire = await prisma.questionnaire.findUnique({
       where: { id: questionnaireId },

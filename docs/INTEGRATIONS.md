@@ -1,6 +1,6 @@
 # Integrations Guide
 
-This document provides setup and configuration instructions for all external integrations in the Odyssey Feedback platform.
+This document provides setup and configuration instructions for all external integrations in the Gentil Feedback platform.
 
 ## Table of Contents
 
@@ -29,8 +29,8 @@ The platform uses SendGrid for sending email notifications to users for question
    Add to your `.env` file:
    ```env
    SENDGRID_API_KEY="your-sendgrid-api-key"
-   SENDGRID_FROM_EMAIL="noreply@odyssey-feedback.com"
-   SENDGRID_FROM_NAME="Odyssey Feedback"
+   SENDGRID_FROM_EMAIL="noreply@gentil-feedback.com"
+   SENDGRID_FROM_NAME="Gentil Feedback"
    ```
 
 3. **Verify Sender Email**
@@ -300,8 +300,8 @@ Figma validation should be used in:
 | Variable | Description | Required | Default |
 |----------|-------------|----------|---------|
 | `SENDGRID_API_KEY` | SendGrid API key | Yes | - |
-| `SENDGRID_FROM_EMAIL` | Sender email address | No | `noreply@odyssey-feedback.com` |
-| `SENDGRID_FROM_NAME` | Sender display name | No | `Odyssey Feedback` |
+| `SENDGRID_FROM_EMAIL` | Sender email address | No | `noreply@gentil-feedback.com` |
+| `SENDGRID_FROM_NAME` | Sender display name | No | `Gentil Feedback` |
 
 ### HRIS Integration
 
@@ -408,6 +408,6 @@ For integration issues:
 
 ## Related Documentation
 
-- [DSL Specification](../dsl/global.yaml) - Platform data model
+- [DSL Specification](dsl/global.yaml) - Platform data model
 - [API Documentation](./API.md) - REST API endpoints
 - [Development Guide](./DEVELOPMENT.md) - Local setup and development

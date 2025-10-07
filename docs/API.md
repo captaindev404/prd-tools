@@ -1,28 +1,143 @@
 # API Documentation
 
-**Odyssey Feedback Platform API Reference**
+**Gentil Feedback Platform API Reference**
 Version: 0.5.0
 
-This document provides comprehensive API documentation for all endpoints in the Odyssey Feedback platform.
+This document provides comprehensive API documentation for all endpoints in the Gentil Feedback platform.
+
+**Framework**: Next.js 15.5 with App Router
 
 ---
 
 ## Table of Contents
 
-1. [Authentication](#authentication)
-2. [Feedback API](#feedback-api)
-3. [Voting API](#voting-api)
-4. [Features API](#features-api)
-5. [Roadmap API](#roadmap-api)
-6. [Research Panels API](#research-panels-api)
-7. [Questionnaires API](#questionnaires-api)
-8. [Sessions API](#sessions-api)
-9. [Notifications API](#notifications-api)
-10. [Admin API](#admin-api)
-11. [User Profile API](#user-profile-api)
-12. [Moderation API](#moderation-api)
-13. [Metrics API](#metrics-api)
-14. [Error Codes](#error-codes)
+1. [Next.js 15 Implementation Notes](#nextjs-15-implementation-notes)
+2. [Authentication](#authentication)
+3. [Feedback API](#feedback-api)
+4. [Voting API](#voting-api)
+5. [Features API](#features-api)
+6. [Roadmap API](#roadmap-api)
+7. [Research Panels API](#research-panels-api)
+8. [Questionnaires API](#questionnaires-api)
+9. [Sessions API](#sessions-api)
+10. [Notifications API](#notifications-api)
+11. [Admin API](#admin-api)
+12. [User Profile API](#user-profile-api)
+13. [Moderation API](#moderation-api)
+14. [Metrics API](#metrics-api)
+15. [Error Codes](#error-codes)
+
+---
+
+## Next.js 15 Implementation Notes
+
+All API routes are implemented using Next.js 15.5 App Router with the following patterns:
+
+### Route Handler Pattern (Next.js 15+)
+
+**Standard Route** (`/api/feedback/route.ts`):
+```typescript
+import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/auth';
+
+export async function GET(request: NextRequest) {
+  const session = await auth();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Access query parameters
+  const searchParams = request.nextUrl.searchParams;
+  const filter = searchParams.get('filter');
+
+  // Process request
+  const data = await fetchData(filter);
+
+  return NextResponse.json({ data });
+}
+```
+
+**Dynamic Route** (`/api/feedback/[id]/route.ts`):
+```typescript
+import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/auth';
+
+export async function GET(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // IMPORTANT: params must be awaited in Next.js 15+
+  const { id } = await context.params;
+
+  const data = await fetchById(id);
+
+  return NextResponse.json({ data });
+}
+```
+
+### Fetch Caching (Next.js 15+)
+
+Fetch requests are **no longer cached by default**. Use explicit cache directives:
+
+```typescript
+// For dynamic data (not cached)
+const data = await fetch(url, { cache: 'no-store' });
+
+// For static data (cached indefinitely)
+const data = await fetch(url, { cache: 'force-cache' });
+
+// For revalidating data (cached with revalidation)
+const data = await fetch(url, {
+  next: { revalidate: 3600 } // revalidate every hour
+});
+```
+
+### Authentication Pattern
+
+All authenticated endpoints use NextAuth.js v5 with the `auth()` helper:
+
+```typescript
+import { auth } from '@/auth';
+
+export async function POST(request: NextRequest) {
+  // Get current session
+  const session = await auth();
+
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Access user info
+  const userId = session.user.id;
+  const userRole = session.user.role;
+
+  // Process authenticated request
+  // ...
+}
+```
+
+### Type Safety
+
+All route handlers use proper TypeScript types:
+
+```typescript
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
+
+export async function GET(
+  request: NextRequest,
+  context: RouteContext
+) {
+  const { id } = await context.params;
+  // ...
+}
+```
 
 ---
 

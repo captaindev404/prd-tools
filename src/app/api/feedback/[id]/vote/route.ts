@@ -20,7 +20,7 @@ import { handleApiError, ApiErrors } from '@/lib/api-errors';
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check authentication
@@ -29,7 +29,7 @@ export async function POST(
       throw ApiErrors.unauthorized('You must be logged in to vote on feedback');
     }
 
-    const feedbackId = params.id;
+    const { id: feedbackId } = await params;
 
     // Check if feedback exists
     const feedback = await prisma.feedback.findUnique({
@@ -134,7 +134,7 @@ export async function POST(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check authentication
@@ -143,7 +143,7 @@ export async function DELETE(
       throw ApiErrors.unauthorized('You must be logged in to remove a vote');
     }
 
-    const feedbackId = params.id;
+    const { id: feedbackId } = await params;
 
     // Check if feedback exists
     const feedback = await prisma.feedback.findUnique({
@@ -212,7 +212,7 @@ export async function DELETE(
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check authentication
@@ -221,7 +221,7 @@ export async function GET(
       throw ApiErrors.unauthorized('You must be logged in to check vote status');
     }
 
-    const feedbackId = params.id;
+    const { id: feedbackId } = await params;
 
     // Check if feedback exists
     const feedback = await prisma.feedback.findUnique({

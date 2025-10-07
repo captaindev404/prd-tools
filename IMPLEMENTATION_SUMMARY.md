@@ -7,7 +7,7 @@
 
 ## Overview
 
-Successfully implemented all key integrations for the Odyssey Feedback platform, including email notifications, HRIS synchronization, and link validation for Jira and Figma.
+Successfully implemented all key integrations for the Gentil Feedback platform, including email notifications, HRIS synchronization, and link validation for Jira and Figma.
 
 ---
 
@@ -176,8 +176,8 @@ Successfully implemented all key integrations for the Odyssey Feedback platform,
 ```env
 # SendGrid Email
 SENDGRID_API_KEY=""
-SENDGRID_FROM_EMAIL="noreply@odyssey-feedback.com"
-SENDGRID_FROM_NAME="Odyssey Feedback"
+SENDGRID_FROM_EMAIL="noreply@gentil-feedback.com"
+SENDGRID_FROM_NAME="Gentil Feedback"
 
 # HRIS Integration
 HRIS_API_URL=""

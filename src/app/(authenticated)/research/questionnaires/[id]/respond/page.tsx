@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,12 +14,13 @@ import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { QuestionRendererI18n } from '@/components/questionnaires/question-renderer-i18n';
 
 interface QuestionnaireResponsePageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default function QuestionnaireResponsePage({ params }: QuestionnaireResponsePageProps) {
+  const { id } = use(params);
   const router = useRouter();
   const { toast } = useToast();
   const [questionnaire, setQuestionnaire] = useState<any>(null);
@@ -34,11 +35,11 @@ export default function QuestionnaireResponsePage({ params }: QuestionnaireRespo
 
   useEffect(() => {
     fetchQuestionnaire();
-  }, [params.id]);
+  }, [id]);
 
   const fetchQuestionnaire = async () => {
     try {
-      const response = await fetch(`/api/questionnaires/${params.id}`);
+      const response = await fetch(`/api/questionnaires/${id}`);
       if (!response.ok) {
         if (response.status === 404) {
           throw new Error('Questionnaire not found');
@@ -98,7 +99,7 @@ export default function QuestionnaireResponsePage({ params }: QuestionnaireRespo
     setSubmitting(true);
 
     try {
-      const response = await fetch(`/api/questionnaires/${params.id}/responses`, {
+      const response = await fetch(`/api/questionnaires/${id}/responses`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ answers: data }),
@@ -114,7 +115,7 @@ export default function QuestionnaireResponsePage({ params }: QuestionnaireRespo
         description: 'Thank you for your feedback!',
       });
 
-      router.push(`/research/questionnaires/${params.id}/thank-you`);
+      router.push(`/research/questionnaires/${id}/thank-you`);
     } catch (error: any) {
       toast({
         title: 'Error',

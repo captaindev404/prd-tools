@@ -143,7 +143,7 @@ describe('Panels API Integration Tests', () => {
         }),
       })
 
-      const response = await PATCH(request, { params: { id: 'pan_123' } })
+      const response = await PATCH(request, { params: Promise.resolve({ id: 'pan_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(200)
@@ -167,7 +167,7 @@ describe('Panels API Integration Tests', () => {
         body: JSON.stringify({ name: 'Updated Name' }),
       })
 
-      const response = await PATCH(request, { params: { id: 'pan_123' } })
+      const response = await PATCH(request, { params: Promise.resolve({ id: 'pan_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(401)
@@ -183,7 +183,7 @@ describe('Panels API Integration Tests', () => {
         body: JSON.stringify({ name: 'Updated Name' }),
       })
 
-      const response = await PATCH(request, { params: { id: 'pan_nonexistent' } })
+      const response = await PATCH(request, { params: Promise.resolve({ id: 'pan_nonexistent' }) })
       const data = await response.json()
 
       expect(response.status).toBe(404)
@@ -206,7 +206,7 @@ describe('Panels API Integration Tests', () => {
         body: JSON.stringify({ name: 'Updated Name' }),
       })
 
-      const response = await PATCH(request, { params: { id: 'pan_123' } })
+      const response = await PATCH(request, { params: Promise.resolve({ id: 'pan_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(403)
@@ -239,7 +239,7 @@ describe('Panels API Integration Tests', () => {
         body: JSON.stringify({ name: 'Updated by Creator' }),
       })
 
-      const response = await PATCH(request, { params: { id: 'pan_123' } })
+      const response = await PATCH(request, { params: Promise.resolve({ id: 'pan_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(200)
@@ -255,7 +255,7 @@ describe('Panels API Integration Tests', () => {
         body: JSON.stringify({ name: 'AB' }), // Too short
       })
 
-      const response = await PATCH(request, { params: { id: 'pan_123' } })
+      const response = await PATCH(request, { params: Promise.resolve({ id: 'pan_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(400)
@@ -279,7 +279,7 @@ describe('Panels API Integration Tests', () => {
         body: JSON.stringify({ name: 'A'.repeat(101) }), // Too long
       })
 
-      const response = await PATCH(request, { params: { id: 'pan_123' } })
+      const response = await PATCH(request, { params: Promise.resolve({ id: 'pan_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(400)
@@ -303,7 +303,7 @@ describe('Panels API Integration Tests', () => {
         body: JSON.stringify({ description: 'A'.repeat(501) }), // Too long
       })
 
-      const response = await PATCH(request, { params: { id: 'pan_123' } })
+      const response = await PATCH(request, { params: Promise.resolve({ id: 'pan_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(400)
@@ -333,7 +333,7 @@ describe('Panels API Integration Tests', () => {
         }),
       })
 
-      const response = await PATCH(request, { params: { id: 'pan_123' } })
+      const response = await PATCH(request, { params: Promise.resolve({ id: 'pan_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(400)
@@ -357,7 +357,7 @@ describe('Panels API Integration Tests', () => {
         body: JSON.stringify({ sizeTarget: -5 }), // Negative number
       })
 
-      const response = await PATCH(request, { params: { id: 'pan_123' } })
+      const response = await PATCH(request, { params: Promise.resolve({ id: 'pan_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(400)
@@ -403,7 +403,7 @@ describe('Panels API Integration Tests', () => {
         method: 'DELETE',
       })
 
-      const response = await DELETE(request, { params: { id: 'pan_123' } })
+      const response = await DELETE(request, { params: Promise.resolve({ id: 'pan_123' }) })
 
       expect(response.status).toBe(204)
       expect(mockPrisma.panel.update).toHaveBeenCalledWith({
@@ -436,7 +436,7 @@ describe('Panels API Integration Tests', () => {
         method: 'DELETE',
       })
 
-      const response = await DELETE(request, { params: { id: 'pan_123' } })
+      const response = await DELETE(request, { params: Promise.resolve({ id: 'pan_123' }) })
 
       expect(response.status).toBe(204)
     })
@@ -448,7 +448,7 @@ describe('Panels API Integration Tests', () => {
         method: 'DELETE',
       })
 
-      const response = await DELETE(request, { params: { id: 'pan_123' } })
+      const response = await DELETE(request, { params: Promise.resolve({ id: 'pan_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(401)
@@ -463,7 +463,7 @@ describe('Panels API Integration Tests', () => {
         method: 'DELETE',
       })
 
-      const response = await DELETE(request, { params: { id: 'pan_nonexistent' } })
+      const response = await DELETE(request, { params: Promise.resolve({ id: 'pan_nonexistent' }) })
       const data = await response.json()
 
       expect(response.status).toBe(404)
@@ -485,7 +485,7 @@ describe('Panels API Integration Tests', () => {
         method: 'DELETE',
       })
 
-      const response = await DELETE(request, { params: { id: 'pan_123' } })
+      const response = await DELETE(request, { params: Promise.resolve({ id: 'pan_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(403)
@@ -543,7 +543,7 @@ describe('Panels API Integration Tests', () => {
         body: JSON.stringify({ userIds: ['usr_eligible1'] }),
       })
 
-      const response = await POSTMembers(request, { params: { id: 'pan_123' } })
+      const response = await POSTMembers(request, { params: Promise.resolve({ id: 'pan_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(200)
@@ -566,7 +566,7 @@ describe('Panels API Integration Tests', () => {
         body: JSON.stringify({ userIds: ['usr_1'] }),
       })
 
-      const response = await POSTMembers(request, { params: { id: 'pan_123' } })
+      const response = await POSTMembers(request, { params: Promise.resolve({ id: 'pan_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(401)
@@ -589,7 +589,7 @@ describe('Panels API Integration Tests', () => {
         body: JSON.stringify({ userIds: ['usr_1'] }),
       })
 
-      const response = await POSTMembers(request, { params: { id: 'pan_123' } })
+      const response = await POSTMembers(request, { params: Promise.resolve({ id: 'pan_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(403)
@@ -606,7 +606,7 @@ describe('Panels API Integration Tests', () => {
         body: JSON.stringify({ userIds: ['usr_1'] }),
       })
 
-      const response = await POSTMembers(request, { params: { id: 'pan_nonexistent' } })
+      const response = await POSTMembers(request, { params: Promise.resolve({ id: 'pan_nonexistent' }) })
       const data = await response.json()
 
       expect(response.status).toBe(404)
@@ -623,7 +623,7 @@ describe('Panels API Integration Tests', () => {
         body: JSON.stringify({ userIds: [] }), // Empty array
       })
 
-      const response = await POSTMembers(request, { params: { id: 'pan_123' } })
+      const response = await POSTMembers(request, { params: Promise.resolve({ id: 'pan_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(400)
@@ -648,7 +648,7 @@ describe('Panels API Integration Tests', () => {
         body: JSON.stringify({ userIds: ['usr_1', 'usr_2', 'usr_3', 'usr_4', 'usr_5', 'usr_6'] }), // Would exceed target
       })
 
-      const response = await POSTMembers(request, { params: { id: 'pan_123' } })
+      const response = await POSTMembers(request, { params: Promise.resolve({ id: 'pan_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(400)
@@ -683,7 +683,7 @@ describe('Panels API Integration Tests', () => {
         body: JSON.stringify({ userIds: ['usr_existing'] }),
       })
 
-      const response = await POSTMembers(request, { params: { id: 'pan_123' } })
+      const response = await POSTMembers(request, { params: Promise.resolve({ id: 'pan_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(200)
@@ -723,7 +723,7 @@ describe('Panels API Integration Tests', () => {
         body: JSON.stringify({ userIds: ['usr_ineligible'] }),
       })
 
-      const response = await POSTMembers(request, { params: { id: 'pan_123' } })
+      const response = await POSTMembers(request, { params: Promise.resolve({ id: 'pan_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(200)
@@ -928,7 +928,7 @@ describe('Panels API Integration Tests', () => {
 
       const request = new NextRequest('http://localhost/api/panels/pan_123/eligibility-preview')
 
-      const response = await GETEligibilityPreview(request, { params: { id: 'pan_123' } })
+      const response = await GETEligibilityPreview(request, { params: Promise.resolve({ id: 'pan_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(200)
@@ -947,7 +947,7 @@ describe('Panels API Integration Tests', () => {
 
       const request = new NextRequest('http://localhost/api/panels/pan_123/eligibility-preview')
 
-      const response = await GETEligibilityPreview(request, { params: { id: 'pan_123' } })
+      const response = await GETEligibilityPreview(request, { params: Promise.resolve({ id: 'pan_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(401)
@@ -966,7 +966,7 @@ describe('Panels API Integration Tests', () => {
 
       const request = new NextRequest('http://localhost/api/panels/pan_123/eligibility-preview')
 
-      const response = await GETEligibilityPreview(request, { params: { id: 'pan_123' } })
+      const response = await GETEligibilityPreview(request, { params: Promise.resolve({ id: 'pan_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(403)
@@ -979,7 +979,7 @@ describe('Panels API Integration Tests', () => {
 
       const request = new NextRequest('http://localhost/api/panels/pan_nonexistent/eligibility-preview')
 
-      const response = await GETEligibilityPreview(request, { params: { id: 'pan_nonexistent' } })
+      const response = await GETEligibilityPreview(request, { params: Promise.resolve({ id: 'pan_nonexistent' }) })
       const data = await response.json()
 
       expect(response.status).toBe(404)
@@ -1008,7 +1008,7 @@ describe('Panels API Integration Tests', () => {
 
       const request = new NextRequest('http://localhost/api/panels/pan_123/eligibility-preview')
 
-      const response = await GETEligibilityPreview(request, { params: { id: 'pan_123' } })
+      const response = await GETEligibilityPreview(request, { params: Promise.resolve({ id: 'pan_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(200)
@@ -1028,7 +1028,7 @@ describe('Panels API Integration Tests', () => {
 
       const request = new NextRequest('http://localhost/api/panels/pan_123/eligibility-preview')
 
-      const response = await GETEligibilityPreview(request, { params: { id: 'pan_123' } })
+      const response = await GETEligibilityPreview(request, { params: Promise.resolve({ id: 'pan_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(500)
@@ -1057,7 +1057,7 @@ describe('Panels API Integration Tests', () => {
 
       const request = new NextRequest('http://localhost/api/panels/pan_123/eligibility-preview')
 
-      const response = await GETEligibilityPreview(request, { params: { id: 'pan_123' } })
+      const response = await GETEligibilityPreview(request, { params: Promise.resolve({ id: 'pan_123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(200)

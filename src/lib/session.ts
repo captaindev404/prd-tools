@@ -3,7 +3,7 @@ import { Role } from "@prisma/client";
 import { redirect } from "next/navigation";
 
 /**
- * Session utilities for Odyssey Feedback platform
+ * Session utilities for Gentil Feedback platform
  *
  * Provides helper functions for working with user sessions in server components.
  * These utilities ensure type-safe access to session data and enforce authentication.

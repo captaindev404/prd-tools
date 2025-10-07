@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document provides a comprehensive manual testing checklist for verifying role-based sidebar navigation filtering in the Odyssey Feedback platform.
+This document provides a comprehensive manual testing checklist for verifying role-based sidebar navigation filtering in the Gentil Feedback platform.
 
 ## Test Date
 

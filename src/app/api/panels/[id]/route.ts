@@ -13,9 +13,10 @@ import { validateCriteria, buildEligibilityWhereClause, filterUsersByConsents } 
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
@@ -24,7 +25,7 @@ export async function GET(
       );
     }
 
-    const panelId = params.id;
+    const { id: panelId } = await params;
 
     // Fetch panel
     const panel = await prisma.panel.findUnique({
@@ -156,9 +157,10 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
@@ -167,7 +169,7 @@ export async function PATCH(
       );
     }
 
-    const panelId = params.id;
+    const { id: panelId } = await params;
 
     // Fetch panel
     const panel = await prisma.panel.findUnique({
@@ -332,9 +334,10 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
@@ -343,7 +346,7 @@ export async function DELETE(
       );
     }
 
-    const panelId = params.id;
+    const { id: panelId } = await params;
 
     // Fetch panel
     const panel = await prisma.panel.findUnique({

@@ -1,6 +1,6 @@
-# Testing Guide for Odyssey Feedback Platform
+# Testing Guide for Gentil Feedback Platform
 
-This document provides comprehensive instructions for running tests in the Odyssey Feedback platform.
+This document provides comprehensive instructions for running tests in the Gentil Feedback platform.
 
 ## Table of Contents
 
@@ -13,7 +13,7 @@ This document provides comprehensive instructions for running tests in the Odyss
 
 ## Overview
 
-The Odyssey Feedback platform uses a multi-layered testing approach:
+The Gentil Feedback platform uses a multi-layered testing approach:
 
 1. **Unit Tests** - Test individual functions and utilities in isolation
 2. **Integration Tests** - Test API routes and their interactions with mocked dependencies

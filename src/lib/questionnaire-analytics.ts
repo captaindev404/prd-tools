@@ -123,12 +123,16 @@ export function computeLikertDistribution(scores: number[]): Distribution {
     if (!distribution[key]) {
       distribution[key] = { count: 0, percentage: 0 };
     }
-    distribution[key].count++;
+    const entry = distribution[key];
+    if (entry) entry.count++;
   });
 
   const total = scores.length;
   Object.keys(distribution).forEach(key => {
-    distribution[key].percentage = Math.round((distribution[key].count / total) * 100);
+    const entry = distribution[key];
+    if (entry) {
+      entry.percentage = Math.round((entry.count / total) * 100);
+    }
   });
 
   return distribution;
@@ -153,12 +157,16 @@ export function computeMCQDistribution(responses: string[]): Distribution {
     if (!distribution[response]) {
       distribution[response] = { count: 0, percentage: 0 };
     }
-    distribution[response].count++;
+    const entry = distribution[response];
+    if (entry) entry.count++;
   });
 
   const total = responses.length;
   Object.keys(distribution).forEach(key => {
-    distribution[key].percentage = Math.round((distribution[key].count / total) * 100);
+    const entry = distribution[key];
+    if (entry) {
+      entry.percentage = Math.round((entry.count / total) * 100);
+    }
   });
 
   return distribution;
@@ -187,15 +195,24 @@ export function computeNumericStats(values: number[]): {
   const sorted = [...values].sort((a, b) => a - b);
   const sum = values.reduce((acc, val) => acc + val, 0);
   const mean = sum / values.length;
-  const median = sorted.length % 2 === 0
-    ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
-    : sorted[Math.floor(sorted.length / 2)];
+
+  let median = 0;
+  if (sorted.length % 2 === 0) {
+    const mid1 = sorted[sorted.length / 2 - 1];
+    const mid2 = sorted[sorted.length / 2];
+    if (mid1 !== undefined && mid2 !== undefined) {
+      median = (mid1 + mid2) / 2;
+    }
+  } else {
+    const midValue = sorted[Math.floor(sorted.length / 2)];
+    median = midValue !== undefined ? midValue : 0;
+  }
 
   return {
     mean: Math.round(mean * 100) / 100,
     median: Math.round(median * 100) / 100,
-    min: sorted[0],
-    max: sorted[sorted.length - 1],
+    min: sorted[0] || 0,
+    max: sorted[sorted.length - 1] || 0,
   };
 }
 

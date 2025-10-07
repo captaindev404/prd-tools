@@ -32,7 +32,8 @@ export function arrayToCSV(data: Record<string, any>[]): string {
   }
 
   // Get headers from first object
-  const headers = Object.keys(data[0]);
+  const firstItem = data[0];
+  const headers = firstItem ? Object.keys(firstItem) : [];
 
   // Build CSV rows
   const csvRows = [

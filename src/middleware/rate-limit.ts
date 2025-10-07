@@ -44,7 +44,8 @@ function getClientIp(request: NextRequest): string {
 
   if (forwarded) {
     // x-forwarded-for can be a comma-separated list
-    return forwarded.split(',')[0].trim();
+    const firstIp = forwarded.split(',')[0];
+    return firstIp ? firstIp.trim() : 'unknown';
   }
 
   if (realIp) {

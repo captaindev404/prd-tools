@@ -10,7 +10,7 @@
 
 ## Summary
 
-This document summarizes the implementation and testing of role-based sidebar navigation for the Odyssey Feedback platform. The sidebar component (`AppSidebar`) implements comprehensive role-based access control to show/hide navigation items based on user permissions.
+This document summarizes the implementation and testing of role-based sidebar navigation for the Gentil Feedback platform. The sidebar component (`AppSidebar`) implements comprehensive role-based access control to show/hide navigation items based on user permissions.
 
 ## Implementation Details
 

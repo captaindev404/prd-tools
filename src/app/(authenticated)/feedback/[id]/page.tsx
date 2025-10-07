@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -38,7 +38,7 @@ const productAreaColors: Record<string, string> = {
   Reservations: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
   CheckIn: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
   Payments: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
-  Housekeeping: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
+  Housekeeping: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300',
   Backoffice: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300',
 };
 

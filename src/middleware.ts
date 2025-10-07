@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
 /**
- * Authentication Middleware for Odyssey Feedback Platform
+ * Authentication Middleware for Gentil Feedback Platform
  *
  * This middleware protects routes that require authentication.
  * It runs on every request and checks if the user has a valid session.

@@ -8,7 +8,7 @@ import { prisma } from '@/lib/prisma';
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -20,7 +20,7 @@ export async function GET(
       );
     }
 
-    const { userId } = params;
+    const { userId } = await params;
 
     const targetUser = await prisma.user.findUnique({
       where: { id: userId },
@@ -85,7 +85,7 @@ export async function GET(
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -97,7 +97,7 @@ export async function DELETE(
       );
     }
 
-    const { userId } = params;
+    const { userId } = await params;
 
     // Prevent self-deletion
     if (userId === user.id) {

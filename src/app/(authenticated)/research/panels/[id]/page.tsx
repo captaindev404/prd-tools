@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,10 +18,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { usePanelPermissions } from '@/hooks/use-panel-permissions';
 
 interface PanelDetailPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default function PanelDetailPage({ params }: PanelDetailPageProps) {
+  const { id } = use(params);
   const router = useRouter();
   const { toast } = useToast();
   const [panel, setPanel] = useState<any>(null);
@@ -37,14 +38,14 @@ export default function PanelDetailPage({ params }: PanelDetailPageProps) {
   useEffect(() => {
     fetchPanel();
     fetchMembers();
-  }, [params.id]);
+  }, [id]);
 
   const fetchPanel = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`/api/panels/${params.id}`);
+      const response = await fetch(`/api/panels/${id}`);
 
       if (!response.ok) {
         throw response;
@@ -76,7 +77,7 @@ export default function PanelDetailPage({ params }: PanelDetailPageProps) {
     setLoadingMembers(true);
 
     try {
-      const response = await fetch(`/api/panels/${params.id}/members`);
+      const response = await fetch(`/api/panels/${id}/members`);
 
       if (!response.ok) {
         throw response;
@@ -100,7 +101,7 @@ export default function PanelDetailPage({ params }: PanelDetailPageProps) {
     if (!confirm('Are you sure you want to archive this panel?')) return;
 
     try {
-      const response = await fetch(`/api/panels/${params.id}`, { method: 'DELETE' });
+      const response = await fetch(`/api/panels/${id}`, { method: 'DELETE' });
 
       if (!response.ok) {
         throw response;
@@ -125,7 +126,7 @@ export default function PanelDetailPage({ params }: PanelDetailPageProps) {
     if (!confirm('Are you sure you want to remove this member?')) return;
 
     try {
-      const response = await fetch(`/api/panels/${params.id}/members/${userId}`, {
+      const response = await fetch(`/api/panels/${id}/members/${userId}`, {
         method: 'DELETE',
       });
 
@@ -272,7 +273,7 @@ export default function PanelDetailPage({ params }: PanelDetailPageProps) {
             <Tooltip>
               <TooltipTrigger asChild>
                 <span>
-                  <Link href={canEdit ? `/research/panels/${params.id}/edit` : '#'} className={!canEdit ? 'pointer-events-none' : ''}>
+                  <Link href={canEdit ? `/research/panels/${id}/edit` : '#'} className={!canEdit ? 'pointer-events-none' : ''}>
                     <Button variant="outline" disabled={!canEdit}>
                       <Edit className="mr-2 h-4 w-4" />
                       Edit
@@ -373,7 +374,7 @@ export default function PanelDetailPage({ params }: PanelDetailPageProps) {
       </Tabs>
 
         <InviteMembersDialog
-          panelId={params.id}
+          panelId={id}
           open={inviteDialogOpen}
           onOpenChange={setInviteDialogOpen}
           onSuccess={handleInviteSuccess}

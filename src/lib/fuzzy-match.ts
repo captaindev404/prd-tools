@@ -80,22 +80,37 @@ export function getLevenshteinSimilarity(str1: string, str2: string): number {
   );
 
   // Initialize first column and row
-  for (let i = 0; i <= len1; i++) matrix[i][0] = i;
-  for (let j = 0; j <= len2; j++) matrix[0][j] = j;
+  for (let i = 0; i <= len1; i++) {
+    const row = matrix[i];
+    if (row) row[0] = i;
+  }
+  const firstRow = matrix[0];
+  if (firstRow) {
+    for (let j = 0; j <= len2; j++) firstRow[j] = j;
+  }
 
   // Fill matrix
   for (let i = 1; i <= len1; i++) {
+    const currentRow = matrix[i];
+    const prevRow = matrix[i - 1];
+    if (!currentRow || !prevRow) continue;
+
     for (let j = 1; j <= len2; j++) {
       const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
-      matrix[i][j] = Math.min(
-        matrix[i - 1][j] + 1, // deletion
-        matrix[i][j - 1] + 1, // insertion
-        matrix[i - 1][j - 1] + cost // substitution
-      );
+      const prevCol = currentRow[j - 1];
+      const prevRowPrevCol = prevRow[j - 1];
+      if (prevCol !== undefined && prevRowPrevCol !== undefined) {
+        currentRow[j] = Math.min(
+          (prevRow[j] || 0) + 1, // deletion
+          prevCol + 1, // insertion
+          prevRowPrevCol + cost // substitution
+        );
+      }
     }
   }
 
-  const distance = matrix[len1][len2];
+  const lastRow = matrix[len1];
+  const distance = lastRow?.[len2] || 0;
   const maxLen = Math.max(len1, len2);
 
   // Normalize to similarity score
@@ -176,5 +191,5 @@ export async function findBestMatch(
   threshold: number = 0.86
 ): Promise<(Feedback & { similarity: number }) | null> {
   const duplicates = await findDuplicates(title, excludeId, threshold);
-  return duplicates.length > 0 ? duplicates[0] : null;
+  return duplicates.length > 0 && duplicates[0] ? duplicates[0] : null;
 }

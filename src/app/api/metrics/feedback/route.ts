@@ -205,12 +205,12 @@ export async function GET(request: NextRequest) {
 
       if (timeRange === '7d' || timeRange === '30d') {
         // Group by day
-        key = date.toISOString().split('T')[0];
+        key = date.toISOString().split('T')[0] || '';
       } else if (timeRange === '90d') {
         // Group by week
         const weekStart = new Date(date);
         weekStart.setDate(date.getDate() - date.getDay());
-        key = weekStart.toISOString().split('T')[0];
+        key = weekStart.toISOString().split('T')[0] || '';
       } else {
         // Group by month
         key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;

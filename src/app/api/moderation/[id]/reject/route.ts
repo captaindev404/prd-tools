@@ -18,7 +18,7 @@ import { getCurrentUser } from '@/lib/auth-helpers';
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check authentication and authorization
@@ -40,7 +40,7 @@ export async function POST(
       );
     }
 
-    const feedbackId = params.id;
+    const { id: feedbackId } = await params;
 
     // Parse request body for optional rejection reason
     let rejectionReason: string | undefined;

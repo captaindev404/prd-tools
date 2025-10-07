@@ -107,7 +107,7 @@ export function AccountInfo({
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `odyssey-feedback-data-export-${userId}-${Date.now()}.json`;
+      a.download = `gentil-feedback-data-export-${userId}-${Date.now()}.json`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -143,7 +143,7 @@ export function AccountInfo({
       case 'PO':
         return 'bg-purple-500 hover:bg-purple-600';
       case 'MODERATOR':
-        return 'bg-orange-500 hover:bg-orange-600';
+        return 'bg-amber-500 hover:bg-amber-600';
       case 'RESEARCHER':
         return 'bg-green-500 hover:bg-green-600';
       default:
@@ -160,7 +160,7 @@ export function AccountInfo({
             Account Information
           </CardTitle>
           <CardDescription>
-            Read-only information about your Odyssey Feedback account
+            Read-only information about your Gentil Feedback account
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

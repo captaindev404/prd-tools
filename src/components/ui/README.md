@@ -1,6 +1,6 @@
-# Shadcn UI Components - Odyssey Feedback
+# Shadcn UI Components - Gentil Feedback
 
-This directory contains the UI components for the Odyssey Feedback platform, built with [Shadcn UI](https://ui.shadcn.com) and customized for Club Med's brand.
+This directory contains the UI components for the Gentil Feedback platform, built with [Shadcn UI](https://ui.shadcn.com) and customized for Club Med's brand.
 
 ## Overview
 

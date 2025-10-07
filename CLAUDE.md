@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Odyssey Feedback** (v0.5.0) - A comprehensive product feedback and user research platform for Club Med with:
+**Gentil Feedback** (v0.5.0) - A comprehensive product feedback and user research platform for Club Med with:
 - Multi-village identity management with global user accounts
 - Product feedback collection, voting, and roadmap communication
 - User testing panels, questionnaires, and research sessions
@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Tech Stack
 
 ### Core Framework
-- **Next.js 14** - React framework with App Router (server components)
+- **Next.js 15.5** - React framework with App Router and Turbopack dev server (server components by default)
 - **TypeScript** - Type-safe development
 - **React 18** - UI library with hooks
 
@@ -152,7 +152,7 @@ The project follows a structured task-based approach:
 
 ```bash
 # Development
-npm run dev              # Start dev server (http://localhost:3000)
+npm run dev              # Start dev server with Turbopack (http://localhost:3000)
 npm run build            # Build for production
 npm run lint             # Run ESLint
 
@@ -167,6 +167,13 @@ cd tools
 npm run dashboard        # Build progress dashboard
 npm run update-task      # Update task status
 ```
+
+### Next.js 15.5 Important Notes
+
+- **Turbopack Dev Server**: The dev server now uses Turbopack for faster builds and Hot Module Replacement (HMR)
+- **Async Request APIs**: Route handlers must handle async `params` and `searchParams` in Next.js 15+
+- **Caching Changes**: Fetch requests are no longer cached by default - use explicit `cache` or `revalidate` options
+- **Node.js Requirement**: Requires Node.js 18.18.0 or higher
 
 ## Task Management
 
@@ -254,12 +261,11 @@ export function VoteButton({ feedbackId }: { feedbackId: string }) {
 ```typescript
 // app/api/feedback/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/auth';
+import { auth } from '@/auth';
 
 export async function GET(request: NextRequest) {
   // 1. Authenticate
-  const session = await getServerSession(authOptions);
+  const session = await auth();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -274,6 +280,25 @@ export async function GET(request: NextRequest) {
   });
 
   // 4. Return response
+  return NextResponse.json({ feedback });
+}
+
+// For dynamic routes with params (Next.js 15+)
+export async function GET(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { id } = await context.params; // Await params in Next.js 15+
+
+  const feedback = await prisma.feedback.findUnique({
+    where: { id },
+  });
+
   return NextResponse.json({ feedback });
 }
 ```
@@ -339,14 +364,14 @@ try {
 
 ### Key Documents
 
-- **[dsl/global.yaml](./dsl/global.yaml)** - Single source of truth for domain models
+- **[dsl/global.yaml](docs/dsl/global.yaml)** - Single source of truth for domain models
 - **[README.md](./README.md)** - Project overview and setup
 - **[docs/API.md](./docs/API.md)** - Complete API reference
 - **[docs/AUTHENTICATION.md](./docs/AUTHENTICATION.md)** - Auth setup and configuration
 - **[docs/INTEGRATIONS.md](./docs/INTEGRATIONS.md)** - Email, HRIS, Jira, Figma integrations
 - **[docs/USER_GUIDE.md](./docs/USER_GUIDE.md)** - User guide for PMs, Researchers, Moderators
 - **[docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)** - Production deployment guide
-- **[docs/PRD.md](./docs/PRD.md)** - Product requirements document
+- **[docs/PRD.md](docs/prd/PRD.md)** - Product requirements document
 
 ### Task Definitions
 

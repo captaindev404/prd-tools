@@ -8,7 +8,7 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Odyssey Feedback',
+  title: 'Gentil Feedback',
   description: 'Product feedback and user research platform for Club Med',
 };
 

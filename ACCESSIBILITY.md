@@ -1,6 +1,6 @@
-# Accessibility Compliance - Odyssey Feedback
+# Accessibility Compliance - Gentil Feedback
 
-This document details the WCAG 2.1 AA accessibility compliance for the Odyssey Feedback platform.
+This document details the WCAG 2.1 AA accessibility compliance for the Gentil Feedback platform.
 
 ## WCAG AA Compliance Status
 

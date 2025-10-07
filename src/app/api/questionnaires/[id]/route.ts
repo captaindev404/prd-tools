@@ -17,9 +17,10 @@ import type { UpdateQuestionnaireInput } from '@/types/questionnaire';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
@@ -28,7 +29,7 @@ export async function GET(
       );
     }
 
-    const questionnaireId = params.id;
+    const { id: questionnaireId } = await params;
 
     const questionnaire = await prisma.questionnaire.findUnique({
       where: { id: questionnaireId },
@@ -148,9 +149,10 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
@@ -167,7 +169,7 @@ export async function PATCH(
       );
     }
 
-    const questionnaireId = params.id;
+    const { id: questionnaireId } = await params;
 
     const questionnaire = await prisma.questionnaire.findUnique({
       where: { id: questionnaireId },
@@ -358,9 +360,10 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
@@ -369,7 +372,7 @@ export async function DELETE(
       );
     }
 
-    const questionnaireId = params.id;
+    const { id: questionnaireId } = await params;
 
     const questionnaire = await prisma.questionnaire.findUnique({
       where: { id: questionnaireId },

@@ -88,44 +88,50 @@ export function PanelCardExample() {
       </div>
 
       {/* Example 1: Basic panel card without actions */}
-      <section className="mb-12">
-        <h2 className="text-xl font-semibold mb-4">Basic Panel Card (No Actions)</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <PanelCard panel={samplePanels[0]} />
-        </div>
-      </section>
+      {samplePanels[0] && (
+        <section className="mb-12">
+          <h2 className="text-xl font-semibold mb-4">Basic Panel Card (No Actions)</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <PanelCard panel={samplePanels[0]} />
+          </div>
+        </section>
+      )}
 
       {/* Example 2: Panel card with edit and archive actions */}
-      <section className="mb-12">
-        <h2 className="text-xl font-semibold mb-4">
-          Panel Card with Edit & Archive Actions
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <PanelCard
-            panel={samplePanels[1]}
-            currentUserId="usr_01HQXYZ789DEF"
-            canEdit={true}
-            canArchive={true}
-            onEdit={handleEdit}
-            onArchive={handleArchive}
-          />
-        </div>
-      </section>
+      {samplePanels[1] && (
+        <section className="mb-12">
+          <h2 className="text-xl font-semibold mb-4">
+            Panel Card with Edit & Archive Actions
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <PanelCard
+              panel={samplePanels[1]}
+              currentUserId="usr_01HQXYZ789DEF"
+              canEdit={true}
+              canArchive={true}
+              onEdit={handleEdit}
+              onArchive={handleArchive}
+            />
+          </div>
+        </section>
+      )}
 
       {/* Example 3: Archived panel */}
-      <section className="mb-12">
-        <h2 className="text-xl font-semibold mb-4">Archived Panel</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <PanelCard
-            panel={samplePanels[2]}
-            currentUserId="usr_01HQXYZ789DEF"
-            canEdit={true}
-            canArchive={true}
-            onEdit={handleEdit}
-            onArchive={handleArchive}
-          />
-        </div>
-      </section>
+      {samplePanels[2] && (
+        <section className="mb-12">
+          <h2 className="text-xl font-semibold mb-4">Archived Panel</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <PanelCard
+              panel={samplePanels[2]}
+              currentUserId="usr_01HQXYZ789DEF"
+              canEdit={true}
+              canArchive={true}
+              onEdit={handleEdit}
+              onArchive={handleArchive}
+            />
+          </div>
+        </section>
+      )}
 
       {/* Example 4: Multiple panels in grid layout */}
       <section className="mb-12">
@@ -148,19 +154,21 @@ export function PanelCardExample() {
       </section>
 
       {/* Example 5: Panel without description */}
-      <section className="mb-12">
-        <h2 className="text-xl font-semibold mb-4">Panel Without Description</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <PanelCard
-            panel={{
-              ...samplePanels[0],
-              description: null,
-            }}
-            canEdit={true}
-            onEdit={handleEdit}
-          />
-        </div>
-      </section>
+      {samplePanels[0] && (
+        <section className="mb-12">
+          <h2 className="text-xl font-semibold mb-4">Panel Without Description</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <PanelCard
+              panel={{
+                ...samplePanels[0],
+                description: null,
+              }}
+              canEdit={true}
+              onEdit={handleEdit}
+            />
+          </div>
+        </section>
+      )}
 
       {/* Documentation */}
       <section className="mt-12 p-6 bg-muted/50 rounded-lg">
