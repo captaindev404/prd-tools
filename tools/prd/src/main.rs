@@ -173,6 +173,15 @@ enum Commands {
         agent: Option<String>,
     },
 
+    /// Cancel a task (shortcut for update cancelled)
+    Cancel {
+        /// Task ID
+        task_id: String,
+        /// Reason for cancellation (optional)
+        #[arg(short, long)]
+        reason: Option<String>,
+    },
+
     /// Get the next task to work on (smart selection)
     Next {
         /// Filter by priority
@@ -804,6 +813,29 @@ fn main() -> Result<()> {
                 task_display.cyan(),
                 agent_display.cyan()
             );
+        }
+
+        Commands::Cancel { task_id, reason } => {
+            let task_uuid = resolve_task_id(db.get_connection(), &task_id)?;
+            let task = db.get_task(&task_uuid)?.ok_or_else(|| anyhow::anyhow!("Task not found"))?;
+
+            // Update task status to cancelled
+            db.update_task_status(&task_uuid, TaskStatus::Cancelled, None)?;
+
+            // If task had an assigned agent, set them to idle
+            if let Some(agent_id) = &task.assigned_agent {
+                db.update_agent_status(agent_id, AgentStatus::Idle, None)?;
+            }
+
+            let task_display = format_task_id(db.get_connection(), &task_uuid);
+            println!("{} Task {} cancelled",
+                "✕".yellow().bold(),
+                task_display.cyan()
+            );
+
+            if let Some(reason_text) = reason {
+                println!("Reason: {}", reason_text.dimmed());
+            }
         }
 
         Commands::Next { priority, epic, agent, sync } => {

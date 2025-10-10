@@ -8,9 +8,11 @@ import { applyRateLimit, addRateLimitHeaders } from '@/middleware/rate-limit';
 import { performAutoScreening } from '@/lib/moderation';
 import { checkToxicity, shouldAutoFlag } from '@/lib/moderation-advanced';
 import { handleApiError, ApiErrors } from '@/lib/api-errors';
-import type { CreateFeedbackInput, FeedbackFilters } from '@/types/feedback';
+import type { CreateFeedbackInput, FeedbackFilters, Attachment } from '@/types/feedback';
 import type { FeedbackState } from '@prisma/client';
 import { ProductArea } from '@prisma/client';
+import { moveFile, deleteFile, FILE_UPLOAD_LIMITS } from '@/lib/file-upload';
+import * as path from 'path';
 
 /**
  * POST /api/feedback - Create new feedback
@@ -23,12 +25,14 @@ import { ProductArea } from '@prisma/client';
  * - villageId?: string (optional)
  * - source?: 'app' | 'web' | 'kiosk' | 'support' | 'import'
  * - visibility?: 'public' | 'internal'
+ * - attachments?: Array<Attachment> (optional, max 5 files)
  *
  * Features:
  * - PII redaction in title and body
  * - Rate limiting (10 per user per day)
  * - 15-minute edit window
  * - Auto moderation status: auto_pending
+ * - File attachment support (moves files from temp to feedback folder)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -93,6 +97,61 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Validate attachments if provided
+    if (body.attachments !== undefined) {
+      if (!Array.isArray(body.attachments)) {
+        errors.push({
+          field: 'attachments',
+          message: 'Attachments must be an array',
+        });
+      } else if (body.attachments.length > FILE_UPLOAD_LIMITS.MAX_FILES) {
+        errors.push({
+          field: 'attachments',
+          message: `Maximum ${FILE_UPLOAD_LIMITS.MAX_FILES} attachments allowed`,
+        });
+      } else {
+        // Validate each attachment structure
+        body.attachments.forEach((attachment, index) => {
+          if (!attachment.id || typeof attachment.id !== 'string') {
+            errors.push({
+              field: `attachments[${index}].id`,
+              message: 'Attachment ID is required',
+            });
+          }
+          if (!attachment.originalName || typeof attachment.originalName !== 'string') {
+            errors.push({
+              field: `attachments[${index}].originalName`,
+              message: 'Attachment originalName is required',
+            });
+          }
+          if (!attachment.storedName || typeof attachment.storedName !== 'string') {
+            errors.push({
+              field: `attachments[${index}].storedName`,
+              message: 'Attachment storedName is required',
+            });
+          }
+          if (!attachment.url || typeof attachment.url !== 'string') {
+            errors.push({
+              field: `attachments[${index}].url`,
+              message: 'Attachment URL is required',
+            });
+          }
+          if (typeof attachment.size !== 'number' || attachment.size <= 0) {
+            errors.push({
+              field: `attachments[${index}].size`,
+              message: 'Attachment size must be a positive number',
+            });
+          }
+          if (!attachment.mimeType || typeof attachment.mimeType !== 'string') {
+            errors.push({
+              field: `attachments[${index}].mimeType`,
+              message: 'Attachment mimeType is required',
+            });
+          }
+        });
+      }
+    }
+
     if (errors.length > 0) {
       throw ApiErrors.validationError(errors, 'Please check your input and try again');
     }
@@ -124,10 +183,57 @@ export async function POST(request: NextRequest) {
     // Calculate edit window (15 minutes from now)
     const editWindowEndsAt = new Date(Date.now() + 15 * 60 * 1000);
 
+    // Generate feedback ID early so we can move files to the correct directory
+    const feedbackId = `fb_${ulid()}`;
+
+    // Process attachments: move from temp to feedback directory
+    let processedAttachments: Attachment[] = [];
+    const tempFilePaths: string[] = []; // Track temp files for cleanup on error
+
+    if (body.attachments && body.attachments.length > 0) {
+      try {
+        for (const attachment of body.attachments) {
+          // Extract temp file path from URL
+          // URL format: /uploads/feedback/temp/{storedName}
+          const tempPath = path.join(
+            process.cwd(),
+            'public',
+            'uploads',
+            'feedback',
+            'temp',
+            attachment.storedName
+          );
+          tempFilePaths.push(tempPath);
+
+          // Move file from temp to feedback directory
+          const movedFile = await moveFile(tempPath, feedbackId);
+
+          // Update attachment with new URL
+          processedAttachments.push({
+            id: attachment.id,
+            originalName: attachment.originalName,
+            storedName: attachment.storedName,
+            url: movedFile.filePath, // Updated URL with feedbackId
+            size: attachment.size,
+            mimeType: attachment.mimeType,
+            uploadedAt: attachment.uploadedAt || new Date().toISOString(),
+          });
+        }
+      } catch (error) {
+        // If moving files fails, we should not create the feedback
+        // Clean up any successfully moved files would be complex here
+        // The temp cleanup cron will handle orphaned temp files
+        console.error('Failed to process attachments:', error);
+        throw ApiErrors.badRequest(
+          `Failed to process file attachments: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
+      }
+    }
+
     // Create feedback with enhanced moderation data
     const feedback = await prisma.feedback.create({
       data: {
-        id: `fb_${ulid()}`,
+        id: feedbackId,
         authorId: user.id,
         title: redactedTitle,
         body: redactedBody,
@@ -145,7 +251,7 @@ export async function POST(request: NextRequest) {
         offTopicScore: screeningResult.offTopicScore,
         hasPii: screeningResult.hasPii,
         needsReview,
-        attachments: '[]',
+        attachments: JSON.stringify(processedAttachments),
         i18nData: '{}',
         editWindowEndsAt,
       },
@@ -179,6 +285,7 @@ export async function POST(request: NextRequest) {
         payload: JSON.stringify({
           feedbackId: feedback.id,
           title: feedback.title,
+          attachmentCount: processedAttachments.length,
           timestamp: new Date().toISOString(),
         }),
       },

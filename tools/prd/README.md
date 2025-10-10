@@ -10,6 +10,7 @@ A Rust-based CLI tool for managing tasks, breaking down work, and synchronizing 
 - 🤖 **JSON Output**: `--json` flag for programmatic parsing
 - 🎯 **Smart Task Selection**: `next` command finds the best task to work on
 - ⚡ **Quick Complete**: `complete` command shortcut (no more verbose workflows)
+- ❌ **Quick Cancel**: `cancel` command with optional reason (frees agents automatically)
 - 🔍 **Agent Filter**: `--agent` flag to see tasks by specific agent
 - 📦 **Batch Operations**: `batch-update` and `batch-assign` for bulk actions
 - 🏷️ **Command Aliases**: `ls`, `tasks`, `agents`, `list-agents`, `create-agent`
@@ -26,8 +27,9 @@ prd list --status completed --json | jq '.[] | .title'
 # Smart task selection
 prd next --priority high --agent A1 --sync
 
-# Quick completion
-prd complete "#42"  # Uses assigned agent automatically
+# Quick completion and cancellation
+prd complete "#42"                    # Uses assigned agent automatically
+prd cancel "#42" --reason "Duplicate" # Quick cancel with reason
 
 # Filter by agent
 prd list --agent A1 --status in_progress
@@ -119,6 +121,39 @@ prd stats
 
 ## 📖 Complete Command Reference
 
+### All Commands at a Glance
+
+| Category | Command | Aliases | Key Options | Description |
+|----------|---------|---------|-------------|-------------|
+| **Database** | `init` | - | `--force` | Initialize new database |
+| | `migrate latest` | - | - | Run all migrations |
+| | `migrate status` | - | - | Show migration status |
+| | `migrate rollback` | - | `<version>` | Rollback to version |
+| **Task CRUD** | `create` | - | `--epic`, `--priority`, `--parent`, `--description` | Create new task |
+| | `list` | `ls`, `tasks` | `--status`, `--epic`, `--priority`, `--agent`, `--no-agent`, `--limit`, `--offset`, `--json` | List/filter tasks |
+| | `show` | - | `--logs` | Show task details |
+| | `update` | - | `--agent` | Update task status |
+| | `breakdown` | - | `--interactive` | Break task into subtasks |
+| | `duration` | - | `--estimated`, `--actual` | Set time estimates |
+| **Dependencies** | `depends` | - | `--on`, `--blocks`, `--list` | Manage dependencies |
+| | `ready` | - | - | List tasks ready to work on |
+| **Acceptance Criteria** | `ac add` | - | - | Add criterion |
+| | `ac list` | - | - | List criteria |
+| | `ac check` | - | - | Mark criterion done |
+| | `ac uncheck` | - | - | Mark criterion incomplete |
+| **Agents** | `agent-create` | `create-agent` | - | Register new agent |
+| | `agent-list` | `agents`, `list-agents` | - | List all agents |
+| | `agent-status` | - | `--task` | Update agent status |
+| | `assign` | - | - | Assign task to agent |
+| | `sync` | - | - | Start agent work on task |
+| **Advanced** | `complete` | - | `--agent` | Complete task (quick) |
+| | `cancel` | - | `--reason` | Cancel task (quick) |
+| | `next` | - | `--priority`, `--epic`, `--agent`, `--sync` | Get next best task |
+| | `batch-update` | - | `--agent` | Update multiple tasks |
+| | `batch-assign` | - | - | Assign multiple tasks |
+| **Reporting** | `stats` | - | - | Show task statistics |
+| | `epics` | - | - | List all epics with progress |
+
 ### Database Management
 
 ```bash
@@ -197,6 +232,13 @@ prd show "#42" --logs          # Include activity log
 prd update "#42" in_progress
 prd update "#42" completed --agent A1
 prd update "#42" blocked
+prd update "#42" cancelled
+
+# Quick shortcuts
+prd complete "#42"                    # Quick complete (uses assigned agent)
+prd complete "#42" --agent A1         # Specify agent
+prd cancel "#42"                      # Quick cancel
+prd cancel "#42" --reason "Out of scope"  # Cancel with reason
 ```
 
 **Statuses:** `pending`, `in_progress`, `blocked`, `review`, `completed`, `cancelled`
@@ -244,10 +286,46 @@ prd depends "#2" --list
 prd ready  # Shows tasks with all dependencies completed
 ```
 
+**All Dependency Operations:**
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `depends <task-id> --on <dep-id>` | Add dependency (task depends on dep) | `prd depends "#2" --on "#1"` |
+| `depends <task-id> --blocks <task-id>` | Add blocking relationship | `prd depends "#1" --blocks "#2"` |
+| `depends <task-id> --list` | Show all dependencies and blocking tasks | `prd depends "#42" --list` |
+| `ready` | List all tasks with completed dependencies | `prd ready` |
+
+**Query Patterns for Dependencies:**
+
+```bash
+# View full dependency tree for a task
+prd depends "#42" --list
+# Output:
+# Dependencies for task #42
+# Depends on:
+#   #1
+#   #5
+# Blocks:
+#   #50
+#   #51
+
+# Find all tasks ready to work on (no pending dependencies)
+prd ready
+# Output: List of tasks where all dependencies are completed
+
+# Check if specific task is ready
+prd show "#42" --logs  # Check task details including dependencies
+
+# Find unblocked tasks in specific epic
+prd list --epic "Auth System" --status pending
+prd ready  # Cross-reference which are actually ready
+```
+
 **Features:**
-- ✅ Circular dependency detection
-- ✅ Automatic ready-task filtering
-- ✅ Prevents completing tasks with pending dependencies
+- ✅ Circular dependency detection (prevents cycles)
+- ✅ Automatic ready-task filtering (smart dependency resolution)
+- ✅ Prevents completing tasks with pending dependencies (validation)
+- ✅ Bidirectional dependency tracking (depends on / blocks)
 
 ### Acceptance Criteria
 
@@ -272,6 +350,15 @@ prd ac "#42" check 3    # Mark #3 as done
 # Uncheck if needed
 prd ac "#42" uncheck 1
 ```
+
+**All Acceptance Criteria Operations:**
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `ac <task-id> add <text>` | Add new criterion | `prd ac "#42" add "Tests pass"` |
+| `ac <task-id> list` | Show all criteria with completion status | `prd ac "#42" list` |
+| `ac <task-id> check <id>` | Mark criterion as completed | `prd ac "#42" check 1` |
+| `ac <task-id> uncheck <id>` | Mark criterion as incomplete | `prd ac "#42" uncheck 1` |
 
 ### Agent Management
 
@@ -692,7 +779,39 @@ prd depends "#53" --on "#52"
 
 ## 🔍 Filtering & Search
 
-### By Status
+### Query Pattern Reference
+
+All commands that support filtering:
+
+| Command | Supports |
+|---------|----------|
+| `list` | `--status`, `--epic`, `--priority`, `--agent`, `--no-agent`, `--limit`, `--offset`, `--json` |
+| `next` | `--priority`, `--epic`, `--agent`, `--sync` |
+| `ready` | No filters (shows all ready tasks) |
+| `epics` | No filters (shows all epics) |
+| `stats` | No filters (shows all statistics) |
+
+### ID Resolution Patterns
+
+The tool accepts multiple ID formats for maximum flexibility:
+
+**Task IDs:**
+```bash
+prd show "#42"           # Display ID with hash
+prd show "42"            # Display ID without hash
+prd show "uuid-abc123"   # UUID prefix
+prd show "full-uuid"     # Full UUID
+```
+
+**Agent IDs:**
+```bash
+prd sync "A5" "#42"      # Display ID with A prefix
+prd sync "5" "#42"       # Display ID (number only)
+prd sync "agent-name" "#42"  # Agent name
+prd sync "uuid-prefix" "#42" # UUID prefix
+```
+
+### Filter by Status
 
 ```bash
 prd list --status pending
@@ -700,26 +819,54 @@ prd list --status in_progress
 prd list --status blocked
 prd list --status review
 prd list --status completed
+prd list --status cancelled
 ```
 
-### By Priority
+**Available statuses:** `pending`, `in_progress`, `blocked`, `review`, `completed`, `cancelled`
+
+### Filter by Priority
 
 ```bash
-prd list --priority critical
+prd list --priority low
+prd list --priority medium
 prd list --priority high
+prd list --priority critical
 ```
 
-### By Epic
+**Available priorities:** `low`, `medium`, `high`, `critical`
+
+### Filter by Epic
 
 ```bash
 prd list --epic "User Management"
-prd list --epic "Backend" --status pending
+prd list --epic "Backend Infrastructure"
+prd list --epic "Frontend" --status pending
 ```
 
-### By Assignment
+### Filter by Agent Assignment
 
 ```bash
-prd list --no-agent              # Unassigned tasks
+# Unassigned tasks only
+prd list --no-agent
+
+# Tasks assigned to specific agent
+prd list --agent "A1"
+prd list --agent "backend-dev"
+prd list --agent "5"
+```
+
+### Pagination & Output Format
+
+```bash
+# Limit results
+prd list --limit 10                    # First 10 tasks
+prd list --limit 20 --offset 10        # Tasks 10-30
+prd list --status pending --limit 5    # First 5 pending
+
+# JSON output for scripting
+prd list --json
+prd list --status completed --json | jq '.[].title'
+prd list --epic "Auth" --json | jq 'length'
 ```
 
 ### Combined Filters
@@ -728,15 +875,95 @@ prd list --no-agent              # Unassigned tasks
 # Critical unassigned tasks
 prd list --priority critical --no-agent
 
-# Pending tasks in specific epic
-prd list --epic "Auth System" --status pending
+# Pending high-priority tasks in specific epic
+prd list --epic "Auth System" --status pending --priority high
 
-# High priority tasks ready to work on
-prd list --priority high | head -10
+# First 5 critical tasks assigned to specific agent
+prd list --priority critical --agent "A1" --limit 5
 
-# Limit results (use shell piping, no --limit flag)
-prd list --status pending | head -n 5      # First 5 tasks
-prd list --priority critical | tail -n 3   # Last 3 tasks
+# In-progress tasks in epic with JSON output
+prd list --epic "Backend" --status in_progress --json
+
+# Unassigned medium priority tasks
+prd list --priority medium --no-agent --limit 10
+
+# All tasks in epic paginated
+prd list --epic "User Management" --limit 10 --offset 0
+```
+
+### Query Use Cases
+
+**Find work to do:**
+```bash
+# Get all unassigned high-priority tasks
+prd list --priority high --no-agent
+
+# Get next task automatically
+prd next --priority high
+
+# Get next task in specific epic
+prd next --epic "Auth System"
+```
+
+**Monitor progress:**
+```bash
+# See all in-progress work
+prd list --status in_progress
+
+# See what specific agent is working on
+prd list --agent "backend-dev" --status in_progress
+
+# Check blocked tasks
+prd list --status blocked
+```
+
+**Epic tracking:**
+```bash
+# All tasks in epic
+prd list --epic "Payment System"
+
+# Pending tasks in epic
+prd list --epic "Payment System" --status pending
+
+# Progress overview
+prd epics
+```
+
+**Team coordination:**
+```bash
+# See all agent activity
+prd agent-list
+
+# Tasks ready for assignment
+prd ready
+
+# Assign next critical task
+prd next --priority critical --agent A1 --sync
+```
+
+**Reporting & Analysis:**
+```bash
+# Export completed tasks as JSON
+prd list --status completed --json > completed.json
+
+# Get task counts by epic
+prd list --epic "Auth" --json | jq 'length'
+
+# Find stale in-progress tasks
+prd list --status in_progress --json | jq '.[] | select(.updated_at < "2025-01-01")'
+```
+
+### Advanced Shell Piping
+
+```bash
+# Combine with standard Unix tools
+prd list --priority high | grep "API"
+prd ready | head -n 1
+prd list --status pending | wc -l
+
+# Extract specific fields (with JSON)
+prd list --json | jq '.[].id'
+prd list --epic "Auth" --json | jq -r '.[].title'
 ```
 
 ## 🔄 Migration Guide
@@ -927,9 +1154,31 @@ prd agent-status A1 working --task "#42"
 prd agent-status A1 idle
 
 # ✅ NEW: Quick shortcuts
-prd complete "#42"      # Instead of update + agent-status
-prd next --agent A1 --sync  # Instead of ready + assign + sync
+prd complete "#42"                    # Instead of update + agent-status
+prd cancel "#42" --reason "Duplicate" # Quick cancel with optional reason
+prd next --agent A1 --sync            # Instead of ready + assign + sync
 ```
+
+### Task Cancellation
+
+```bash
+# Cancel unassigned task
+prd cancel "#42" --reason "Out of scope"
+
+# Cancel assigned task (automatically frees agent)
+prd cancel "#50" --reason "Requirements changed"
+
+# Cancel without reason
+prd cancel "#10"
+
+# Alternative: Use update command
+prd update "#42" cancelled
+
+# View all cancelled tasks
+prd list --status cancelled
+```
+
+**Note:** Cancelling a task automatically sets any assigned agent to `idle` status.
 
 ### Database Issues
 
@@ -1002,6 +1251,26 @@ prd ac "#bug-id" add "Regression tests added"
 prd sync dev-agent "#bug-id"
 ```
 
+### Example 4: Task Cancellation Workflows
+
+```bash
+# Cancel duplicate task
+prd cancel "#15" --reason "Duplicate of #12"
+
+# Cancel out-of-scope work
+prd cancel "#42" --reason "Out of scope for this sprint"
+
+# Cancel blocked task that's no longer needed
+prd cancel "#8" --reason "Dependency on deprecated feature"
+
+# Batch cancel related tasks (using update)
+prd batch-update "#20,#21,#22" cancelled
+
+# View cancelled tasks
+prd list --status cancelled
+prd list --status cancelled --json > cancelled_report.json
+```
+
 ### Example 3: Feature Development
 
 ```bash
@@ -1036,6 +1305,8 @@ prd sync db-dev "#103"
 
 ## 📖 Command Cheat Sheet
 
+### Quick Command Reference
+
 | Command | Example | Description |
 |---------|---------|-------------|
 | `init` | `prd init` | Create new database |
@@ -1043,10 +1314,11 @@ prd sync db-dev "#103"
 | `list` / `ls` | `prd list --limit 10 --json` | List/filter tasks with pagination |
 | `show` | `prd show "#42"` | View details |
 | `update` | `prd update "#42" completed` | Change status |
-| `complete` | `prd complete "#42"` | **NEW** Quick complete task |
-| `next` | `prd next --agent A1 --sync` | **NEW** Get next best task |
-| `batch-update` | `prd batch-update "#1,#2,#3" done` | **NEW** Update multiple tasks |
-| `batch-assign` | `prd batch-assign "#1,#2" A1` | **NEW** Assign multiple tasks |
+| `complete` | `prd complete "#42"` | Quick complete task |
+| `cancel` | `prd cancel "#42" --reason "text"` | Quick cancel task |
+| `next` | `prd next --agent A1 --sync` | Get next best task |
+| `batch-update` | `prd batch-update "#1,#2,#3" done` | Update multiple tasks |
+| `batch-assign` | `prd batch-assign "#1,#2" A1` | Assign multiple tasks |
 | `breakdown` | `prd breakdown "#42" --interactive` | Create subtasks |
 | `assign` | `prd assign "#42" A1` | Assign to agent |
 | `sync` | `prd sync A1 "#42"` | Start work |
@@ -1058,6 +1330,44 @@ prd sync db-dev "#103"
 | `agent-create` | `prd agent-create "name"` | Register agent |
 | `agent-list` / `agents` | `prd agents` | List agents |
 | `migrate` | `prd migrate latest` | Run migrations |
+
+### Common Query Patterns
+
+**Finding tasks to work on:**
+```bash
+prd ready                                    # All ready tasks
+prd list --no-agent --priority high          # High-priority unassigned
+prd next --epic "Auth" --agent A1 --sync     # Auto-assign next in epic
+```
+
+**Filtering and searching:**
+```bash
+prd list --status pending --limit 10         # First 10 pending
+prd list --epic "Backend" --agent A1         # Epic + agent filter
+prd list --priority critical --json          # JSON output for scripts
+```
+
+**Task details and relationships:**
+```bash
+prd show "#42" --logs                        # Full details with history
+prd depends "#42" --list                     # Show dependency tree
+prd ac "#42" list                            # Acceptance criteria status
+```
+
+**Batch operations:**
+```bash
+prd batch-update "#1,#2,#3" completed        # Complete multiple tasks
+prd batch-assign "#10,#11,#12" backend-dev   # Assign multiple to agent
+prd cancel "#5" --reason "Duplicate feature" # Cancel with reason
+```
+
+**Reporting:**
+```bash
+prd stats                                    # Overall statistics
+prd epics                                    # Epic progress
+prd agent-list                               # Agent activity
+prd list --status completed --json > export.json  # Export data
+```
 
 ## 📄 License
 

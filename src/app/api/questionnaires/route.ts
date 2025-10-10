@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentUser, canCreateQuestionnaire } from '@/lib/auth-helpers';
 import { applyRateLimit, addRateLimitHeaders } from '@/middleware/rate-limit';
 import type { CreateQuestionnaireInput, QuestionnaireStatus } from '@/types/questionnaire';
+import { normalizeQuestionText, normalizeMcqOptions, warnBilingualDeprecation } from '@/lib/questionnaire-helpers';
 
 /**
  * GET /api/questionnaires - List questionnaires
@@ -189,6 +190,42 @@ export async function POST(request: NextRequest) {
     }
 
     const body: CreateQuestionnaireInput = await request.json();
+
+    // Normalize questions for backward compatibility (v0.6.0+)
+    // Convert old bilingual format {en, fr} to new English-only format
+    let hasBilingualFormat = false;
+    if (body.questions && Array.isArray(body.questions)) {
+      body.questions = body.questions.map((q: any) => {
+        const normalizedQuestion = { ...q };
+
+        // Normalize question text
+        if (typeof q.text === 'object' && q.text !== null && ('en' in q.text || 'fr' in q.text)) {
+          hasBilingualFormat = true;
+          normalizedQuestion.text = normalizeQuestionText(q.text);
+        }
+
+        // Normalize MCQ options if present
+        if ((q.type === 'mcq_single' || q.type === 'mcq_multiple') && q.options) {
+          const normalizedOptions = normalizeMcqOptions(q.options);
+          if (normalizedOptions.length !== q.options.length ||
+              JSON.stringify(normalizedOptions) !== JSON.stringify(q.options)) {
+            hasBilingualFormat = true;
+            normalizedQuestion.options = normalizedOptions;
+          }
+        }
+
+        return normalizedQuestion;
+      });
+
+      // Warn about deprecated bilingual format
+      if (hasBilingualFormat) {
+        warnBilingualDeprecation(
+          'Bilingual question format detected in POST /api/questionnaires. ' +
+          'This format is deprecated since v0.6.0. Please use plain strings for question text and MCQ options. ' +
+          'Questions have been automatically normalized to English-only format.'
+        );
+      }
+    }
 
     // Validation
     const errors: Array<{ field: string; message: string }> = [];

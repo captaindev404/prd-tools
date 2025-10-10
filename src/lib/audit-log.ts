@@ -62,6 +62,7 @@ export enum AuditAction {
   ADMIN_ACCESS = 'admin.access',
   ADMIN_SETTINGS_CHANGED = 'admin.settings_changed',
   ADMIN_USER_IMPERSONATION = 'admin.user_impersonation',
+  FILE_CLEANUP = 'admin.file_cleanup',
 }
 
 /**
@@ -312,6 +313,30 @@ export async function logAdminAction(
       ...metadata,
     },
     success: true,
+  });
+}
+
+/**
+ * Log audit action (generic helper)
+ */
+export async function logAuditAction(params: {
+  userId: string;
+  action: AuditAction | string;
+  resourceId?: string;
+  resourceType?: string;
+  metadata?: string | Record<string, any>;
+  request?: Request;
+}): Promise<void> {
+  await prisma.auditLog.create({
+    data: {
+      userId: params.userId,
+      action: params.action,
+      resourceId: params.resourceId || null,
+      resourceType: params.resourceType || null,
+      metadata: typeof params.metadata === 'string' ? params.metadata : JSON.stringify(params.metadata || {}),
+      ipAddress: params.request ? getIpAddress(params.request) : null,
+      userAgent: params.request ? getUserAgent(params.request) : null,
+    },
   });
 }
 

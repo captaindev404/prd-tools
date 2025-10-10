@@ -29,8 +29,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DuplicateSuggestions } from '@/components/feedback/DuplicateSuggestions';
+import { FileUpload, type UploadedFile } from '@/components/feedback/FileUpload';
 import { ArrowLeft, Loader2 } from 'lucide-react';
-import { DuplicateSuggestion } from '@/types/feedback';
+import { DuplicateSuggestion, Attachment } from '@/types/feedback';
 import { debounce } from '@/lib/utils';
 
 const formSchema = z.object({
@@ -65,6 +66,7 @@ export default function NewFeedbackPage() {
   const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
   const [duplicates, setDuplicates] = useState<DuplicateSuggestion[]>([]);
   const [showDuplicates, setShowDuplicates] = useState(false);
+  const [attachments, setAttachments] = useState<UploadedFile[]>([]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -127,6 +129,19 @@ export default function NewFeedbackPage() {
     setIsSubmitting(true);
 
     try {
+      // Map UploadedFile to Attachment format expected by API
+      // Note: FileUpload component returns files with fields: id, name, size, type, url
+      // We need to adapt these to match Attachment interface
+      const attachmentData: Attachment[] = attachments.map((file) => ({
+        id: file.id,
+        originalName: file.name,
+        storedName: file.name, // Extract from URL or use name as fallback
+        url: file.url,
+        size: file.size,
+        mimeType: file.type,
+        uploadedAt: new Date().toISOString(),
+      }));
+
       const response = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -137,6 +152,7 @@ export default function NewFeedbackPage() {
           villageId: values.villageId === 'none' ? null : values.villageId,
           source: 'web' as const,
           visibility: 'public' as const,
+          attachments: attachmentData.length > 0 ? attachmentData : undefined,
         }),
       });
 
@@ -344,6 +360,20 @@ export default function NewFeedbackPage() {
                   </FormItem>
                 )}
               />
+
+              {/* File Attachments */}
+              <div className="space-y-2">
+                <FormLabel>Attachments (Optional)</FormLabel>
+                <FileUpload
+                  onChange={setAttachments}
+                  disabled={isSubmitting}
+                  maxFiles={5}
+                  maxSize={10 * 1024 * 1024}
+                />
+                <FormDescription>
+                  Add screenshots, documents, or other files to support your feedback (max 5 files, 10MB each)
+                </FormDescription>
+              </div>
 
               {/* Submit buttons */}
               <div className="flex gap-4 pt-4">

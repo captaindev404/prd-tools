@@ -379,7 +379,7 @@ try {
 
 ### Completion Reports
 
-Task completion is documented in files like:
+Task completion is documented in files like in docs/tasks folder:
 - `TASK-002-COMPLETION.md`
 - `TASK-003-012-COMPLETE.md`
 - `TASK-013-018-AUTHENTICATION-COMPLETE.md`

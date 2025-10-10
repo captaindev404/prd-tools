@@ -87,8 +87,8 @@ export function QuestionnaireEditForm({
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
       if (!q) continue;
-      if (!q.text.en.trim() && !q.text.fr.trim()) {
-        setError(`Question ${i + 1} must have text in at least one language`);
+      if (!q.text.trim()) {
+        setError(`Question ${i + 1} must have text`);
         return;
       }
       if ((q.type === 'mcq_single' || q.type === 'mcq_multiple') && (!q.config?.options || q.config.options.length < 2)) {
@@ -219,7 +219,7 @@ export function QuestionnaireEditForm({
             <CardHeader>
               <CardTitle>Build Your Questions</CardTitle>
               <CardDescription>
-                Add and configure questions for your questionnaire. Questions support both English and French.
+                Add and configure questions for your questionnaire.
               </CardDescription>
             </CardHeader>
             <CardContent>

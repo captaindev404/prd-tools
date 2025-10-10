@@ -10,11 +10,12 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ArrowLeft, Edit, Calendar, User, MapPin, Tag, Shield, AlertTriangle, X } from 'lucide-react';
-import { Feedback, DuplicateSuggestion } from '@/types/feedback';
+import { Feedback, DuplicateSuggestion, Attachment } from '@/types/feedback';
 import { formatDateTime, isWithinEditWindow } from '@/lib/utils';
 import { ModerationActions } from '@/components/moderation/moderation-actions';
 import { LinkFeatureDialog } from '@/components/features/link-feature-dialog';
 import { VoteButton } from '@/components/feedback/vote-button';
+import { AttachmentList } from '@/components/feedback/AttachmentList';
 import { useSession } from 'next-auth/react';
 import { Breadcrumbs } from '@/components/navigation/breadcrumbs';
 
@@ -93,6 +94,7 @@ export default function FeedbackDetailPage() {
 
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [duplicates, setDuplicates] = useState<DuplicateSuggestion[]>([]);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userHasVoted, setUserHasVoted] = useState(false);
@@ -145,6 +147,21 @@ export default function FeedbackDetailPage() {
       const data = await response.json();
       setFeedback(data);
       setUserHasVoted(data.userHasVoted || false);
+
+      // Parse attachments from JSON if present
+      if (data.attachments) {
+        try {
+          const parsedAttachments = typeof data.attachments === 'string'
+            ? JSON.parse(data.attachments)
+            : data.attachments;
+          setAttachments(parsedAttachments);
+        } catch (err) {
+          console.error('Failed to parse attachments:', err);
+          setAttachments([]);
+        }
+      } else {
+        setAttachments([]);
+      }
 
       // Fetch duplicate suggestions if available
       try {
@@ -242,6 +259,11 @@ export default function FeedbackDetailPage() {
                     {formatDateTime(feedback.createdAt)}
                   </time>
                 </div>
+                {attachments.length > 0 && (
+                  <Badge variant="secondary" className="gap-1">
+                    📎 {attachments.length}
+                  </Badge>
+                )}
               </div>
             </div>
             <div className="flex gap-2">
@@ -297,6 +319,14 @@ export default function FeedbackDetailPage() {
           <div className="prose prose-sm max-w-none">
             <p className="whitespace-pre-wrap">{feedback.body}</p>
           </div>
+
+          {/* Attachments */}
+          {attachments.length > 0 && (
+            <>
+              <Separator />
+              <AttachmentList attachments={attachments} />
+            </>
+          )}
 
           <Separator />
 

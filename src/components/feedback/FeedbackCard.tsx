@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { MapPin } from 'lucide-react';
+import { MapPin, Paperclip } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { VoteButton } from '@/components/feedback/vote-button';
@@ -84,14 +84,27 @@ export function FeedbackCard({ feedback, isAuthenticated }: FeedbackCardProps) {
         </div>
       </CardHeader>
       <CardContent>
-        <VoteButton
-          feedbackId={feedback.id}
-          initialVoteCount={feedback.voteCount}
-          initialTotalWeight={feedback.totalWeight || feedback.voteWeight}
-          initialUserHasVoted={feedback.userHasVoted || false}
-          isAuthenticated={isAuthenticated}
-          variant="compact"
-        />
+        <div className="flex items-center justify-between">
+          <VoteButton
+            feedbackId={feedback.id}
+            initialVoteCount={feedback.voteCount}
+            initialTotalWeight={feedback.totalWeight || feedback.voteWeight}
+            initialUserHasVoted={feedback.userHasVoted || false}
+            isAuthenticated={isAuthenticated}
+            variant="compact"
+          />
+          {feedback.attachments && feedback.attachments.length > 0 && (
+            <div
+              className="flex items-center gap-1.5 text-muted-foreground"
+              title={`${feedback.attachments.length} attachment${feedback.attachments.length !== 1 ? 's' : ''}`}
+            >
+              <Paperclip className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="text-xs font-medium" aria-label={`${feedback.attachments.length} attachments`}>
+                {feedback.attachments.length}
+              </span>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

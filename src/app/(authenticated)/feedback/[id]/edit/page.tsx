@@ -22,10 +22,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
-import { Feedback } from '@/types/feedback';
+import { ArrowLeft, Loader2, AlertCircle, X } from 'lucide-react';
+import { Feedback, Attachment } from '@/types/feedback';
 import { isWithinEditWindow } from '@/lib/utils';
 import { Breadcrumbs } from '@/components/navigation/breadcrumbs';
+import { FileUpload, type UploadedFile } from '@/components/feedback/FileUpload';
+import { Badge } from '@/components/ui/badge';
+import { formatFileSize } from '@/components/feedback/AttachmentList';
 
 const formSchema = z.object({
   title: z
@@ -74,6 +77,11 @@ export default function EditFeedbackPage() {
   const [error, setError] = useState<string | null>(null);
   const [isAuthorized, setIsAuthorized] = useState(true);
 
+  // Attachment management state
+  const [existingAttachments, setExistingAttachments] = useState<Attachment[]>([]);
+  const [attachmentsToRemove, setAttachmentsToRemove] = useState<string[]>([]);
+  const [newAttachments, setNewAttachments] = useState<UploadedFile[]>([]);
+
   // Mock current user
   const currentUserId = 'usr_001';
 
@@ -94,14 +102,9 @@ export default function EditFeedbackPage() {
       setError(null);
 
       try {
-        // TODO: Replace with real API call
-        // const response = await fetch(`/api/feedback/${feedbackId}`);
-        // if (!response.ok) throw new Error('Failed to fetch feedback');
-        // const data = await response.json();
-
-        // Mock implementation
-        await new Promise(resolve => setTimeout(resolve, 500));
-        const data = mockFeedback;
+        const response = await fetch(`/api/feedback/${feedbackId}`);
+        if (!response.ok) throw new Error('Failed to fetch feedback');
+        const data = await response.json();
 
         // Check authorization
         if (data.author.id !== currentUserId) {
@@ -118,6 +121,20 @@ export default function EditFeedbackPage() {
         }
 
         setFeedback(data);
+
+        // Parse and set existing attachments
+        let attachments: Attachment[] = [];
+        try {
+          if (data.attachments && typeof data.attachments === 'string') {
+            attachments = JSON.parse(data.attachments);
+          } else if (Array.isArray(data.attachments)) {
+            attachments = data.attachments;
+          }
+        } catch (err) {
+          console.error('Failed to parse attachments:', err);
+        }
+        setExistingAttachments(attachments);
+
         form.reset({
           title: data.title,
           body: data.body,
@@ -132,23 +149,71 @@ export default function EditFeedbackPage() {
     fetchFeedback();
   }, [feedbackId, form, currentUserId]);
 
+  // Handle removing existing attachments
+  const handleRemoveExisting = (attachmentId: string) => {
+    setAttachmentsToRemove(prev => [...prev, attachmentId]);
+    setExistingAttachments(prev => prev.filter(a => a.id !== attachmentId));
+  };
+
+  // Handle new file uploads
+  const handleNewAttachments = (files: UploadedFile[]) => {
+    setNewAttachments(files);
+  };
+
+  // Calculate total attachments (respecting 5-file limit)
+  const totalAttachments = existingAttachments.length + newAttachments.length;
+  const maxNewFiles = Math.max(0, 5 - existingAttachments.length);
+
   const onSubmit = async (values: FormValues) => {
     if (!feedback) return;
+
+    // Validate attachment count
+    if (totalAttachments > 5) {
+      toast({
+        title: 'Too many attachments',
+        description: 'Maximum 5 attachments allowed. Please remove some files.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setIsSubmitting(true);
 
     try {
-      // TODO: Replace with real API call
-      // const response = await fetch(`/api/feedback/${feedbackId}`, {
-      //   method: 'PATCH',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(values),
-      // });
-      //
-      // if (!response.ok) throw new Error('Failed to update feedback');
+      // Map UploadedFile to Attachment format
+      const attachmentsToAdd: Attachment[] = newAttachments.map(file => ({
+        id: file.id,
+        originalName: file.name,
+        storedName: file.url.split('/').pop() || file.name,
+        url: file.url,
+        size: file.size,
+        mimeType: file.type,
+        uploadedAt: new Date().toISOString(),
+      }));
 
-      // Mock implementation
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await fetch(`/api/feedback/${feedbackId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: values.title,
+          body: values.body,
+          attachments: attachmentsToAdd.length > 0 ? attachmentsToAdd : undefined,
+          attachmentsToRemove: attachmentsToRemove.length > 0 ? attachmentsToRemove : undefined,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Handle validation errors
+        if (response.status === 400 && data.details) {
+          const errorMessages = data.details
+            .map((err: { field: string; message: string }) => err.message)
+            .join(', ');
+          throw new Error(errorMessages);
+        }
+        throw new Error(data.message || 'Failed to update feedback');
+      }
 
       toast({
         title: 'Feedback updated',
@@ -265,7 +330,7 @@ export default function EditFeedbackPage() {
         <CardHeader>
           <CardTitle>Edit Feedback</CardTitle>
           <CardDescription>
-            Make changes to your feedback. Only the title and description can be edited.
+            Make changes to your feedback. You can edit the title, description, and manage attachments.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -331,6 +396,67 @@ export default function EditFeedbackPage() {
                   </FormItem>
                 )}
               />
+
+              {/* Existing Attachments */}
+              {existingAttachments.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Current Attachments</FormLabel>
+                    <Badge variant="secondary">
+                      {existingAttachments.length} file{existingAttachments.length !== 1 ? 's' : ''}
+                    </Badge>
+                  </div>
+                  <div className="space-y-2">
+                    {existingAttachments.map((attachment) => (
+                      <Card key={attachment.id} className="p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate" title={attachment.originalName}>
+                              {attachment.originalName}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatFileSize(attachment.size)}
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveExisting(attachment.id)}
+                            disabled={isSubmitting}
+                            aria-label={`Remove ${attachment.originalName}`}
+                            className="flex-shrink-0 hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Add New Attachments */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <FormLabel>
+                    Add New Attachments {totalAttachments > 0 && `(${totalAttachments}/5)`}
+                  </FormLabel>
+                  {totalAttachments >= 5 && (
+                    <Badge variant="destructive">Limit reached</Badge>
+                  )}
+                </div>
+                <FormDescription>
+                  {maxNewFiles === 0
+                    ? 'Maximum attachments reached. Remove existing files to add new ones.'
+                    : `You can add up to ${maxNewFiles} more file${maxNewFiles !== 1 ? 's' : ''}.`}
+                </FormDescription>
+                <FileUpload
+                  onChange={handleNewAttachments}
+                  maxFiles={maxNewFiles}
+                  disabled={isSubmitting || maxNewFiles === 0}
+                />
+              </div>
 
               {/* Info */}
               <Alert>

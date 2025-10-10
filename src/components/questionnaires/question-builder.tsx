@@ -11,16 +11,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, Trash2, Copy, ChevronUp, ChevronDown } from 'lucide-react';
 import { ulid } from 'ulid';
 
+/**
+ * Question interface for questionnaire builder
+ * @version 0.6.0 - Simplified to English-only
+ */
 export interface Question {
   id: string;
-  type: 'likert' | 'nps' | 'mcq_single' | 'mcq_multiple' | 'text' | 'number';
-  text: {
-    en: string;
-    fr: string;
-  };
+  type: 'likert' | 'nps' | 'mcq_single' | 'mcq_multiple' | 'text' | 'number' | 'rating';
+  text: string; // English only (v0.6.0+)
   required: boolean;
   config?: {
-    scale?: number; // For Likert (e.g., 5 or 7)
+    scale?: number; // For Likert (e.g., 5 or 7) and Rating (e.g., 5 stars)
     options?: string[]; // For MCQ
     min?: number; // For Number
     max?: number; // For Number
@@ -40,9 +41,13 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
     const newQuestion: Question = {
       id: ulid(),
       type: selectedType,
-      text: { en: '', fr: '' },
+      text: '', // English only (v0.6.0+)
       required: false,
-      config: selectedType === 'likert' ? { scale: 5 } : {},
+      config: selectedType === 'likert'
+        ? { scale: 5 }
+        : selectedType === 'rating'
+        ? { scale: 5 }
+        : {},
     };
     onChange([...questions, newQuestion]);
   };
@@ -90,15 +95,23 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6" role="region" aria-label="Question builder">
+      {/* Screen reader announcements for question changes */}
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {questions.length > 0 && `${questions.length} ${questions.length === 1 ? 'question' : 'questions'} in questionnaire`}
+      </div>
+
       {/* Add Question Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Add Question</CardTitle>
+          <CardTitle className="text-lg md:text-xl">Add Question</CardTitle>
         </CardHeader>
-        <CardContent className="flex gap-4">
+        <CardContent className="flex flex-col sm:flex-row gap-3 md:gap-4">
           <Select value={selectedType} onValueChange={(value) => setSelectedType(value as Question['type'])}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger
+              className="w-full sm:w-[200px] md:w-[240px] min-h-[44px] text-base"
+              aria-label="Select question type"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -108,90 +121,97 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
               <SelectItem value="mcq_multiple">Multiple Choice (Multiple)</SelectItem>
               <SelectItem value="text">Text Response</SelectItem>
               <SelectItem value="number">Number Input</SelectItem>
+              <SelectItem value="rating">Rating (Stars)</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={addQuestion}>
-            <Plus className="mr-2 h-4 w-4" /> Add Question
+          <Button
+            onClick={addQuestion}
+            className="w-full sm:w-auto min-h-[44px] text-base"
+            aria-label={`Add ${selectedType.replace('_', ' ')} question`}
+          >
+            <Plus className="mr-2 h-4 w-4" aria-hidden="true" /> Add Question
           </Button>
         </CardContent>
       </Card>
 
       {/* Questions List */}
       {questions.length === 0 ? (
-        <p className="text-center text-muted-foreground">No questions yet. Add your first question above.</p>
+        <p className="text-center text-sm md:text-base text-muted-foreground py-8">No questions yet. Add your first question above.</p>
       ) : (
         questions.map((question, index) => (
           <Card key={question.id}>
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">Question {index + 1} - {question.type.replace('_', ' ').toUpperCase()}</CardTitle>
-                <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <CardTitle className="text-sm md:text-base">
+                  Question {index + 1} - {question.type.replace('_', ' ').toUpperCase()}
+                </CardTitle>
+                <div className="flex gap-1.5 flex-wrap">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => moveQuestion(question.id, 'up')}
                     disabled={index === 0}
+                    className="min-h-[44px] min-w-[44px] p-2"
+                    title="Move up"
+                    aria-label="Move question up"
                   >
-                    <ChevronUp className="h-4 w-4" />
+                    <ChevronUp className="h-5 w-5" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => moveQuestion(question.id, 'down')}
                     disabled={index === questions.length - 1}
+                    className="min-h-[44px] min-w-[44px] p-2"
+                    title="Move down"
+                    aria-label="Move question down"
                   >
-                    <ChevronDown className="h-4 w-4" />
+                    <ChevronDown className="h-5 w-5" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => duplicateQuestion(question)}
+                    className="min-h-[44px] min-w-[44px] p-2"
+                    title="Duplicate"
+                    aria-label="Duplicate question"
                   >
-                    <Copy className="h-4 w-4" />
+                    <Copy className="h-5 w-5" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => removeQuestion(question.id)}
+                    className="min-h-[44px] min-w-[44px] p-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    title="Delete"
+                    aria-label="Delete question"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-5 w-5" />
                   </Button>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* English Text */}
-              <div>
-                <Label>Question Text (English)</Label>
+              {/* Question Text (English only) */}
+              <div className="space-y-2">
+                <Label htmlFor={`question-text-${question.id}`} className="text-sm md:text-base">
+                  Question Text
+                  <span className="text-red-500 ml-1" aria-label="required">*</span>
+                </Label>
                 <Textarea
-                  placeholder="Enter question in English..."
-                  value={question.text.en}
-                  onChange={(e) =>
-                    updateQuestion(question.id, {
-                      text: { ...question.text, en: e.target.value },
-                    })
-                  }
-                />
-              </div>
-
-              {/* French Text */}
-              <div>
-                <Label>Question Text (French)</Label>
-                <Textarea
-                  placeholder="Entrez la question en français..."
-                  value={question.text.fr}
-                  onChange={(e) =>
-                    updateQuestion(question.id, {
-                      text: { ...question.text, fr: e.target.value },
-                    })
-                  }
+                  id={`question-text-${question.id}`}
+                  value={question.text}
+                  onChange={(e) => updateQuestion(question.id, { text: e.target.value })}
+                  placeholder="Enter your question here..."
+                  className="min-h-[100px] text-base"
+                  aria-required="true"
                 />
               </div>
 
               {/* Type-specific config */}
               {question.type === 'likert' && (
                 <div>
-                  <Label>Scale</Label>
+                  <Label className="text-sm md:text-base">Scale</Label>
                   <Select
                     value={String(question.config?.scale || 5)}
                     onValueChange={(value) =>
@@ -200,7 +220,7 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
                       })
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="min-h-[44px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -213,7 +233,7 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
 
               {(question.type === 'mcq_single' || question.type === 'mcq_multiple') && (
                 <div>
-                  <Label>Options (one per line)</Label>
+                  <Label className="text-sm md:text-base">Options (one per line)</Label>
                   <Textarea
                     placeholder="Option 1&#10;Option 2&#10;Option 3"
                     value={(question.config?.options || []).join('\n')}
@@ -225,14 +245,15 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
                         },
                       })
                     }
+                    className="min-h-[100px] text-base"
                   />
                 </div>
               )}
 
               {question.type === 'number' && (
-                <div className="flex gap-4">
+                <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
                   <div className="flex-1">
-                    <Label>Min Value</Label>
+                    <Label className="text-sm md:text-base">Min Value</Label>
                     <Input
                       type="number"
                       value={question.config?.min || ''}
@@ -244,10 +265,11 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
                           },
                         })
                       }
+                      className="min-h-[44px] text-base"
                     />
                   </div>
                   <div className="flex-1">
-                    <Label>Max Value</Label>
+                    <Label className="text-sm md:text-base">Max Value</Label>
                     <Input
                       type="number"
                       value={question.config?.max || ''}
@@ -259,6 +281,7 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
                           },
                         })
                       }
+                      className="min-h-[44px] text-base"
                     />
                   </div>
                 </div>
@@ -266,7 +289,7 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
 
               {question.type === 'text' && (
                 <div>
-                  <Label>Max Length (optional)</Label>
+                  <Label className="text-sm md:text-base">Max Length (optional)</Label>
                   <Input
                     type="number"
                     placeholder="e.g., 500"
@@ -279,12 +302,37 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
                         },
                       })
                     }
+                    className="min-h-[44px] text-base"
                   />
                 </div>
               )}
 
+              {question.type === 'rating' && (
+                <div>
+                  <Label className="text-sm md:text-base">Number of Stars</Label>
+                  <Select
+                    value={String(question.config?.scale || 5)}
+                    onValueChange={(value) =>
+                      updateQuestion(question.id, {
+                        config: { ...question.config, scale: Number(value) },
+                      })
+                    }
+                  >
+                    <SelectTrigger className="min-h-[44px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="3">3 stars</SelectItem>
+                      <SelectItem value="5">5 stars</SelectItem>
+                      <SelectItem value="7">7 stars</SelectItem>
+                      <SelectItem value="10">10 stars</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               {/* Required checkbox */}
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-3 min-h-[44px]">
                 <Checkbox
                   id={`required-${question.id}`}
                   checked={question.required}
@@ -292,7 +340,9 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
                     updateQuestion(question.id, { required: !!checked })
                   }
                 />
-                <Label htmlFor={`required-${question.id}`}>Required question</Label>
+                <Label htmlFor={`required-${question.id}`} className="text-sm md:text-base cursor-pointer">
+                  Required question
+                </Label>
               </div>
             </CardContent>
           </Card>

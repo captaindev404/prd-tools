@@ -382,6 +382,8 @@ A research panel is a group of users who:
 
 ### Creating Questionnaires
 
+> **Note (v0.6.0+):** Questionnaires are currently **English-only** to accelerate MVP development. Bilingual support (English/French) will be reintroduced in Phase 2 (v0.8.0+). This allows us to iterate faster and gather user feedback more quickly.
+
 #### Build a Questionnaire
 
 1. Go to `/research/questionnaires` > "New"
@@ -405,7 +407,7 @@ A research panel is a group of users who:
 For each question:
 - **ID**: Unique identifier (e.g., "nps", "satisfaction_q1")
 - **Type**: Select from above
-- **Text**: Question in English and French
+- **Text**: Question in English (French support coming in Phase 2)
 - **Required**: Yes or No
 - **Scale**: For Likert (e.g., 1-5)
 - **Options**: For MCQ and Checkbox

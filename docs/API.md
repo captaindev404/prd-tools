@@ -1080,7 +1080,9 @@ Create questionnaire
 
 **Authorization:** RESEARCHER or PM role
 
-**Request Body:**
+**⚠️ Breaking Change (v0.6.0+):** Questions now use **English-only format** for faster MVP development. Bilingual format `{en, fr}` is **deprecated** but backward compatible (automatically normalized to English).
+
+**Request Body (v0.6.0+):**
 ```json
 {
   "title": "Check-in Satisfaction",
@@ -1089,19 +1091,13 @@ Create questionnaire
     {
       "id": "nps",
       "type": "nps",
-      "text": {
-        "en": "How likely are you to recommend our check-in?",
-        "fr": "Recommanderiez-vous notre check-in ?"
-      },
+      "text": "How likely are you to recommend our check-in?",
       "required": true
     },
     {
       "id": "feedback",
       "type": "text",
-      "text": {
-        "en": "Any additional comments?",
-        "fr": "Commentaires additionnels ?"
-      },
+      "text": "Any additional comments?",
       "required": false
     }
   ],
@@ -1128,6 +1124,12 @@ Create questionnaire
 - `checkbox` - Multiple choice (multiple answers)
 - `text` - Free text
 - `number` - Numeric input
+
+**Backward Compatibility (v0.6.0+):**
+- Old bilingual format `{"en": "Text", "fr": "Texte"}` is automatically normalized to English text
+- MCQ options in bilingual format are also normalized
+- Deprecation warning logged in development mode when old format detected
+- Full support for Phase 2 bilingual reintroduction (v0.8.0+)
 
 **Response:** `201 Created`
 ```json

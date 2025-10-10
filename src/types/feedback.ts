@@ -73,6 +73,7 @@ export interface FeedbackListItem {
   totalWeight?: number; // Alias for voteWeight from API
   userHasVoted?: boolean;
   createdAt: string;
+  attachments?: Attachment[]; // File attachments
 }
 
 export interface FeedbackFilters {
@@ -99,6 +100,20 @@ export interface DuplicateSuggestion {
   state: FeedbackState;
 }
 
+/**
+ * File attachment metadata
+ * Based on PRD-005 specification
+ */
+export interface Attachment {
+  id: string;                // ULID
+  originalName: string;      // User's original filename
+  storedName: string;        // Server's stored filename (ULID-based)
+  url: string;               // Public URL to access file
+  size: number;              // File size in bytes
+  mimeType: string;          // MIME type (e.g., "image/png")
+  uploadedAt: string;        // ISO 8601 datetime
+}
+
 export interface CreateFeedbackInput {
   title: string;
   body: string;
@@ -109,11 +124,14 @@ export interface CreateFeedbackInput {
   villageContext?: string;
   source?: FeedbackSource;
   visibility?: FeedbackVisibility;
+  attachments?: Attachment[]; // File attachments (max 5)
 }
 
 export interface UpdateFeedbackInput {
   title?: string;
   body?: string;
+  attachments?: Attachment[];        // New attachments to add
+  attachmentsToRemove?: string[];    // Array of attachment IDs to remove
 }
 
 // Vote types
