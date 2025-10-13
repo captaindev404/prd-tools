@@ -8,8 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Trash2, Copy, ChevronUp, ChevronDown } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Plus, Trash2, Copy, ChevronUp, ChevronDown, HelpCircle, Library } from 'lucide-react';
 import { ulid } from 'ulid';
+import { QuestionTemplateLibrary } from './QuestionTemplateLibrary';
 
 /**
  * Question interface for questionnaire builder
@@ -36,6 +38,7 @@ interface QuestionBuilderProps {
 
 export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
   const [selectedType, setSelectedType] = useState<Question['type']>('likert');
+  const [isTemplateLibraryOpen, setIsTemplateLibraryOpen] = useState(false);
 
   const addQuestion = () => {
     const newQuestion: Question = {
@@ -94,6 +97,10 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
     }
   };
 
+  const handleInsertTemplate = (question: Question) => {
+    onChange([...questions, question]);
+  };
+
   return (
     <div className="space-y-4 md:space-y-6" role="region" aria-label="Question builder">
       {/* Screen reader announcements for question changes */}
@@ -104,29 +111,57 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
       {/* Add Question Section */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg md:text-xl">Add Question</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg md:text-xl">Add Question</CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsTemplateLibraryOpen(true)}
+              className="gap-2"
+              aria-label="Open question template library"
+            >
+              <Library className="h-4 w-4" />
+              <span className="hidden sm:inline">Insert Template</span>
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="flex flex-col sm:flex-row gap-3 md:gap-4">
-          <Select value={selectedType} onValueChange={(value) => setSelectedType(value as Question['type'])}>
-            <SelectTrigger
-              className="w-full sm:w-[200px] md:w-[240px] min-h-[44px] text-base"
-              aria-label="Select question type"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="likert">Likert Scale</SelectItem>
-              <SelectItem value="nps">NPS (0-10)</SelectItem>
-              <SelectItem value="mcq_single">Multiple Choice (Single)</SelectItem>
-              <SelectItem value="mcq_multiple">Multiple Choice (Multiple)</SelectItem>
-              <SelectItem value="text">Text Response</SelectItem>
-              <SelectItem value="number">Number Input</SelectItem>
-              <SelectItem value="rating">Rating (Stars)</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <Label htmlFor="question-type-select" className="text-sm md:text-base">Question Type</Label>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p>Select the type of question. Each type has different configuration options for how users respond.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <Select value={selectedType} onValueChange={(value) => setSelectedType(value as Question['type'])}>
+              <SelectTrigger
+                id="question-type-select"
+                className="w-full min-h-[44px] text-base"
+                aria-label="Select question type"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="likert">Likert Scale</SelectItem>
+                <SelectItem value="nps">NPS (0-10)</SelectItem>
+                <SelectItem value="mcq_single">Multiple Choice (Single)</SelectItem>
+                <SelectItem value="mcq_multiple">Multiple Choice (Multiple)</SelectItem>
+                <SelectItem value="text">Text Response</SelectItem>
+                <SelectItem value="number">Number Input</SelectItem>
+                <SelectItem value="rating">Rating (Stars)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <Button
             onClick={addQuestion}
-            className="w-full sm:w-auto min-h-[44px] text-base"
+            className="w-full sm:w-auto min-h-[44px] text-base sm:mt-8"
             aria-label={`Add ${selectedType.replace('_', ' ')} question`}
           >
             <Plus className="mr-2 h-4 w-4" aria-hidden="true" /> Add Question
@@ -211,7 +246,19 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
               {/* Type-specific config */}
               {question.type === 'likert' && (
                 <div>
-                  <Label className="text-sm md:text-base">Scale</Label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Label className="text-sm md:text-base">Scale</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>5 or 7-point agreement scale ranging from Strongly Disagree to Strongly Agree. Commonly used for measuring attitudes and opinions.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <Select
                     value={String(question.config?.scale || 5)}
                     onValueChange={(value) =>
@@ -233,7 +280,23 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
 
               {(question.type === 'mcq_single' || question.type === 'mcq_multiple') && (
                 <div>
-                  <Label className="text-sm md:text-base">Options (one per line)</Label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Label className="text-sm md:text-base">Options (one per line)</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>
+                            {question.type === 'mcq_single'
+                              ? 'Multiple choice with one answer (radio buttons). Users select a single option.'
+                              : 'Multiple choice with multiple answers (checkboxes). Users can select multiple options.'}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <Textarea
                     placeholder="Option 1&#10;Option 2&#10;Option 3"
                     value={(question.config?.options || []).join('\n')}
@@ -250,10 +313,33 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
                 </div>
               )}
 
+              {question.type === 'nps' && (
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <HelpCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-muted-foreground">
+                      Net Promoter Score measures likelihood to recommend on a 0-10 scale. Scores 0-6 are detractors, 7-8 are passive, and 9-10 are promoters.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {question.type === 'number' && (
                 <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
                   <div className="flex-1">
-                    <Label className="text-sm md:text-base">Min Value</Label>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Label className="text-sm md:text-base">Min Value</Label>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p>Numeric input with optional minimum and maximum value constraints. Useful for collecting quantitative data.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                     <Input
                       type="number"
                       value={question.config?.min || ''}
@@ -265,6 +351,7 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
                           },
                         })
                       }
+                      placeholder="Optional"
                       className="min-h-[44px] text-base"
                     />
                   </div>
@@ -281,6 +368,7 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
                           },
                         })
                       }
+                      placeholder="Optional"
                       className="min-h-[44px] text-base"
                     />
                   </div>
@@ -289,7 +377,19 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
 
               {question.type === 'text' && (
                 <div>
-                  <Label className="text-sm md:text-base">Max Length (optional)</Label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Label className="text-sm md:text-base">Max Length (optional)</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>Open-ended text response. Users can write detailed answers. Set a character limit to encourage concise responses.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <Input
                     type="number"
                     placeholder="e.g., 500"
@@ -309,7 +409,19 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
 
               {question.type === 'rating' && (
                 <div>
-                  <Label className="text-sm md:text-base">Number of Stars</Label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Label className="text-sm md:text-base">Number of Stars</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>Star rating (1-5 or custom scale). Visual and intuitive way to collect satisfaction or quality ratings.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <Select
                     value={String(question.config?.scale || 5)}
                     onValueChange={(value) =>
@@ -348,6 +460,13 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
           </Card>
         ))
       )}
+
+      {/* Question Template Library */}
+      <QuestionTemplateLibrary
+        open={isTemplateLibraryOpen}
+        onOpenChange={setIsTemplateLibraryOpen}
+        onInsertTemplate={handleInsertTemplate}
+      />
     </div>
   );
 }

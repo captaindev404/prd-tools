@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Upload, File, X, Image as ImageIcon, FileText, AlertCircle, Camera } from 'lucide-react';
+import { Upload, File, X, Image as ImageIcon, FileText, AlertCircle, Camera, Loader2, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -21,6 +21,15 @@ export interface UploadedFile {
 }
 
 /**
+ * Compression statistics for a file
+ */
+interface CompressionStats {
+  originalSize: number;
+  compressedSize: number;
+  reductionPercent: number;
+}
+
+/**
  * File with upload progress tracking
  */
 interface FileWithProgress extends File {
@@ -28,6 +37,8 @@ interface FileWithProgress extends File {
   progress: number;
   error?: string;
   uploadedData?: UploadedFile;
+  compressionStats?: CompressionStats;
+  isCompressing?: boolean;
 }
 
 /**
@@ -143,6 +154,11 @@ export function FileUpload({
   const [files, setFiles] = React.useState<FileWithProgress[]>([]);
   const [isDragging, setIsDragging] = React.useState(false);
   const [globalError, setGlobalError] = React.useState<string | null>(null);
+  const [compressionProgress, setCompressionProgress] = React.useState<{
+    current: number;
+    total: number;
+    fileName?: string;
+  } | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const cameraInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -269,34 +285,76 @@ export function FileUpload({
         return;
       }
 
-      // Compress images if needed (auto-compression for files >2MB)
-      const processedFiles = await Promise.all(
-        newFiles.map(async (file) => {
-          // Check if compression is needed
-          if (shouldCompressImage(file, { maxSizeMB: 2, maxWidthOrHeight: 1920 })) {
-            try {
-              console.log(`Compressing image: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
-              const compressed = await compressImage(file, {
-                maxSizeMB: 2,
-                maxWidthOrHeight: 1920,
-                quality: 0.85,
-              });
-              console.log(`Compression complete: ${compressed.name} (${(compressed.size / 1024 / 1024).toFixed(2)}MB)`);
-              return compressed;
-            } catch (error) {
-              console.warn('Image compression failed, using original:', error);
-              return file;
-            }
-          }
-          return file;
-        })
+      // Count how many files need compression
+      const filesToCompress = newFiles.filter((file) =>
+        shouldCompressImage(file, { maxSizeMB: 2, maxWidthOrHeight: 1920 })
       );
+
+      // Show compression progress if any files need compression
+      if (filesToCompress.length > 0) {
+        setCompressionProgress({
+          current: 0,
+          total: filesToCompress.length,
+        });
+      }
+
+      // Compress images if needed (auto-compression for files >2MB)
+      const processedFilesWithStats: Array<{
+        file: File;
+        compressionStats?: CompressionStats;
+      }> = [];
+
+      let compressedCount = 0;
+
+      for (const file of newFiles) {
+        // Check if compression is needed
+        if (shouldCompressImage(file, { maxSizeMB: 2, maxWidthOrHeight: 1920 })) {
+          try {
+            const originalSize = file.size;
+            setCompressionProgress({
+              current: compressedCount,
+              total: filesToCompress.length,
+              fileName: file.name,
+            });
+
+            console.log(`Compressing image: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+            const compressed = await compressImage(file, {
+              maxSizeMB: 2,
+              maxWidthOrHeight: 1920,
+              quality: 0.85,
+            });
+            console.log(`Compression complete: ${compressed.name} (${(compressed.size / 1024 / 1024).toFixed(2)}MB)`);
+
+            compressedCount++;
+
+            // Calculate compression stats
+            const stats: CompressionStats = {
+              originalSize,
+              compressedSize: compressed.size,
+              reductionPercent: Math.round((1 - compressed.size / originalSize) * 100),
+            };
+
+            processedFilesWithStats.push({
+              file: compressed,
+              compressionStats: stats,
+            });
+          } catch (error) {
+            console.warn('Image compression failed, using original:', error);
+            processedFilesWithStats.push({ file });
+          }
+        } else {
+          processedFilesWithStats.push({ file });
+        }
+      }
+
+      // Clear compression progress
+      setCompressionProgress(null);
 
       // Validate and add files
       const validatedFiles: FileWithProgress[] = [];
       const errors: string[] = [];
 
-      for (const file of processedFiles) {
+      for (const { file, compressionStats } of processedFilesWithStats) {
         const error = validateFile(file);
         if (error) {
           errors.push(`${file.name}: ${error}`);
@@ -304,6 +362,7 @@ export function FileUpload({
           const fileWithProgress: FileWithProgress = Object.assign(file, {
             id: generateFileId(),
             progress: 0,
+            compressionStats,
           });
           validatedFiles.push(fileWithProgress);
         }
@@ -606,6 +665,32 @@ export function FileUpload({
         </Alert>
       )}
 
+      {/* Compression progress alert */}
+      {compressionProgress && (
+        <Alert className="mt-4">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          <AlertDescription className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span>
+                Compressing images... {compressionProgress.current + 1} of {compressionProgress.total}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {Math.round(((compressionProgress.current + 1) / compressionProgress.total) * 100)}%
+              </span>
+            </div>
+            {compressionProgress.fileName && (
+              <p className="text-sm text-muted-foreground truncate">
+                {compressionProgress.fileName}
+              </p>
+            )}
+            <Progress
+              value={((compressionProgress.current + 1) / compressionProgress.total) * 100}
+              className="h-2"
+            />
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* File list */}
       {files.length > 0 && (
         <div className="mt-6 space-y-3" role="list" aria-label="Uploaded files">
@@ -690,12 +775,13 @@ function FilePreview({ file, onRemove, disabled }: FilePreviewProps) {
           <p className="truncate text-sm font-medium text-foreground" title={file.name}>
             {file.name}
           </p>
-          <div className="mt-1 flex items-center gap-2">
+          <div className="mt-1 flex items-center gap-2 flex-wrap">
             <p className="text-xs text-muted-foreground">
               {formatFileSize(file.size)}
             </p>
             {isComplete && (
-              <span className="text-xs font-medium text-green-600" role="status">
+              <span className="text-xs font-medium text-green-600 flex items-center gap-1" role="status">
+                <CheckCircle className="h-3 w-3" aria-hidden="true" />
                 Complete
               </span>
             )}
@@ -705,6 +791,16 @@ function FilePreview({ file, onRemove, disabled }: FilePreviewProps) {
               </span>
             )}
           </div>
+
+          {/* Compression statistics */}
+          {file.compressionStats && (
+            <div className="mt-1 flex items-center gap-2">
+              <p className="text-xs text-green-600 font-medium">
+                Compressed: {formatFileSize(file.compressionStats.originalSize)} → {formatFileSize(file.compressionStats.compressedSize)}
+                ({file.compressionStats.reductionPercent}% reduction)
+              </p>
+            </div>
+          )}
 
           {/* Upload progress */}
           {isUploading && (

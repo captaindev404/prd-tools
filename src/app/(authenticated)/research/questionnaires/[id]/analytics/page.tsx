@@ -6,10 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AnalyticsChart } from '@/components/questionnaires/analytics-chart';
-import { ArrowLeft, Download, Users, Calendar } from 'lucide-react';
+import { ArrowLeft, Users, Calendar } from 'lucide-react';
 import type { QuestionnaireAnalytics, Question } from '@/types/questionnaire';
 import { Breadcrumbs } from '@/components/navigation/breadcrumbs';
 import { getLocalizedText } from '@/lib/utils';
+import { QuestionnaireExportButton } from '@/components/questionnaires/QuestionnaireExportButton';
+import { ExportDialog } from '@/components/questionnaires/ExportDialog';
 
 export default async function QuestionnaireAnalyticsPage({ params }: { params: Promise<{ id: string; }> }) {
   const { id } = await params;
@@ -117,10 +119,13 @@ export default async function QuestionnaireAnalyticsPage({ params }: { params: P
           <h1 className="text-3xl font-bold tracking-tight">{questionnaire.title}</h1>
           <p className="text-muted-foreground mt-1">Analytics & Insights</p>
         </div>
-        <Button variant="outline">
-          <Download className="h-4 w-4 mr-2" />
-          Export Data
-        </Button>
+        <div className="flex gap-2">
+          <QuestionnaireExportButton questionnaireId={id} variant="outline" />
+          <ExportDialog
+            questionnaireId={id}
+            userRole={user.role || 'USER'}
+          />
+        </div>
       </div>
 
       {/* Summary Cards */}

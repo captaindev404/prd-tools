@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,10 +10,18 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { FormSkeleton } from '@/components/research/FormSkeleton';
 import { QuestionBuilder, Question } from './question-builder';
 import { QuestionnairePreviewModal } from './questionnaire-preview-modal';
 import { QuestionnairePublishDialog } from './questionnaire-publish-dialog';
-import { AlertCircle, Save, Loader2, Send, Users, Eye } from 'lucide-react';
+import { GeneralInfoTab } from './general-info-tab';
+import { AlertCircle, Save, Loader2, Send, Users, Eye, CheckCircle2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { useAutosave } from '@/hooks/use-autosave';
+import { AutosaveIndicator } from './AutosaveIndicator';
+import { addRecentPanels } from '@/lib/recent-panels-storage';
 
 interface Panel {
   id: string;
@@ -32,9 +40,14 @@ export function QuestionnaireCreateForm({
   availablePanels,
 }: QuestionnaireCreateFormProps) {
   const router = useRouter();
+  const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitAction, setSubmitAction] = useState<'draft' | 'publish' | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Optimistic UI state
+  const [isOptimistic, setIsOptimistic] = useState(false);
+  const [optimisticSuccess, setOptimisticSuccess] = useState(false);
 
   // Form state
   const [title, setTitle] = useState('');
@@ -58,10 +71,19 @@ export function QuestionnaireCreateForm({
   // Publish confirmation dialog state
   const [isPublishDialogOpen, setIsPublishDialogOpen] = useState(false);
 
+  // Current tab state for navigation
+  const [currentTab, setCurrentTab] = useState('general');
+
+  // Draft ID tracking (once created, we update instead of create)
+  const [draftId, setDraftId] = useState<string | null>(null);
+
   // Accessibility refs
   const errorRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
+
+  // Debounce timer ref
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const validateForm = (): string | null => {
     // Title validation
@@ -115,6 +137,52 @@ export function QuestionnaireCreateForm({
     return null;
   };
 
+  // Tab completion validation functions
+  const isGeneralInfoComplete = (): boolean => {
+    return title.trim().length >= 3 && title.length <= 200;
+  };
+
+  const isQuestionsComplete = (): boolean => {
+    return questions.length >= 1 && questions.every(q => q.text.trim().length > 0);
+  };
+
+  const isTargetingComplete = (): boolean => {
+    if (targetingType === 'all_users') return true;
+    if (targetingType === 'specific_panels') return selectedPanels.length > 0;
+    // For villages and roles, we'll consider them complete if selected
+    // In the future, when these are implemented, add similar logic
+    return true;
+  };
+
+  const isResponseSettingsComplete = (): boolean => {
+    // All settings have defaults, so always valid
+    // Check that dates are valid if provided
+    if (startAt && endAt) {
+      const startDate = new Date(startAt);
+      const endDate = new Date(endAt);
+      return startDate < endDate;
+    }
+    return true;
+  };
+
+  // Calculate overall progress
+  const calculateProgress = (): { completed: number; total: number; percentage: number } => {
+    const completionStates = [
+      isGeneralInfoComplete(),
+      isQuestionsComplete(),
+      isTargetingComplete(),
+      isResponseSettingsComplete(),
+    ];
+
+    const completed = completionStates.filter(Boolean).length;
+    const total = completionStates.length;
+    const percentage = (completed / total) * 100;
+
+    return { completed, total, percentage };
+  };
+
+  const progress = calculateProgress();
+
   const handleSubmit = async (action: 'draft' | 'publish') => {
     setError(null);
     setSubmitAction(action);
@@ -132,6 +200,15 @@ export function QuestionnaireCreateForm({
     }
 
     setIsSubmitting(true);
+
+    // Enable optimistic UI for publish action
+    if (action === 'publish') {
+      setIsOptimistic(true);
+      // Show success state immediately after a short delay
+      setTimeout(() => {
+        setOptimisticSuccess(true);
+      }, 300);
+    }
 
     try {
       // Transform questions to match API format
@@ -186,28 +263,74 @@ export function QuestionnaireCreateForm({
         const publishData = await publishResponse.json();
 
         if (!publishResponse.ok) {
+          // Rollback optimistic state
+          setIsOptimistic(false);
+          setOptimisticSuccess(false);
+
           // If publish fails, questionnaire is still created as draft
-          setError(
-            `Questionnaire created as draft, but failed to publish: ${
-              publishData.message || 'Unknown error'
-            }`
-          );
+          const errorMessage = `Questionnaire created as draft, but failed to publish: ${
+            publishData.message || 'Unknown error'
+          }`;
+          setError(errorMessage);
           setIsSubmitting(false);
           setSubmitAction(null);
-          // Still redirect to the questionnaire
-          router.push(`/research/questionnaires/${questionnaireId}`);
+
+          // Show error toast
+          toast({
+            title: 'Publish Failed',
+            description: errorMessage,
+            variant: 'destructive',
+          });
+
+          // Still redirect to the questionnaire analytics page (saved as draft)
+          router.push(`/research/questionnaires/${questionnaireId}/analytics`);
           router.refresh();
           return;
         }
+
+        // Save recently used panels for quick access next time
+        if (targetingType === 'specific_panels' && selectedPanels.length > 0) {
+          addRecentPanels(selectedPanels);
+        }
+
+        // Show success toast for publish with reach count
+        const reachCount = estimatedReach ?? 0;
+        toast({
+          title: 'Questionnaire Published',
+          description: `Successfully published to ${reachCount.toLocaleString()} ${reachCount === 1 ? 'user' : 'users'}.`,
+        });
+
+        // Redirect to analytics page for published questionnaires
+        router.push(`/research/questionnaires/${questionnaireId}/analytics`);
+        router.refresh();
+        return;
+      } else {
+        // Show success toast for draft
+        toast({
+          title: 'Draft Saved',
+          description: 'Questionnaire saved as draft successfully.',
+        });
       }
 
-      // Success - redirect to questionnaire detail page
-      router.push(`/research/questionnaires/${questionnaireId}`);
+      // Success - redirect to questionnaire analytics page
+      router.push(`/research/questionnaires/${questionnaireId}/analytics`);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      // Rollback optimistic UI on error
+      setIsOptimistic(false);
+      setOptimisticSuccess(false);
+
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      setError(errorMessage);
       setIsSubmitting(false);
       setSubmitAction(null);
+
+      // Show error toast
+      toast({
+        title: 'Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
     }
   };
 
@@ -219,53 +342,73 @@ export function QuestionnaireCreateForm({
     }
   };
 
-  // Calculate estimated audience size when targeting changes
-  useEffect(() => {
-    const calculateAudienceSize = async () => {
-      setReachError(null);
+  // Debounced audience size calculation - prevents excessive API calls
+  const debouncedCalculateAudienceSize = useCallback(
+    (targetingTypeParam: string, selectedPanelsParam: string[]) => {
+      // Clear existing timer
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+
+      // Set loading state immediately
       setIsLoadingReach(true);
+      setReachError(null);
 
-      try {
-        const requestBody: any = {
-          targetingType,
-        };
+      // Debounce the actual calculation
+      debounceTimerRef.current = setTimeout(async () => {
+        try {
+          const requestBody: any = {
+            targetingType: targetingTypeParam,
+          };
 
-        // Add targeting-specific parameters
-        if (targetingType === 'specific_panels') {
-          if (selectedPanels.length === 0) {
-            setEstimatedReach(0);
-            setIsLoadingReach(false);
-            return;
+          // Add targeting-specific parameters
+          if (targetingTypeParam === 'specific_panels') {
+            if (selectedPanelsParam.length === 0) {
+              setEstimatedReach(0);
+              setIsLoadingReach(false);
+              return;
+            }
+            requestBody.panelIds = selectedPanelsParam;
           }
-          requestBody.panelIds = selectedPanels;
+
+          const response = await fetch('/api/questionnaires/audience-stats', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || 'Failed to calculate audience size');
+          }
+
+          setEstimatedReach(data.estimatedReach);
+        } catch (err) {
+          console.error('Error calculating audience size:', err);
+          setReachError(err instanceof Error ? err.message : 'Failed to calculate audience size');
+          setEstimatedReach(null);
+        } finally {
+          setIsLoadingReach(false);
         }
+      }, 500); // 500ms debounce delay
+    },
+    []
+  );
 
-        const response = await fetch('/api/questionnaires/audience-stats', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-        });
+  // Calculate estimated audience size when targeting changes (debounced)
+  useEffect(() => {
+    debouncedCalculateAudienceSize(targetingType, selectedPanels);
 
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to calculate audience size');
-        }
-
-        setEstimatedReach(data.estimatedReach);
-      } catch (err) {
-        console.error('Error calculating audience size:', err);
-        setReachError(err instanceof Error ? err.message : 'Failed to calculate audience size');
-        setEstimatedReach(null);
-      } finally {
-        setIsLoadingReach(false);
+    // Cleanup function
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
       }
     };
-
-    calculateAudienceSize();
-  }, [targetingType, selectedPanels]);
+  }, [targetingType, selectedPanels, debouncedCalculateAudienceSize]);
 
   // Keyboard shortcuts handler
   const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
@@ -296,9 +439,26 @@ export function QuestionnaireCreateForm({
           aria-live="assertive"
           ref={errorRef}
           tabIndex={-1}
+          className="transition-all duration-300 ease-in-out animate-in fade-in slide-in-from-top-2"
         >
           <AlertCircle className="h-4 w-4" aria-hidden="true" />
           <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* Optimistic success state */}
+      {optimisticSuccess && !error && (
+        <Alert
+          className="border-green-200 bg-green-50 text-green-800 transition-all duration-300 ease-in-out animate-in fade-in slide-in-from-top-2"
+          role="status"
+          aria-live="polite"
+        >
+          <CheckCircle2 className="h-4 w-4 text-green-600" aria-hidden="true" />
+          <AlertDescription className="flex items-center gap-2">
+            <span>Questionnaire published successfully!</span>
+            <LoadingSpinner size="sm" variant="default" />
+            <span className="text-xs text-muted-foreground">Redirecting...</span>
+          </AlertDescription>
         </Alert>
       )}
 
@@ -307,57 +467,106 @@ export function QuestionnaireCreateForm({
         {isSubmitting && submitAction === 'draft' && 'Saving questionnaire as draft...'}
         {isSubmitting && submitAction === 'publish' && 'Publishing questionnaire...'}
         {isLoadingReach && 'Calculating audience size...'}
+        {optimisticSuccess && 'Questionnaire published successfully. Redirecting...'}
       </div>
 
-      <Tabs defaultValue="general" className="w-full">
+      {/* Progress Indicator */}
+      <Card className="border-l-4 border-l-primary">
+        <CardContent className="pt-6 pb-6">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground font-medium">Form Completion</span>
+              <span className="font-semibold text-foreground">
+                {progress.completed}/{progress.total} sections completed ({Math.round(progress.percentage)}%)
+              </span>
+            </div>
+            <Progress
+              value={progress.percentage}
+              className="h-2.5"
+              aria-label={`Form ${Math.round(progress.percentage)}% complete`}
+            />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs pt-2">
+              <div className="flex items-center gap-1.5">
+                {isGeneralInfoComplete() ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-green-600 flex-shrink-0" aria-label="complete" />
+                ) : (
+                  <div className="h-3.5 w-3.5 rounded-full border-2 border-muted-foreground/40 flex-shrink-0" aria-label="incomplete" />
+                )}
+                <span className={isGeneralInfoComplete() ? 'text-green-700 font-medium' : 'text-muted-foreground'}>
+                  General Info
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {isQuestionsComplete() ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-green-600 flex-shrink-0" aria-label="complete" />
+                ) : (
+                  <div className="h-3.5 w-3.5 rounded-full border-2 border-muted-foreground/40 flex-shrink-0" aria-label="incomplete" />
+                )}
+                <span className={isQuestionsComplete() ? 'text-green-700 font-medium' : 'text-muted-foreground'}>
+                  Questions
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {isTargetingComplete() ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-green-600 flex-shrink-0" aria-label="complete" />
+                ) : (
+                  <div className="h-3.5 w-3.5 rounded-full border-2 border-muted-foreground/40 flex-shrink-0" aria-label="incomplete" />
+                )}
+                <span className={isTargetingComplete() ? 'text-green-700 font-medium' : 'text-muted-foreground'}>
+                  Targeting
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {isResponseSettingsComplete() ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-green-600 flex-shrink-0" aria-label="complete" />
+                ) : (
+                  <div className="h-3.5 w-3.5 rounded-full border-2 border-muted-foreground/40 flex-shrink-0" aria-label="incomplete" />
+                )}
+                <span className={isResponseSettingsComplete() ? 'text-green-700 font-medium' : 'text-muted-foreground'}>
+                  Settings
+                </span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="general">General Info</TabsTrigger>
-          <TabsTrigger value="questions">Questions</TabsTrigger>
-          <TabsTrigger value="targeting">Targeting & Settings</TabsTrigger>
+          <TabsTrigger value="general" className="gap-2">
+            General Info
+            {isGeneralInfoComplete() ? (
+              <CheckCircle2 className="h-4 w-4 text-green-600" aria-label="complete" />
+            ) : (
+              <AlertCircle className="h-4 w-4 text-muted-foreground" aria-label="incomplete" />
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="questions" className="gap-2">
+            Questions
+            {isQuestionsComplete() ? (
+              <CheckCircle2 className="h-4 w-4 text-green-600" aria-label="complete" />
+            ) : (
+              <AlertCircle className="h-4 w-4 text-muted-foreground" aria-label="incomplete" />
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="targeting" className="gap-2">
+            Targeting & Settings
+            {isTargetingComplete() && isResponseSettingsComplete() ? (
+              <CheckCircle2 className="h-4 w-4 text-green-600" aria-label="complete" />
+            ) : (
+              <AlertCircle className="h-4 w-4 text-muted-foreground" aria-label="incomplete" />
+            )}
+          </TabsTrigger>
         </TabsList>
 
         {/* Tab 1: General Info */}
         <TabsContent value="general" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Questionnaire Details</CardTitle>
-              <CardDescription>
-                Basic information about your questionnaire
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="title">
-                  Title <span className="text-red-500" aria-label="required">*</span>
-                </Label>
-                <Input
-                  ref={titleInputRef}
-                  id="title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g., Q4 2024 Guest Experience Survey"
-                  required
-                  maxLength={200}
-                  aria-describedby="title-description title-char-count"
-                  aria-required="true"
-                  aria-invalid={error?.includes('Title') ? 'true' : 'false'}
-                />
-                <p id="title-char-count" className="text-xs text-muted-foreground mt-1">
-                  {title.length} of 200 characters used
-                </p>
-                <p id="title-description" className="sr-only">
-                  Enter a descriptive title for your questionnaire. Maximum 200 characters.
-                </p>
-              </div>
-
-              <Alert>
-                <AlertCircle className="h-4 w-4" aria-hidden="true" />
-                <AlertDescription>
-                  Questionnaires will be created in draft mode. You can publish them after reviewing all details.
-                </AlertDescription>
-              </Alert>
-            </CardContent>
-          </Card>
+          <GeneralInfoTab
+            title={title}
+            onTitleChange={setTitle}
+            titleError={error?.includes('Title') ? error : null}
+            titleInputRef={titleInputRef}
+          />
         </TabsContent>
 
         {/* Tab 2: Questions */}
@@ -407,7 +616,7 @@ export function QuestionnaireCreateForm({
               </div>
 
               {targetingType === 'specific_panels' && (
-                <div className="space-y-3">
+                <div className="space-y-3 transition-all duration-300 ease-in-out animate-in fade-in slide-in-from-top-2">
                   <Label>
                     Select Panels <span className="text-red-500" aria-label="required">*</span>
                   </Label>
@@ -425,12 +634,13 @@ export function QuestionnaireCreateForm({
                       aria-label="Select panels for targeting"
                     >
                       {availablePanels.map((panel) => (
-                        <div key={panel.id} className="flex items-start space-x-2">
+                        <div key={panel.id} className="flex items-start space-x-2 transition-colors duration-150 hover:bg-accent/50 rounded p-1">
                           <Checkbox
                             id={`panel-${panel.id}`}
                             checked={selectedPanels.includes(panel.id)}
                             onCheckedChange={(checked) => handlePanelToggle(panel.id, !!checked)}
                             aria-describedby={`panel-${panel.id}-description`}
+                            disabled={isSubmitting}
                           />
                           <div className="flex-1">
                             <Label
@@ -457,19 +667,19 @@ export function QuestionnaireCreateForm({
               {/* Estimated Audience Reach */}
               <div className="mt-6 pt-4 border-t">
                 <div className="flex items-center gap-3">
-                  <Users className="h-5 w-5 text-muted-foreground" />
+                  <Users className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
                   <div className="flex-1">
                     {isLoadingReach ? (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground transition-all duration-200 animate-in fade-in">
+                        <LoadingSpinner size="sm" variant="muted" />
                         <span>Calculating audience size...</span>
                       </div>
                     ) : reachError ? (
-                      <div className="text-sm text-destructive">
+                      <div className="text-sm text-destructive transition-all duration-200 animate-in fade-in">
                         {reachError}
                       </div>
                     ) : estimatedReach !== null ? (
-                      <div className="space-y-1">
+                      <div className="space-y-1 transition-all duration-300 animate-in fade-in slide-in-from-left-2">
                         <p className="text-sm text-muted-foreground">
                           Estimated reach:{' '}
                           <span className="font-semibold text-foreground text-base">
@@ -584,6 +794,7 @@ export function QuestionnaireCreateForm({
             variant="outline"
             onClick={() => router.back()}
             disabled={isSubmitting}
+            className="transition-all duration-200"
           >
             Cancel
           </Button>
@@ -592,6 +803,7 @@ export function QuestionnaireCreateForm({
             variant="outline"
             onClick={() => setIsPreviewOpen(true)}
             disabled={isSubmitting || questions.length === 0}
+            className="transition-all duration-200"
           >
             <Eye className="mr-2 h-4 w-4" />
             Preview
@@ -603,6 +815,7 @@ export function QuestionnaireCreateForm({
             variant="outline"
             onClick={() => handleSubmit('draft')}
             disabled={isSubmitting}
+            className="transition-all duration-200 min-w-[140px]"
           >
             {isSubmitting && submitAction === 'draft' ? (
               <>
@@ -619,12 +832,18 @@ export function QuestionnaireCreateForm({
           <Button
             type="button"
             onClick={() => setIsPublishDialogOpen(true)}
-            disabled={isSubmitting}
+            disabled={isSubmitting || validateForm() !== null || isOptimistic}
+            className="transition-all duration-200 min-w-[160px]"
           >
             {isSubmitting && submitAction === 'publish' ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Publishing...
+              </>
+            ) : optimisticSuccess ? (
+              <>
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+                Published!
               </>
             ) : (
               <>

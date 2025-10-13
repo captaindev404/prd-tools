@@ -1,6 +1,12 @@
 /**
  * Type definitions for Questionnaires
- * Based on DSL spec in dsl/global.yaml (lines 153-215)
+ * Based on DSL spec in docs/dsl/global.yaml (lines 174-202)
+ *
+ * NOTE: For form validation, use the Zod schemas in:
+ * @see src/lib/validations/questionnaire-validation.ts
+ *
+ * This file contains TypeScript interfaces for runtime types.
+ * The Zod schemas provide runtime validation and type inference.
  */
 
 export enum QuestionType {
