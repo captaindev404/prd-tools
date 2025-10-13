@@ -6,7 +6,6 @@
 /// ```bash
 /// cargo run --example simple_agent
 /// ```
-
 use anyhow::Result;
 use prd_tool::{PRDClient, Priority, TaskStatus};
 use std::thread;

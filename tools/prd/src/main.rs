@@ -1,3 +1,4 @@
+mod batch;
 mod db;
 mod db_extensions;
 mod migrations;
@@ -6,12 +7,12 @@ mod resolver;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use colored::*;
-use db::{Database, Priority, TaskStatus, AgentStatus};
-use db_extensions::{DependencyOps, AcceptanceCriteriaOps};
+use db::{AgentStatus, Database, Priority, TaskStatus};
+use db_extensions::{AcceptanceCriteriaOps, DependencyOps};
 use migrations::MigrationRunner;
-use resolver::{resolve_task_id, resolve_agent_id, format_task_id, format_agent_id};
+use resolver::{format_agent_id, format_task_id, resolve_agent_id, resolve_task_id};
 use std::path::PathBuf;
-use tabled::{Table, Tabled, settings::Style};
+use tabled::{settings::Style, Table, Tabled};
 
 #[derive(Parser)]
 #[command(name = "prd")]
@@ -251,6 +252,25 @@ enum Commands {
         #[arg(short, long)]
         force: bool,
     },
+
+    /// Complete multiple tasks at once (batch operation)
+    CompleteBatch {
+        /// Comma-separated task IDs (e.g., "33,34,35")
+        #[arg(long, conflicts_with_all = ["from_file", "from_csv"])]
+        tasks: Option<String>,
+
+        /// Agent mapping (e.g., "33:A11,34:A11,35:A12")
+        #[arg(long, requires = "tasks")]
+        agent_map: Option<String>,
+
+        /// JSON file path
+        #[arg(long, conflicts_with = "from_csv")]
+        from_file: Option<PathBuf>,
+
+        /// CSV file path
+        #[arg(long, conflicts_with = "from_file")]
+        from_csv: Option<PathBuf>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -367,7 +387,11 @@ fn main() -> Result<()> {
             let runner = MigrationRunner::new(conn);
             println!("{} Running migrations...", "✓".green());
             let applied = runner.migrate_to_latest()?;
-            println!("{} Applied {} migration(s)", "✓".green().bold(), applied.len());
+            println!(
+                "{} Applied {} migration(s)",
+                "✓".green().bold(),
+                applied.len()
+            );
 
             println!("\n{}", "Database initialized successfully!".green().bold());
             println!("You can now use:");
@@ -391,7 +415,10 @@ fn main() -> Result<()> {
             let priority = Priority::from_str(&priority);
             let task = db.create_task(title, description, priority.clone(), parent, epic)?;
             println!("{}", "✓ Task created successfully!".green().bold());
-            let display_id = task.display_id.map(|id| format!("#{}", id)).unwrap_or_else(|| task.id[..8].to_string());
+            let display_id = task
+                .display_id
+                .map(|id| format!("#{}", id))
+                .unwrap_or_else(|| task.id[..8].to_string());
             println!("ID: {}", display_id.cyan());
             println!("Title: {}", task.title);
             println!("Priority: {}", priority.as_str().yellow());
@@ -400,7 +427,17 @@ fn main() -> Result<()> {
             }
         }
 
-        Commands::List { status, subtasks, epic, no_agent, priority, agent, limit, offset, json } => {
+        Commands::List {
+            status,
+            subtasks,
+            epic,
+            no_agent,
+            priority,
+            agent,
+            limit,
+            offset,
+            json,
+        } => {
             let status_filter = status.map(|s| TaskStatus::from_str(&s));
             let priority_filter = priority.map(|p| Priority::from_str(&p));
             let mut tasks = db.list_tasks(status_filter)?;
@@ -419,7 +456,11 @@ fn main() -> Result<()> {
                 // Try to resolve agent ID
                 let agent_uuid_result = resolve_agent_id(db.get_connection(), &agent_filter);
                 if let Ok(agent_uuid) = agent_uuid_result {
-                    tasks.retain(|t| t.assigned_agent.as_ref().map_or(false, |a| a == &agent_uuid));
+                    tasks.retain(|t| {
+                        t.assigned_agent
+                            .as_ref()
+                            .map_or(false, |a| a == &agent_uuid)
+                    });
                 } else {
                     // If resolution fails, no matches
                     tasks.clear();
@@ -468,14 +509,20 @@ fn main() -> Result<()> {
                     .iter()
                     .filter(|t| !subtasks || t.parent_id.is_none())
                     .map(|t| TaskJson {
-                        id: t.display_id.map(|id| format!("#{}", id)).unwrap_or_else(|| t.id[..8].to_string()),
+                        id: t
+                            .display_id
+                            .map(|id| format!("#{}", id))
+                            .unwrap_or_else(|| t.id[..8].to_string()),
                         uuid: t.id.clone(),
                         title: t.title.clone(),
                         description: t.description.clone(),
                         status: t.status.as_str().to_string(),
                         priority: t.priority.as_str().to_string(),
                         agent: t.assigned_agent.as_ref().and_then(|uuid| {
-                            db.get_agent(uuid).ok().flatten().and_then(|a| a.display_id.map(|id| format!("A{}", id)))
+                            db.get_agent(uuid)
+                                .ok()
+                                .flatten()
+                                .and_then(|a| a.display_id.map(|id| format!("A{}", id)))
                         }),
                         epic: t.epic_name.clone(),
                         created_at: t.created_at.to_rfc3339(),
@@ -492,7 +539,10 @@ fn main() -> Result<()> {
                 .iter()
                 .filter(|t| !subtasks || t.parent_id.is_none())
                 .map(|t| TaskRow {
-                    id: t.display_id.map(|id| format!("#{}", id)).unwrap_or_else(|| t.id[..8].to_string()),
+                    id: t
+                        .display_id
+                        .map(|id| format!("#{}", id))
+                        .unwrap_or_else(|| t.id[..8].to_string()),
                     title: if t.title.len() > 40 {
                         format!("{}...", &t.title[..37])
                     } else {
@@ -505,7 +555,10 @@ fn main() -> Result<()> {
                         .as_ref()
                         .and_then(|uuid| {
                             // Try to get agent display_id
-                            db.get_agent(uuid).ok().flatten().and_then(|a| a.display_id.map(|id| format!("A{}", id)))
+                            db.get_agent(uuid)
+                                .ok()
+                                .flatten()
+                                .and_then(|a| a.display_id.map(|id| format!("A{}", id)))
                         })
                         .unwrap_or_else(|| "-".to_string()),
                     created: t.created_at.format("%Y-%m-%d %H:%M").to_string(),
@@ -517,7 +570,11 @@ fn main() -> Result<()> {
             println!("{}", table);
 
             if limit.is_some() || offset.is_some() {
-                println!("\n{} of {} tasks total", tasks.len().to_string().cyan().bold(), total_count.to_string().cyan().bold());
+                println!(
+                    "\n{} of {} tasks total",
+                    tasks.len().to_string().cyan().bold(),
+                    total_count.to_string().cyan().bold()
+                );
             } else {
                 println!("\n{} tasks total", tasks.len().to_string().cyan().bold());
             }
@@ -530,7 +587,10 @@ fn main() -> Result<()> {
             match task {
                 Some(t) => {
                     println!("\n{}", "Task Details".bold().underline());
-                    let display_id = t.display_id.map(|id| format!("#{}", id)).unwrap_or_else(|| t.id[..8].to_string());
+                    let display_id = t
+                        .display_id
+                        .map(|id| format!("#{}", id))
+                        .unwrap_or_else(|| t.id[..8].to_string());
                     println!("ID: {}", display_id.cyan());
                     println!("Title: {}", t.title.bold());
                     if let Some(desc) = &t.description {
@@ -542,7 +602,8 @@ fn main() -> Result<()> {
                         println!("Epic: {}", epic.cyan());
                     }
                     if let Some(agent_uuid) = &t.assigned_agent {
-                        let agent_display = db.get_agent(agent_uuid)
+                        let agent_display = db
+                            .get_agent(agent_uuid)
                             .ok()
                             .flatten()
                             .and_then(|a| a.display_id.map(|id| format!("A{} ({})", id, a.name)))
@@ -550,7 +611,8 @@ fn main() -> Result<()> {
                         println!("Assigned to: {}", agent_display.cyan());
                     }
                     if let Some(parent) = &t.parent_id {
-                        let parent_display = db.get_task(parent)
+                        let parent_display = db
+                            .get_task(parent)
                             .ok()
                             .flatten()
                             .and_then(|p| p.display_id.map(|id| format!("#{}", id)))
@@ -566,7 +628,10 @@ fn main() -> Result<()> {
                     println!("Created: {}", t.created_at.format("%Y-%m-%d %H:%M:%S"));
                     println!("Updated: {}", t.updated_at.format("%Y-%m-%d %H:%M:%S"));
                     if let Some(completed) = t.completed_at {
-                        println!("Completed: {}", completed.format("%Y-%m-%d %H:%M:%S").to_string().green());
+                        println!(
+                            "Completed: {}",
+                            completed.format("%Y-%m-%d %H:%M:%S").to_string().green()
+                        );
                     }
 
                     // Show subtasks
@@ -574,7 +639,10 @@ fn main() -> Result<()> {
                     if !subtasks.is_empty() {
                         println!("\n{}", "Subtasks:".bold());
                         for (i, st) in subtasks.iter().enumerate() {
-                            let st_id = st.display_id.map(|id| format!("#{}", id)).unwrap_or_else(|| st.id[..8].to_string());
+                            let st_id = st
+                                .display_id
+                                .map(|id| format!("#{}", id))
+                                .unwrap_or_else(|| st.id[..8].to_string());
                             println!(
                                 "  {}. {} ({}) - {}",
                                 i + 1,
@@ -593,7 +661,10 @@ fn main() -> Result<()> {
                             for log in task_logs {
                                 println!(
                                     "  {} - {} {}",
-                                    log.created_at.format("%Y-%m-%d %H:%M:%S").to_string().dimmed(),
+                                    log.created_at
+                                        .format("%Y-%m-%d %H:%M:%S")
+                                        .to_string()
+                                        .dimmed(),
                                     log.action.cyan(),
                                     log.details.unwrap_or_default()
                                 );
@@ -612,7 +683,12 @@ fn main() -> Result<()> {
             let status_enum = TaskStatus::from_str(&status);
             db.update_task_status(&task_uuid, status_enum.clone(), agent.as_deref())?;
             let display_id = format_task_id(db.get_connection(), &task_uuid);
-            println!("{} Task {} updated to {}", "✓".green().bold(), display_id.cyan(), status_enum.as_str());
+            println!(
+                "{} Task {} updated to {}",
+                "✓".green().bold(),
+                display_id.cyan(),
+                status_enum.as_str()
+            );
         }
 
         Commands::Breakdown { id, interactive } => {
@@ -623,7 +699,7 @@ fn main() -> Result<()> {
                     println!("Breaking down task: {}", t.title.bold());
 
                     if interactive {
-                        use dialoguer::{Input, Confirm};
+                        use dialoguer::{Confirm, Input};
 
                         loop {
                             let subtask_title: String = Input::new()
@@ -646,11 +722,28 @@ fn main() -> Result<()> {
                                 .interact_text()?;
 
                             let priority = Priority::from_str(&priority_str);
-                            let desc = if description.is_empty() { None } else { Some(description) };
+                            let desc = if description.is_empty() {
+                                None
+                            } else {
+                                Some(description)
+                            };
 
-                            let subtask = db.create_task(subtask_title, desc, priority, Some(task_uuid.clone()), None)?;
-                            let subtask_display = subtask.display_id.map(|id| format!("#{}", id)).unwrap_or_else(|| subtask.id[..8].to_string());
-                            println!("{} Created subtask: {}", "✓".green(), subtask_display.cyan());
+                            let subtask = db.create_task(
+                                subtask_title,
+                                desc,
+                                priority,
+                                Some(task_uuid.clone()),
+                                None,
+                            )?;
+                            let subtask_display = subtask
+                                .display_id
+                                .map(|id| format!("#{}", id))
+                                .unwrap_or_else(|| subtask.id[..8].to_string());
+                            println!(
+                                "{} Created subtask: {}",
+                                "✓".green(),
+                                subtask_display.cyan()
+                            );
 
                             let continue_adding = Confirm::new()
                                 .with_prompt("Add another subtask?")
@@ -668,7 +761,11 @@ fn main() -> Result<()> {
                     }
 
                     let subtasks = db.get_subtasks(&task_uuid)?;
-                    println!("\n{} {} subtasks created", "✓".green().bold(), subtasks.len());
+                    println!(
+                        "\n{} {} subtasks created",
+                        "✓".green().bold(),
+                        subtasks.len()
+                    );
                 }
                 None => {
                     println!("{}", "Task not found.".red());
@@ -692,7 +789,13 @@ fn main() -> Result<()> {
                     db.assign_task(&task_uuid, &a.id)?;
                     let task_display = format_task_id(db.get_connection(), &task_uuid);
                     let agent_display = format_agent_id(db.get_connection(), &a.id);
-                    println!("{} Task {} assigned to {} ({})", "✓".green().bold(), task_display.cyan(), agent_display.cyan(), a.name);
+                    println!(
+                        "{} Task {} assigned to {} ({})",
+                        "✓".green().bold(),
+                        task_display.cyan(),
+                        agent_display.cyan(),
+                        a.name
+                    );
                 }
                 None => {
                     println!("{} Agent not found. Creating new agent...", "⚠".yellow());
@@ -700,7 +803,13 @@ fn main() -> Result<()> {
                     db.assign_task(&task_uuid, &new_agent.id)?;
                     let task_display = format_task_id(db.get_connection(), &task_uuid);
                     let agent_display = format_agent_id(db.get_connection(), &new_agent.id);
-                    println!("{} Task {} assigned to new agent {} ({})", "✓".green().bold(), task_display.cyan(), agent_display.cyan(), new_agent.name);
+                    println!(
+                        "{} Task {} assigned to new agent {} ({})",
+                        "✓".green().bold(),
+                        task_display.cyan(),
+                        agent_display.cyan(),
+                        new_agent.name
+                    );
                 }
             }
         }
@@ -708,7 +817,10 @@ fn main() -> Result<()> {
         Commands::AgentCreate { name } => {
             let agent = db.create_agent(name)?;
             println!("{}", "✓ Agent created successfully!".green().bold());
-            let display_id = agent.display_id.map(|id| format!("A{}", id)).unwrap_or_else(|| agent.id[..8].to_string());
+            let display_id = agent
+                .display_id
+                .map(|id| format!("A{}", id))
+                .unwrap_or_else(|| agent.id[..8].to_string());
             println!("ID: {}", display_id.cyan());
             println!("Name: {}", agent.name);
         }
@@ -724,14 +836,20 @@ fn main() -> Result<()> {
             let rows: Vec<AgentRow> = agents
                 .iter()
                 .map(|a| AgentRow {
-                    id: a.display_id.map(|id| format!("A{}", id)).unwrap_or_else(|| a.id[..8].to_string()),
+                    id: a
+                        .display_id
+                        .map(|id| format!("A{}", id))
+                        .unwrap_or_else(|| a.id[..8].to_string()),
                     name: a.name.clone(),
                     status: format_agent_status(&a.status),
                     current_task: a
                         .current_task_id
                         .as_ref()
                         .and_then(|uuid| {
-                            db.get_task(uuid).ok().flatten().and_then(|t| t.display_id.map(|id| format!("#{}", id)))
+                            db.get_task(uuid)
+                                .ok()
+                                .flatten()
+                                .and_then(|t| t.display_id.map(|id| format!("#{}", id)))
                         })
                         .unwrap_or_else(|| "-".to_string()),
                     last_active: a.last_active.format("%Y-%m-%d %H:%M").to_string(),
@@ -744,7 +862,11 @@ fn main() -> Result<()> {
             println!("\n{} agents total", agents.len().to_string().cyan().bold());
         }
 
-        Commands::AgentStatus { agent, status, task } => {
+        Commands::AgentStatus {
+            agent,
+            status,
+            task,
+        } => {
             let agent_uuid = resolve_agent_id(db.get_connection(), &agent)?;
             let agent_obj = db.get_agent(&agent_uuid)?;
 
@@ -758,7 +880,11 @@ fn main() -> Result<()> {
                     let status = AgentStatus::from_str(&status);
                     db.update_agent_status(&a.id, status, task_uuid.as_deref())?;
                     let agent_display = format_agent_id(db.get_connection(), &a.id);
-                    println!("{} Agent {} status updated!", "✓".green().bold(), agent_display.cyan());
+                    println!(
+                        "{} Agent {} status updated!",
+                        "✓".green().bold(),
+                        agent_display.cyan()
+                    );
                 }
                 None => {
                     println!("{}", "Agent not found.".red());
@@ -783,7 +909,12 @@ fn main() -> Result<()> {
                     let agent_display = format_agent_id(db.get_connection(), &a.id);
                     let task_display = format_task_id(db.get_connection(), &task_uuid);
                     println!("{}", "✓ Agent synchronized!".green().bold());
-                    println!("Agent {} ({}) is now working on task {}", agent_display.cyan(), a.name, task_display.cyan());
+                    println!(
+                        "Agent {} ({}) is now working on task {}",
+                        agent_display.cyan(),
+                        a.name,
+                        task_display.cyan()
+                    );
                 }
                 None => {
                     println!("{}", "Agent not found.".red());
@@ -793,7 +924,9 @@ fn main() -> Result<()> {
 
         Commands::Complete { task_id, agent } => {
             let task_uuid = resolve_task_id(db.get_connection(), &task_id)?;
-            let task = db.get_task(&task_uuid)?.ok_or_else(|| anyhow::anyhow!("Task not found"))?;
+            let task = db
+                .get_task(&task_uuid)?
+                .ok_or_else(|| anyhow::anyhow!("Task not found"))?;
 
             let agent_id = if let Some(agent_name) = agent {
                 resolve_agent_id(db.get_connection(), &agent_name)?
@@ -808,7 +941,8 @@ fn main() -> Result<()> {
 
             let task_display = format_task_id(db.get_connection(), &task_uuid);
             let agent_display = format_agent_id(db.get_connection(), &agent_id);
-            println!("{} Task {} completed by agent {}",
+            println!(
+                "{} Task {} completed by agent {}",
                 "✓".green().bold(),
                 task_display.cyan(),
                 agent_display.cyan()
@@ -817,7 +951,9 @@ fn main() -> Result<()> {
 
         Commands::Cancel { task_id, reason } => {
             let task_uuid = resolve_task_id(db.get_connection(), &task_id)?;
-            let task = db.get_task(&task_uuid)?.ok_or_else(|| anyhow::anyhow!("Task not found"))?;
+            let task = db
+                .get_task(&task_uuid)?
+                .ok_or_else(|| anyhow::anyhow!("Task not found"))?;
 
             // Update task status to cancelled
             db.update_task_status(&task_uuid, TaskStatus::Cancelled, None)?;
@@ -828,7 +964,8 @@ fn main() -> Result<()> {
             }
 
             let task_display = format_task_id(db.get_connection(), &task_uuid);
-            println!("{} Task {} cancelled",
+            println!(
+                "{} Task {} cancelled",
                 "✕".yellow().bold(),
                 task_display.cyan()
             );
@@ -838,11 +975,19 @@ fn main() -> Result<()> {
             }
         }
 
-        Commands::Next { priority, epic, agent, sync } => {
+        Commands::Next {
+            priority,
+            epic,
+            agent,
+            sync,
+        } => {
             let ready_ids = db.get_connection().get_ready_tasks()?;
 
             if ready_ids.is_empty() {
-                println!("{}", "No tasks ready (all have pending dependencies).".yellow());
+                println!(
+                    "{}",
+                    "No tasks ready (all have pending dependencies).".yellow()
+                );
                 return Ok(());
             }
 
@@ -893,10 +1038,14 @@ fn main() -> Result<()> {
             });
 
             let next_task = &ready_tasks[0];
-            let task_display = next_task.display_id.map(|id| format!("#{}", id)).unwrap_or_else(|| next_task.id[..8].to_string());
+            let task_display = next_task
+                .display_id
+                .map(|id| format!("#{}", id))
+                .unwrap_or_else(|| next_task.id[..8].to_string());
 
             println!("\n{}", "Next task:".bold().underline());
-            println!("{} - {} [{}]",
+            println!(
+                "{} - {} [{}]",
                 task_display.cyan(),
                 next_task.title,
                 format_priority(&next_task.priority)
@@ -908,28 +1057,51 @@ fn main() -> Result<()> {
             // Auto-assign and sync if requested
             if let Some(agent_name) = agent {
                 let agent_uuid = resolve_agent_id(db.get_connection(), &agent_name)?;
-                let agent_obj = db.get_agent(&agent_uuid)?.ok_or_else(|| anyhow::anyhow!("Agent not found"))?;
+                let agent_obj = db
+                    .get_agent(&agent_uuid)?
+                    .ok_or_else(|| anyhow::anyhow!("Agent not found"))?;
 
                 if sync {
                     // Update agent to working status
-                    db.update_agent_status(&agent_obj.id, AgentStatus::Working, Some(&next_task.id))?;
+                    db.update_agent_status(
+                        &agent_obj.id,
+                        AgentStatus::Working,
+                        Some(&next_task.id),
+                    )?;
                     // Update task to in_progress
-                    db.update_task_status(&next_task.id, TaskStatus::InProgress, Some(&agent_obj.id))?;
+                    db.update_task_status(
+                        &next_task.id,
+                        TaskStatus::InProgress,
+                        Some(&agent_obj.id),
+                    )?;
                     // Assign task if not already assigned
                     db.assign_task(&next_task.id, &agent_obj.id)?;
 
                     let agent_display = format_agent_id(db.get_connection(), &agent_obj.id);
                     println!("\n{}", "✓ Task assigned and synced!".green().bold());
-                    println!("Agent {} ({}) is now working on {}", agent_display.cyan(), agent_obj.name, task_display.cyan());
+                    println!(
+                        "Agent {} ({}) is now working on {}",
+                        agent_display.cyan(),
+                        agent_obj.name,
+                        task_display.cyan()
+                    );
                 } else {
                     db.assign_task(&next_task.id, &agent_obj.id)?;
                     let agent_display = format_agent_id(db.get_connection(), &agent_obj.id);
-                    println!("\n{} Task assigned to {}", "✓".green().bold(), agent_display.cyan());
+                    println!(
+                        "\n{} Task assigned to {}",
+                        "✓".green().bold(),
+                        agent_display.cyan()
+                    );
                 }
             }
         }
 
-        Commands::BatchUpdate { task_ids, status, agent } => {
+        Commands::BatchUpdate {
+            task_ids,
+            status,
+            agent,
+        } => {
             let status_enum = TaskStatus::from_str(&status);
             let task_id_list: Vec<&str> = task_ids.split(',').map(|s| s.trim()).collect();
 
@@ -945,7 +1117,11 @@ fn main() -> Result<()> {
             for task_id_str in task_id_list {
                 match resolve_task_id(db.get_connection(), task_id_str) {
                     Ok(task_uuid) => {
-                        match db.update_task_status(&task_uuid, status_enum.clone(), agent_uuid.as_deref()) {
+                        match db.update_task_status(
+                            &task_uuid,
+                            status_enum.clone(),
+                            agent_uuid.as_deref(),
+                        ) {
                             Ok(_) => updated_count += 1,
                             Err(e) => failed.push(format!("{}: {}", task_id_str, e)),
                         }
@@ -954,7 +1130,8 @@ fn main() -> Result<()> {
                 }
             }
 
-            println!("{} Updated {} task(s) to {}",
+            println!(
+                "{} Updated {} task(s) to {}",
                 "✓".green().bold(),
                 updated_count.to_string().cyan(),
                 status_enum.as_str()
@@ -970,7 +1147,9 @@ fn main() -> Result<()> {
 
         Commands::BatchAssign { task_ids, agent } => {
             let agent_uuid = resolve_agent_id(db.get_connection(), &agent)?;
-            let agent_obj = db.get_agent(&agent_uuid)?.ok_or_else(|| anyhow::anyhow!("Agent not found"))?;
+            let agent_obj = db
+                .get_agent(&agent_uuid)?
+                .ok_or_else(|| anyhow::anyhow!("Agent not found"))?;
             let task_id_list: Vec<&str> = task_ids.split(',').map(|s| s.trim()).collect();
 
             let mut assigned_count = 0;
@@ -978,18 +1157,17 @@ fn main() -> Result<()> {
 
             for task_id_str in task_id_list {
                 match resolve_task_id(db.get_connection(), task_id_str) {
-                    Ok(task_uuid) => {
-                        match db.assign_task(&task_uuid, &agent_obj.id) {
-                            Ok(_) => assigned_count += 1,
-                            Err(e) => failed.push(format!("{}: {}", task_id_str, e)),
-                        }
-                    }
+                    Ok(task_uuid) => match db.assign_task(&task_uuid, &agent_obj.id) {
+                        Ok(_) => assigned_count += 1,
+                        Err(e) => failed.push(format!("{}: {}", task_id_str, e)),
+                    },
                     Err(e) => failed.push(format!("{}: {}", task_id_str, e)),
                 }
             }
 
             let agent_display = format_agent_id(db.get_connection(), &agent_obj.id);
-            println!("{} Assigned {} task(s) to {} ({})",
+            println!(
+                "{} Assigned {} task(s) to {} ({})",
                 "✓".green().bold(),
                 assigned_count.to_string().cyan(),
                 agent_display.cyan(),
@@ -1031,7 +1209,8 @@ fn main() -> Result<()> {
         Commands::Epics => {
             // Get all tasks and group by epic
             let all_tasks = db.list_tasks(None)?;
-            let mut epic_counts: std::collections::HashMap<String, (i32, i32)> = std::collections::HashMap::new();
+            let mut epic_counts: std::collections::HashMap<String, (i32, i32)> =
+                std::collections::HashMap::new();
 
             for task in &all_tasks {
                 if let Some(epic) = &task.epic_name {
@@ -1068,10 +1247,19 @@ fn main() -> Result<()> {
             }
         }
 
-        Commands::Depends { task_id, on, blocks, list } => {
+        Commands::Depends {
+            task_id,
+            on,
+            blocks,
+            list,
+        } => {
             let task_uuid = resolve_task_id(db.get_connection(), &task_id)?;
-            let task = db.get_task(&task_uuid)?.ok_or_else(|| anyhow::anyhow!("Task not found"))?;
-            let task_display_id = task.display_id.ok_or_else(|| anyhow::anyhow!("Task missing display_id"))?;
+            let task = db
+                .get_task(&task_uuid)?
+                .ok_or_else(|| anyhow::anyhow!("Task not found"))?;
+            let task_display_id = task
+                .display_id
+                .ok_or_else(|| anyhow::anyhow!("Task missing display_id"))?;
 
             if list {
                 let deps = db.get_connection().get_dependencies(task_display_id)?;
@@ -1097,18 +1285,38 @@ fn main() -> Result<()> {
                 }
             } else if let Some(depends_on_input) = on {
                 let depends_on_uuid = resolve_task_id(db.get_connection(), &depends_on_input)?;
-                let depends_on_task = db.get_task(&depends_on_uuid)?.ok_or_else(|| anyhow::anyhow!("Dependency task not found"))?;
-                let depends_on_id = depends_on_task.display_id.ok_or_else(|| anyhow::anyhow!("Dependency task missing display_id"))?;
+                let depends_on_task = db
+                    .get_task(&depends_on_uuid)?
+                    .ok_or_else(|| anyhow::anyhow!("Dependency task not found"))?;
+                let depends_on_id = depends_on_task
+                    .display_id
+                    .ok_or_else(|| anyhow::anyhow!("Dependency task missing display_id"))?;
 
-                db.get_connection().add_dependency(task_display_id, depends_on_id, "blocks")?;
-                println!("{} Task #{} now depends on #{}", "✓".green().bold(), task_display_id, depends_on_id);
+                db.get_connection()
+                    .add_dependency(task_display_id, depends_on_id, "blocks")?;
+                println!(
+                    "{} Task #{} now depends on #{}",
+                    "✓".green().bold(),
+                    task_display_id,
+                    depends_on_id
+                );
             } else if let Some(blocks_input) = blocks {
                 let blocks_uuid = resolve_task_id(db.get_connection(), &blocks_input)?;
-                let blocks_task = db.get_task(&blocks_uuid)?.ok_or_else(|| anyhow::anyhow!("Blocked task not found"))?;
-                let blocks_id = blocks_task.display_id.ok_or_else(|| anyhow::anyhow!("Blocked task missing display_id"))?;
+                let blocks_task = db
+                    .get_task(&blocks_uuid)?
+                    .ok_or_else(|| anyhow::anyhow!("Blocked task not found"))?;
+                let blocks_id = blocks_task
+                    .display_id
+                    .ok_or_else(|| anyhow::anyhow!("Blocked task missing display_id"))?;
 
-                db.get_connection().add_dependency(blocks_id, task_display_id, "blocks")?;
-                println!("{} Task #{} now blocks #{}", "✓".green().bold(), task_display_id, blocks_id);
+                db.get_connection()
+                    .add_dependency(blocks_id, task_display_id, "blocks")?;
+                println!(
+                    "{} Task #{} now blocks #{}",
+                    "✓".green().bold(),
+                    task_display_id,
+                    blocks_id
+                );
             } else {
                 println!("Use --on <task-id>, --blocks <task-id>, or --list");
             }
@@ -1118,7 +1326,10 @@ fn main() -> Result<()> {
             let ready_ids = db.get_connection().get_ready_tasks()?;
 
             if ready_ids.is_empty() {
-                println!("{}", "No tasks ready (all have pending dependencies).".yellow());
+                println!(
+                    "{}",
+                    "No tasks ready (all have pending dependencies).".yellow()
+                );
                 return Ok(());
             }
 
@@ -1141,18 +1352,31 @@ fn main() -> Result<()> {
                     }
                 }
             }
-            println!("\n{} tasks ready", ready_ids.len().to_string().cyan().bold());
+            println!(
+                "\n{} tasks ready",
+                ready_ids.len().to_string().cyan().bold()
+            );
         }
 
         Commands::Ac { task_id, action } => {
             let task_uuid = resolve_task_id(db.get_connection(), &task_id)?;
-            let task = db.get_task(&task_uuid)?.ok_or_else(|| anyhow::anyhow!("Task not found"))?;
-            let task_display_id = task.display_id.ok_or_else(|| anyhow::anyhow!("Task missing display_id"))?;
+            let task = db
+                .get_task(&task_uuid)?
+                .ok_or_else(|| anyhow::anyhow!("Task not found"))?;
+            let task_display_id = task
+                .display_id
+                .ok_or_else(|| anyhow::anyhow!("Task missing display_id"))?;
 
             match action {
                 AcAction::Add { criterion } => {
-                    let ac_id = db.get_connection().add_criterion(task_display_id, criterion.clone())?;
-                    println!("{} Added acceptance criterion #{}", "✓".green().bold(), ac_id);
+                    let ac_id = db
+                        .get_connection()
+                        .add_criterion(task_display_id, criterion.clone())?;
+                    println!(
+                        "{} Added acceptance criterion #{}",
+                        "✓".green().bold(),
+                        ac_id
+                    );
                 }
                 AcAction::List => {
                     let criteria = db.get_connection().list_criteria(task_display_id)?;
@@ -1162,7 +1386,11 @@ fn main() -> Result<()> {
                         return Ok(());
                     }
 
-                    println!("\nAcceptance Criteria for #{} - {}", task_display_id, task.title.bold());
+                    println!(
+                        "\nAcceptance Criteria for #{} - {}",
+                        task_display_id,
+                        task.title.bold()
+                    );
                     for (i, ac) in criteria.iter().enumerate() {
                         let checkbox = if ac.completed { "☑" } else { "☐" };
                         println!("  {}. {} {}", i + 1, checkbox, ac.criterion);
@@ -1173,20 +1401,36 @@ fn main() -> Result<()> {
                 }
                 AcAction::Check { id } => {
                     db.get_connection().check_criterion(id)?;
-                    println!("{} Criterion #{} marked as completed", "✓".green().bold(), id);
+                    println!(
+                        "{} Criterion #{} marked as completed",
+                        "✓".green().bold(),
+                        id
+                    );
                 }
                 AcAction::Uncheck { id } => {
                     db.get_connection().uncheck_criterion(id)?;
-                    println!("{} Criterion #{} marked as incomplete", "✓".green().bold(), id);
+                    println!(
+                        "{} Criterion #{} marked as incomplete",
+                        "✓".green().bold(),
+                        id
+                    );
                 }
             }
         }
 
-        Commands::Duration { id, estimated, actual } => {
+        Commands::Duration {
+            id,
+            estimated,
+            actual,
+        } => {
             let task_uuid = resolve_task_id(db.get_connection(), &id)?;
             db.update_task_duration(&task_uuid, estimated, actual)?;
             let display_id = format_task_id(db.get_connection(), &task_uuid);
-            println!("{} Task {} duration updated!", "✓".green().bold(), display_id.cyan());
+            println!(
+                "{} Task {} duration updated!",
+                "✓".green().bold(),
+                display_id.cyan()
+            );
         }
 
         Commands::Migrate { action } => {
@@ -1200,7 +1444,11 @@ fn main() -> Result<()> {
                     if applied.is_empty() {
                         println!("{}", "Already up to date!".green());
                     } else {
-                        println!("\n{} Applied {} migration(s)", "✓".green().bold(), applied.len());
+                        println!(
+                            "\n{} Applied {} migration(s)",
+                            "✓".green().bold(),
+                            applied.len()
+                        );
                     }
                 }
                 MigrateAction::Status => {
@@ -1215,6 +1463,31 @@ fn main() -> Result<()> {
         Commands::Init { .. } => {
             // Handled earlier in main() before database creation
             unreachable!("Init command should be handled before match statement")
+        }
+
+        Commands::CompleteBatch {
+            tasks,
+            agent_map,
+            from_file,
+            from_csv,
+        } => {
+            let records = if let Some(tasks_str) = tasks {
+                let map = agent_map
+                    .ok_or_else(|| anyhow::anyhow!("--agent-map required with --tasks"))?;
+                batch::parse_cli_args(&tasks_str, &map)?
+            } else if let Some(json_path) = from_file {
+                batch::parse_json_file(&json_path)?
+            } else if let Some(csv_path) = from_csv {
+                batch::parse_csv_file(&csv_path)?
+            } else {
+                anyhow::bail!("Must specify --tasks, --from-file, or --from-csv");
+            };
+
+            let result = batch::complete_batch(&db, records)?;
+
+            if !result.failed.is_empty() {
+                std::process::exit(1);
+            }
         }
     }
 

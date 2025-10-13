@@ -55,7 +55,7 @@ impl DependencyOps for Connection {
 
     fn get_dependencies(&self, task_id: i32) -> Result<Vec<i32>> {
         let mut stmt = self.prepare(
-            "SELECT depends_on_display_id FROM task_dependencies WHERE task_display_id = ?1"
+            "SELECT depends_on_display_id FROM task_dependencies WHERE task_display_id = ?1",
         )?;
         let deps = stmt
             .query_map([task_id], |row| row.get(0))?
@@ -65,7 +65,7 @@ impl DependencyOps for Connection {
 
     fn get_blocking_tasks(&self, task_id: i32) -> Result<Vec<i32>> {
         let mut stmt = self.prepare(
-            "SELECT task_display_id FROM task_dependencies WHERE depends_on_display_id = ?1"
+            "SELECT task_display_id FROM task_dependencies WHERE depends_on_display_id = ?1",
         )?;
         let blocking = stmt
             .query_map([task_id], |row| row.get(0))?
@@ -109,7 +109,7 @@ impl DependencyOps for Connection {
                  WHERE td.task_display_id = t.display_id
                  AND dep.status != 'completed'
              )
-             ORDER BY t.priority DESC, t.created_at ASC"
+             ORDER BY t.priority DESC, t.created_at ASC",
         )?;
 
         let ready = stmt
@@ -132,7 +132,7 @@ impl AcceptanceCriteriaOps for Connection {
     fn list_criteria(&self, task_id: i32) -> Result<Vec<AcceptanceCriterion>> {
         let mut stmt = self.prepare(
             "SELECT id, task_display_id, criterion, completed, created_at, completed_at
-             FROM acceptance_criteria WHERE task_display_id = ?1 ORDER BY id ASC"
+             FROM acceptance_criteria WHERE task_display_id = ?1 ORDER BY id ASC",
         )?;
 
         let criteria = stmt
@@ -145,9 +145,11 @@ impl AcceptanceCriteriaOps for Connection {
                     created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(4)?)
                         .unwrap()
                         .with_timezone(&Utc),
-                    completed_at: row
-                        .get::<_, Option<String>>(5)?
-                        .map(|s| DateTime::parse_from_rfc3339(&s).unwrap().with_timezone(&Utc)),
+                    completed_at: row.get::<_, Option<String>>(5)?.map(|s| {
+                        DateTime::parse_from_rfc3339(&s)
+                            .unwrap()
+                            .with_timezone(&Utc)
+                    }),
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;

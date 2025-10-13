@@ -1,5 +1,5 @@
-use prd_tool::{Database, Priority};
 use anyhow::Result;
+use prd_tool::{Database, Priority};
 
 fn main() -> Result<()> {
     let db = Database::new("tools/prd.db")?;
@@ -228,7 +228,10 @@ fn main() -> Result<()> {
     // Phase 2.4: Update AIServiceFactory
     let task_2_4_1 = db.create_task(
         "Remove Supabase feature flag".to_string(),
-        Some("Update AIServiceFactory to always return Firebase services, remove conditional logic".to_string()),
+        Some(
+            "Update AIServiceFactory to always return Firebase services, remove conditional logic"
+                .to_string(),
+        ),
         Priority::Critical,
         Some(phase2.id.clone()),
     )?;
@@ -264,7 +267,10 @@ fn main() -> Result<()> {
 
     let task_2_5_3 = db.create_task(
         "Test authentication flow".to_string(),
-        Some("Test sign up, sign in, sign out, session persistence, auth error handling end-to-end".to_string()),
+        Some(
+            "Test sign up, sign in, sign out, session persistence, auth error handling end-to-end"
+                .to_string(),
+        ),
         Priority::Critical,
         Some(phase2.id.clone()),
     )?;
@@ -311,7 +317,10 @@ fn main() -> Result<()> {
 
     let task_3_1_5 = db.create_task(
         "Test model serialization".to_string(),
-        Some("Write unit tests for all model conversions, verify round-trip serialization integrity".to_string()),
+        Some(
+            "Write unit tests for all model conversions, verify round-trip serialization integrity"
+                .to_string(),
+        ),
         Priority::High,
         Some(phase3.id.clone()),
     )?;
@@ -333,7 +342,10 @@ fn main() -> Result<()> {
 
     let task_3_2_3 = db.create_task(
         "Test migration on staging data".to_string(),
-        Some("Dry-run migration script with test data, verify data integrity and completeness".to_string()),
+        Some(
+            "Dry-run migration script with test data, verify data integrity and completeness"
+                .to_string(),
+        ),
         Priority::High,
         Some(phase3.id.clone()),
     )?;
@@ -543,7 +555,10 @@ fn main() -> Result<()> {
 
     db.create_task(
         "Execute UAT test scenarios".to_string(),
-        Some("Manual testing of all user-facing features on physical iOS devices. Collect feedback.".to_string()),
+        Some(
+            "Manual testing of all user-facing features on physical iOS devices. Collect feedback."
+                .to_string(),
+        ),
         Priority::Critical,
         Some(phase5.id.clone()),
     )?;
@@ -590,7 +605,10 @@ fn main() -> Result<()> {
 
     db.create_task(
         "Deploy Firestore rules and indexes".to_string(),
-        Some("Deploy production Firestore security rules and composite indexes. Verify deployment.".to_string()),
+        Some(
+            "Deploy production Firestore security rules and composite indexes. Verify deployment."
+                .to_string(),
+        ),
         Priority::Critical,
         Some(phase6.id.clone()),
     )?;
@@ -618,7 +636,9 @@ fn main() -> Result<()> {
 
     db.create_task(
         "Submit to App Store Connect".to_string(),
-        Some("Upload archive to App Store Connect, complete metadata, submit for review".to_string()),
+        Some(
+            "Upload archive to App Store Connect, complete metadata, submit for review".to_string(),
+        ),
         Priority::Critical,
         Some(phase6.id.clone()),
     )?;
@@ -639,7 +659,10 @@ fn main() -> Result<()> {
 
     db.create_task(
         "Complete full rollout to 100%".to_string(),
-        Some("Release to 100% of users after successful gradual rollout. All metrics must be green.".to_string()),
+        Some(
+            "Release to 100% of users after successful gradual rollout. All metrics must be green."
+                .to_string(),
+        ),
         Priority::Critical,
         Some(phase6.id.clone()),
     )?;

@@ -27,13 +27,11 @@ pub fn resolve_task_id(conn: &Connection, id_input: &str) -> Result<String> {
 
     match uuid_result {
         Ok(matches) if matches.len() == 1 => Ok(matches[0].clone()),
-        Ok(matches) if matches.len() > 1 => {
-            Err(anyhow::anyhow!(
-                "Ambiguous ID '{}': matches {} tasks. Please be more specific.",
-                id_input,
-                matches.len()
-            ))
-        }
+        Ok(matches) if matches.len() > 1 => Err(anyhow::anyhow!(
+            "Ambiguous ID '{}': matches {} tasks. Please be more specific.",
+            id_input,
+            matches.len()
+        )),
         _ => Err(anyhow::anyhow!("Task not found: {}", id_input)),
     }
 }
@@ -79,13 +77,11 @@ pub fn resolve_agent_id(conn: &Connection, id_input: &str) -> Result<String> {
 
     match uuid_result {
         Ok(matches) if matches.len() == 1 => Ok(matches[0].clone()),
-        Ok(matches) if matches.len() > 1 => {
-            Err(anyhow::anyhow!(
-                "Ambiguous ID '{}': matches {} agents. Please be more specific.",
-                id_input,
-                matches.len()
-            ))
-        }
+        Ok(matches) if matches.len() > 1 => Err(anyhow::anyhow!(
+            "Ambiguous ID '{}': matches {} agents. Please be more specific.",
+            id_input,
+            matches.len()
+        )),
         _ => Err(anyhow::anyhow!("Agent not found: {}", id_input)),
     }
 }
@@ -148,7 +144,10 @@ mod tests {
     #[test]
     fn test_resolve_task_by_uuid_prefix() {
         let conn = setup_test_db();
-        assert_eq!(resolve_task_id(&conn, "uuid-task-1").unwrap(), "uuid-task-1");
+        assert_eq!(
+            resolve_task_id(&conn, "uuid-task-1").unwrap(),
+            "uuid-task-1"
+        );
     }
 
     #[test]
@@ -162,7 +161,10 @@ mod tests {
     #[test]
     fn test_resolve_agent_by_name() {
         let conn = setup_test_db();
-        assert_eq!(resolve_agent_id(&conn, "test-agent").unwrap(), "uuid-agent-1");
+        assert_eq!(
+            resolve_agent_id(&conn, "test-agent").unwrap(),
+            "uuid-agent-1"
+        );
     }
 
     #[test]

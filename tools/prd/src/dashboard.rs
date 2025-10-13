@@ -2,12 +2,12 @@ mod db;
 
 use anyhow::Result;
 use colored::*;
-use db::{Database, TaskStatus, AgentStatus};
+use db::{AgentStatus, Database, TaskStatus};
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
-use tabled::{Table, Tabled, settings::Style};
+use tabled::{settings::Style, Table, Tabled};
 
 #[derive(Tabled)]
 struct TaskSummaryRow {
@@ -43,9 +43,24 @@ fn clear_screen() {
 }
 
 fn print_header() {
-    println!("{}", "═══════════════════════════════════════════════════════════════".cyan().bold());
-    println!("{}", "           PRD DASHBOARD - Task Management System".cyan().bold());
-    println!("{}", "═══════════════════════════════════════════════════════════════".cyan().bold());
+    println!(
+        "{}",
+        "═══════════════════════════════════════════════════════════════"
+            .cyan()
+            .bold()
+    );
+    println!(
+        "{}",
+        "           PRD DASHBOARD - Task Management System"
+            .cyan()
+            .bold()
+    );
+    println!(
+        "{}",
+        "═══════════════════════════════════════════════════════════════"
+            .cyan()
+            .bold()
+    );
     println!();
 }
 
@@ -61,7 +76,8 @@ fn print_stats(db: &Database) -> Result<()> {
         0.0
     };
 
-    println!("Total Tasks: {}  |  Completed: {}  |  Progress: {:.1}%",
+    println!(
+        "Total Tasks: {}  |  Completed: {}  |  Progress: {:.1}%",
         stats.total.to_string().cyan().bold(),
         stats.completed.to_string().green().bold(),
         progress
@@ -76,12 +92,36 @@ fn print_stats(db: &Database) -> Result<()> {
 
     // Status breakdown
     println!("{}", "Status Breakdown:".bold());
-    println!("  {} Pending       : {}", "○".white(), format!("{:>3}", stats.pending).white());
-    println!("  {} In Progress  : {}", "◐".blue(), format!("{:>3}", stats.in_progress).blue().bold());
-    println!("  {} Blocked      : {}", "■".red(), format!("{:>3}", stats.blocked).red());
-    println!("  {} Review       : {}", "◇".yellow(), format!("{:>3}", stats.review).yellow());
-    println!("  {} Completed    : {}", "●".green(), format!("{:>3}", stats.completed).green().bold());
-    println!("  {} Cancelled    : {}", "✕".dimmed(), format!("{:>3}", stats.cancelled).dimmed());
+    println!(
+        "  {} Pending       : {}",
+        "○".white(),
+        format!("{:>3}", stats.pending).white()
+    );
+    println!(
+        "  {} In Progress  : {}",
+        "◐".blue(),
+        format!("{:>3}", stats.in_progress).blue().bold()
+    );
+    println!(
+        "  {} Blocked      : {}",
+        "■".red(),
+        format!("{:>3}", stats.blocked).red()
+    );
+    println!(
+        "  {} Review       : {}",
+        "◇".yellow(),
+        format!("{:>3}", stats.review).yellow()
+    );
+    println!(
+        "  {} Completed    : {}",
+        "●".green(),
+        format!("{:>3}", stats.completed).green().bold()
+    );
+    println!(
+        "  {} Cancelled    : {}",
+        "✕".dimmed(),
+        format!("{:>3}", stats.cancelled).dimmed()
+    );
     println!();
 
     Ok(())
@@ -99,31 +139,40 @@ fn print_active_tasks(db: &Database) -> Result<()> {
         return Ok(());
     }
 
-    let rows: Vec<TaskSummaryRow> = tasks.iter().take(10).map(|t| {
-        let subtasks = db.get_subtasks(&t.id).unwrap_or_default();
-        let completed_subtasks = subtasks.iter().filter(|st| st.status == TaskStatus::Completed).count();
-        let total_subtasks = subtasks.len();
+    let rows: Vec<TaskSummaryRow> = tasks
+        .iter()
+        .take(10)
+        .map(|t| {
+            let subtasks = db.get_subtasks(&t.id).unwrap_or_default();
+            let completed_subtasks = subtasks
+                .iter()
+                .filter(|st| st.status == TaskStatus::Completed)
+                .count();
+            let total_subtasks = subtasks.len();
 
-        TaskSummaryRow {
-            id: t.id[..8].to_string(),
-            title: if t.title.len() > 35 {
-                format!("{}...", &t.title[..32])
-            } else {
-                t.title.clone()
-            },
-            status: format_status(&t.status),
-            priority: format_priority(&t.priority),
-            agent: t.assigned_agent.as_ref()
-                .and_then(|a| db.get_agent(a).ok().flatten())
-                .map(|agent| agent.name.clone())
-                .unwrap_or_else(|| "-".to_string()),
-            subtasks: if total_subtasks > 0 {
-                format!("{}/{}", completed_subtasks, total_subtasks)
-            } else {
-                "-".to_string()
-            },
-        }
-    }).collect();
+            TaskSummaryRow {
+                id: t.id[..8].to_string(),
+                title: if t.title.len() > 35 {
+                    format!("{}...", &t.title[..32])
+                } else {
+                    t.title.clone()
+                },
+                status: format_status(&t.status),
+                priority: format_priority(&t.priority),
+                agent: t
+                    .assigned_agent
+                    .as_ref()
+                    .and_then(|a| db.get_agent(a).ok().flatten())
+                    .map(|agent| agent.name.clone())
+                    .unwrap_or_else(|| "-".to_string()),
+                subtasks: if total_subtasks > 0 {
+                    format!("{}/{}", completed_subtasks, total_subtasks)
+                } else {
+                    "-".to_string()
+                },
+            }
+        })
+        .collect();
 
     let mut table = Table::new(rows);
     table.with(Style::modern());
@@ -141,7 +190,8 @@ fn print_blocked_tasks(db: &Database) -> Result<()> {
         println!();
 
         for task in tasks.iter().take(5) {
-            println!("  {} {} - {}",
+            println!(
+                "  {} {} - {}",
                 "■".red(),
                 task.id[..8].to_string().dimmed(),
                 task.title.yellow()
@@ -170,25 +220,30 @@ fn print_agents(db: &Database) -> Result<()> {
         return Ok(());
     }
 
-    let rows: Vec<AgentActivityRow> = agents.iter().map(|a| {
-        let task_title = a.current_task_id.as_ref()
-            .and_then(|tid| db.get_task(tid).ok().flatten())
-            .map(|t| {
-                if t.title.len() > 30 {
-                    format!("{}...", &t.title[..27])
-                } else {
-                    t.title.clone()
-                }
-            })
-            .unwrap_or_else(|| "-".to_string());
+    let rows: Vec<AgentActivityRow> = agents
+        .iter()
+        .map(|a| {
+            let task_title = a
+                .current_task_id
+                .as_ref()
+                .and_then(|tid| db.get_task(tid).ok().flatten())
+                .map(|t| {
+                    if t.title.len() > 30 {
+                        format!("{}...", &t.title[..27])
+                    } else {
+                        t.title.clone()
+                    }
+                })
+                .unwrap_or_else(|| "-".to_string());
 
-        AgentActivityRow {
-            name: a.name.clone(),
-            status: format_agent_status(&a.status),
-            task: task_title,
-            last_active: a.last_active.format("%H:%M:%S").to_string(),
-        }
-    }).collect();
+            AgentActivityRow {
+                name: a.name.clone(),
+                status: format_agent_status(&a.status),
+                task: task_title,
+                last_active: a.last_active.format("%H:%M:%S").to_string(),
+            }
+        })
+        .collect();
 
     let mut table = Table::new(rows);
     table.with(Style::modern());
@@ -232,11 +287,7 @@ fn print_recent_activity(db: &Database) -> Result<()> {
             task_title.clone()
         };
 
-        println!("  {} {} {}",
-            time,
-            action,
-            task_short.bold()
-        );
+        println!("  {} {} {}", time, action, task_short.bold());
     }
     println!();
 
@@ -248,7 +299,8 @@ fn print_upcoming_tasks(db: &Database) -> Result<()> {
     println!();
 
     let tasks = db.list_tasks(Some(TaskStatus::Pending))?;
-    let high_priority: Vec<_> = tasks.iter()
+    let high_priority: Vec<_> = tasks
+        .iter()
         .filter(|t| matches!(t.priority, db::Priority::High | db::Priority::Critical))
         .take(5)
         .collect();
@@ -266,7 +318,8 @@ fn print_upcoming_tasks(db: &Database) -> Result<()> {
             _ => "⚪",
         };
 
-        println!("  {} {} - {}",
+        println!(
+            "  {} {} - {}",
             priority_marker,
             task.id[..8].to_string().dimmed(),
             task.title
@@ -285,7 +338,10 @@ fn run_dashboard(db_path: &str, refresh_rate: u64) -> Result<()> {
         print_header();
         print_stats(&db)?;
 
-        println!("{}", "───────────────────────────────────────────────────────────────".dimmed());
+        println!(
+            "{}",
+            "───────────────────────────────────────────────────────────────".dimmed()
+        );
         println!();
 
         print_active_tasks(&db)?;
@@ -294,9 +350,13 @@ fn run_dashboard(db_path: &str, refresh_rate: u64) -> Result<()> {
         print_recent_activity(&db)?;
         print_upcoming_tasks(&db)?;
 
-        println!("{}", "───────────────────────────────────────────────────────────────".dimmed());
+        println!(
+            "{}",
+            "───────────────────────────────────────────────────────────────".dimmed()
+        );
         println!();
-        println!("{}  |  Press Ctrl+C to exit",
+        println!(
+            "{}  |  Press Ctrl+C to exit",
             format!("Refreshing every {}s", refresh_rate).dimmed()
         );
 
@@ -307,13 +367,9 @@ fn run_dashboard(db_path: &str, refresh_rate: u64) -> Result<()> {
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
 
-    let db_path = args.get(1)
-        .map(|s| s.as_str())
-        .unwrap_or("tools/prd.db");
+    let db_path = args.get(1).map(|s| s.as_str()).unwrap_or("tools/prd.db");
 
-    let refresh_rate = args.get(2)
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(5);
+    let refresh_rate = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(5);
 
     println!("{}", "Starting PRD Dashboard...".cyan().bold());
     println!("Database: {}", db_path);

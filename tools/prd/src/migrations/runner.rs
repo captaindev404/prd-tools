@@ -26,11 +26,9 @@ impl<'a> MigrationRunner<'a> {
     pub fn get_current_version(&self) -> Result<i32> {
         let result = self
             .conn
-            .query_row(
-                "SELECT MAX(version) FROM schema_migrations",
-                [],
-                |row| row.get::<_, Option<i32>>(0),
-            );
+            .query_row("SELECT MAX(version) FROM schema_migrations", [], |row| {
+                row.get::<_, Option<i32>>(0)
+            });
 
         match result {
             Ok(Some(version)) => Ok(version),
@@ -52,10 +50,12 @@ impl<'a> MigrationRunner<'a> {
             Path::new("../migrations"),
         ];
 
-        let migrations_dir = possible_paths
-            .iter()
-            .find(|p| p.exists())
-            .ok_or_else(|| anyhow::anyhow!("No migrations directory found. Searched: {:?}", possible_paths))?;
+        let migrations_dir = possible_paths.iter().find(|p| p.exists()).ok_or_else(|| {
+            anyhow::anyhow!(
+                "No migrations directory found. Searched: {:?}",
+                possible_paths
+            )
+        })?;
 
         let mut migrations: Vec<(i32, String)> = Vec::new();
 
@@ -123,7 +123,9 @@ impl<'a> MigrationRunner<'a> {
             return Ok(());
         }
 
-        println!("⚠️  Warning: Rollback support is limited. This will only remove the migration record.");
+        println!(
+            "⚠️  Warning: Rollback support is limited. This will only remove the migration record."
+        );
         println!("   Manual intervention may be required to reverse schema changes.");
 
         self.conn.execute(
@@ -141,9 +143,9 @@ impl<'a> MigrationRunner<'a> {
 
         println!("Current schema version: {}", current_version);
 
-        let mut stmt = self.conn.prepare(
-            "SELECT version, applied_at FROM schema_migrations ORDER BY version"
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT version, applied_at FROM schema_migrations ORDER BY version")?;
 
         let migrations = stmt.query_map([], |row| {
             Ok((row.get::<_, i32>(0)?, row.get::<_, String>(1)?))

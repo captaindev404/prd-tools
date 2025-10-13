@@ -1,8 +1,7 @@
 pub mod db;
+pub mod sync;
 
-pub use db::{
-    Agent, AgentStatus, Database, Priority, Task, TaskLog, TaskStats, TaskStatus,
-};
+pub use db::{Agent, AgentStatus, Database, Priority, Task, TaskLog, TaskStats, TaskStatus};
 
 use anyhow::Result;
 
@@ -32,7 +31,8 @@ impl PRDClient {
         parent_id: Option<String>,
         epic_name: Option<String>,
     ) -> Result<Task> {
-        self.db.create_task(title, description, priority, parent_id, epic_name)
+        self.db
+            .create_task(title, description, priority, parent_id, epic_name)
     }
 
     pub fn get_task(&self, id: &str) -> Result<Option<Task>> {
@@ -131,10 +131,12 @@ impl PRDClient {
         };
 
         // Update agent status
-        self.db.update_agent_status(&agent.id, AgentStatus::Working, Some(task_id))?;
+        self.db
+            .update_agent_status(&agent.id, AgentStatus::Working, Some(task_id))?;
 
         // Update task status
-        self.db.update_task_status(task_id, TaskStatus::InProgress, Some(&agent.id))?;
+        self.db
+            .update_task_status(task_id, TaskStatus::InProgress, Some(&agent.id))?;
 
         // Assign task if not already assigned
         self.db.assign_task(task_id, &agent.id)?;
@@ -148,7 +150,10 @@ impl PRDClient {
 
         // Filter by priority if specified
         let mut filtered_tasks: Vec<Task> = if let Some(priority) = priority_filter {
-            tasks.into_iter().filter(|t| t.priority == priority).collect()
+            tasks
+                .into_iter()
+                .filter(|t| t.priority == priority)
+                .collect()
         } else {
             tasks
         };
@@ -183,7 +188,8 @@ impl PRDClient {
     /// Mark an agent as idle
     pub fn set_agent_idle(&self, agent_name: &str) -> Result<()> {
         if let Some(agent) = self.db.get_agent_by_name(agent_name)? {
-            self.db.update_agent_status(&agent.id, AgentStatus::Idle, None)?;
+            self.db
+                .update_agent_status(&agent.id, AgentStatus::Idle, None)?;
         }
         Ok(())
     }
@@ -191,8 +197,10 @@ impl PRDClient {
     /// Complete a task and set agent to idle
     pub fn complete_task(&self, task_id: &str, agent_name: &str) -> Result<()> {
         if let Some(agent) = self.db.get_agent_by_name(agent_name)? {
-            self.db.update_task_status(task_id, TaskStatus::Completed, Some(&agent.id))?;
-            self.db.update_agent_status(&agent.id, AgentStatus::Idle, None)?;
+            self.db
+                .update_task_status(task_id, TaskStatus::Completed, Some(&agent.id))?;
+            self.db
+                .update_agent_status(&agent.id, AgentStatus::Idle, None)?;
         }
         Ok(())
     }
@@ -200,11 +208,14 @@ impl PRDClient {
     /// Block a task and set agent to blocked
     pub fn block_task(&self, task_id: &str, agent_name: &str, reason: Option<&str>) -> Result<()> {
         if let Some(agent) = self.db.get_agent_by_name(agent_name)? {
-            self.db.update_task_status(task_id, TaskStatus::Blocked, Some(&agent.id))?;
-            self.db.update_agent_status(&agent.id, AgentStatus::Blocked, Some(task_id))?;
+            self.db
+                .update_task_status(task_id, TaskStatus::Blocked, Some(&agent.id))?;
+            self.db
+                .update_agent_status(&agent.id, AgentStatus::Blocked, Some(task_id))?;
 
             if let Some(r) = reason {
-                self.db.log_task_action(task_id, Some(&agent.id), "blocked", Some(r))?;
+                self.db
+                    .log_task_action(task_id, Some(&agent.id), "blocked", Some(r))?;
             }
         }
         Ok(())
@@ -230,6 +241,7 @@ mod tests {
             "Test task".to_string(),
             Some("Test description".to_string()),
             Priority::High,
+            None,
             None,
         )?;
 
@@ -266,6 +278,7 @@ mod tests {
             None,
             Priority::Low,
             None,
+            None,
         )?;
 
         let critical_task = client.create_task(
@@ -273,12 +286,14 @@ mod tests {
             None,
             Priority::Critical,
             None,
+            None,
         )?;
 
         client.create_task(
             "Medium priority task".to_string(),
             None,
             Priority::Medium,
+            None,
             None,
         )?;
 

@@ -157,6 +157,7 @@ impl Database {
             r#"
             CREATE TABLE IF NOT EXISTS tasks (
                 id TEXT PRIMARY KEY,
+                display_id INTEGER UNIQUE,
                 title TEXT NOT NULL,
                 description TEXT,
                 status TEXT NOT NULL,
@@ -168,12 +169,14 @@ impl Database {
                 completed_at TEXT,
                 estimated_duration INTEGER,
                 actual_duration INTEGER,
+                epic_name TEXT,
                 FOREIGN KEY(parent_id) REFERENCES tasks(id),
                 FOREIGN KEY(assigned_agent) REFERENCES agents(id)
             );
 
             CREATE TABLE IF NOT EXISTS agents (
                 id TEXT PRIMARY KEY,
+                display_id INTEGER UNIQUE,
                 name TEXT NOT NULL UNIQUE,
                 status TEXT NOT NULL,
                 current_task_id TEXT,
@@ -212,13 +215,11 @@ impl Database {
         epic_name: Option<String>,
     ) -> Result<Task> {
         // Get next display_id
-        let next_display_id: i32 = self
-            .conn
-            .query_row(
-                "SELECT COALESCE(MAX(display_id), 0) + 1 FROM tasks",
-                [],
-                |row| row.get(0),
-            )?;
+        let next_display_id: i32 = self.conn.query_row(
+            "SELECT COALESCE(MAX(display_id), 0) + 1 FROM tasks",
+            [],
+            |row| row.get(0),
+        )?;
 
         let task = Task {
             id: Uuid::new_v4().to_string(),
@@ -349,7 +350,12 @@ impl Database {
         Ok(())
     }
 
-    pub fn update_task_duration(&self, task_id: &str, estimated: Option<i32>, actual: Option<i32>) -> Result<()> {
+    pub fn update_task_duration(
+        &self,
+        task_id: &str,
+        estimated: Option<i32>,
+        actual: Option<i32>,
+    ) -> Result<()> {
         self.conn.execute(
             "UPDATE tasks SET estimated_duration = ?1, actual_duration = ?2, updated_at = ?3 WHERE id = ?4",
             params![estimated, actual, Utc::now().to_rfc3339(), task_id],
@@ -360,13 +366,11 @@ impl Database {
     // Agent operations
     pub fn create_agent(&self, name: String) -> Result<Agent> {
         // Get next display_id
-        let next_display_id: i32 = self
-            .conn
-            .query_row(
-                "SELECT COALESCE(MAX(display_id), 0) + 1 FROM agents",
-                [],
-                |row| row.get(0),
-            )?;
+        let next_display_id: i32 = self.conn.query_row(
+            "SELECT COALESCE(MAX(display_id), 0) + 1 FROM agents",
+            [],
+            |row| row.get(0),
+        )?;
 
         let agent = Agent {
             id: Uuid::new_v4().to_string(),
@@ -411,7 +415,9 @@ impl Database {
              FROM agents WHERE name = ?1",
         )?;
 
-        let agent = stmt.query_row(params![name], Self::row_to_agent).optional()?;
+        let agent = stmt
+            .query_row(params![name], Self::row_to_agent)
+            .optional()?;
         Ok(agent)
     }
 
@@ -427,12 +433,50 @@ impl Database {
         Ok(agents)
     }
 
-    pub fn update_agent_status(&self, id: &str, status: AgentStatus, current_task_id: Option<&str>) -> Result<()> {
+    pub fn update_agent_status(
+        &self,
+        id: &str,
+        status: AgentStatus,
+        current_task_id: Option<&str>,
+    ) -> Result<()> {
         self.conn.execute(
             "UPDATE agents SET status = ?1, current_task_id = ?2, last_active = ?3 WHERE id = ?4",
-            params![status.as_str(), current_task_id, Utc::now().to_rfc3339(), id],
+            params![
+                status.as_str(),
+                current_task_id,
+                Utc::now().to_rfc3339(),
+                id
+            ],
         )?;
         Ok(())
+    }
+
+    /// Create an agent within an existing transaction
+    pub fn create_agent_in_tx(tx: &rusqlite::Transaction, name: String) -> Result<String> {
+        // Get next display_id
+        let next_display_id: i32 = tx.query_row(
+            "SELECT COALESCE(MAX(display_id), 0) + 1 FROM agents",
+            [],
+            |row| row.get(0),
+        )?;
+
+        let agent_id = Uuid::new_v4().to_string();
+
+        tx.execute(
+            "INSERT INTO agents (id, display_id, name, status, current_task_id, created_at, last_active)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![
+                &agent_id,
+                &next_display_id,
+                &name,
+                AgentStatus::Idle.as_str(),
+                None::<String>,
+                Utc::now().to_rfc3339(),
+                Utc::now().to_rfc3339(),
+            ],
+        )?;
+
+        Ok(agent_id)
     }
 
     // Logging
@@ -482,9 +526,9 @@ impl Database {
 
     // Statistics
     pub fn get_stats(&self) -> Result<TaskStats> {
-        let mut stmt = self.conn.prepare(
-            "SELECT status, COUNT(*) as count FROM tasks GROUP BY status"
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT status, COUNT(*) as count FROM tasks GROUP BY status")?;
 
         let mut stats = TaskStats::default();
         let rows = stmt.query_map([], |row| {
@@ -504,7 +548,12 @@ impl Database {
             }
         }
 
-        stats.total = stats.pending + stats.in_progress + stats.blocked + stats.review + stats.completed + stats.cancelled;
+        stats.total = stats.pending
+            + stats.in_progress
+            + stats.blocked
+            + stats.review
+            + stats.completed
+            + stats.cancelled;
         Ok(stats)
     }
 
@@ -525,9 +574,11 @@ impl Database {
             updated_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(9)?)
                 .unwrap()
                 .with_timezone(&Utc),
-            completed_at: row
-                .get::<_, Option<String>>(10)?
-                .map(|s| DateTime::parse_from_rfc3339(&s).unwrap().with_timezone(&Utc)),
+            completed_at: row.get::<_, Option<String>>(10)?.map(|s| {
+                DateTime::parse_from_rfc3339(&s)
+                    .unwrap()
+                    .with_timezone(&Utc)
+            }),
             estimated_duration: row.get(11)?,
             actual_duration: row.get(12)?,
             epic_name: row.get(13)?,

@@ -7,9 +7,8 @@
 /// ```bash
 /// cargo run --example multi_agent_workflow
 /// ```
-
 use anyhow::Result;
-use prd_tool::{PRDClient, Priority, TaskStatus, AgentStatus};
+use prd_tool::{AgentStatus, PRDClient, Priority, TaskStatus};
 use std::thread;
 use std::time::Duration;
 
@@ -159,9 +158,7 @@ fn main() -> Result<()> {
     println!("\n  Agent status:");
     let agents = client.list_agents()?;
     for agent in agents.iter().filter(|a| {
-        a.name == "firebase-setup-agent"
-            || a.name == "migration-agent"
-            || a.name == "qa-agent"
+        a.name == "firebase-setup-agent" || a.name == "migration-agent" || a.name == "qa-agent"
     }) {
         let status_icon = match agent.status {
             AgentStatus::Idle => "💤",
