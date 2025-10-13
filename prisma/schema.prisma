@@ -82,6 +82,22 @@ enum SessionType {
   remote_test
 }
 
+enum RecordingStatus {
+  initializing
+  recording
+  paused
+  processing
+  completed
+  failed
+  deleted
+}
+
+enum RecordingType {
+  camera
+  screen
+  both
+}
+
 // ========== MODELS ==========
 
 model Village {
@@ -130,6 +146,13 @@ model User {
   createdPanels       Panel[] @relation("UserCreatedPanels")
   events              Event[]
   notifications       Notification[]
+  notificationPreferences NotificationPreferences?
+
+  // Gamification relations
+  userPoints          UserPoints?
+  userBadges          UserBadge[]
+  userAchievements    UserAchievement[]
+  pointTransactions   PointTransaction[]
 
   // NextAuth adapter relations
   accounts            Account[]
@@ -453,8 +476,76 @@ model Session {
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
+  // Relations
+  recordings        SessionRecording[]
+
   @@index([scheduledAt])
   @@index([type])
+}
+
+model SessionRecording {
+  id                String          @id @default(cuid()) // rec_${ulid}
+  sessionId         String
+  session           Session         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  // Recording metadata
+  type              RecordingType   @default(both)
+  status            RecordingStatus @default(initializing)
+
+  // Storage info
+  storageUrl        String?         // S3-compatible storage URL
+  storageBucket     String?         // Bucket name
+  storageKey        String?         // Object key in bucket
+  signedUrl         String?         // Temporary signed URL for playback
+  signedUrlExpiry   DateTime?       // When signed URL expires
+
+  // File metadata
+  filename          String?
+  mimeType          String?         // video/webm, video/mp4, etc.
+  fileSize          Int?            // Bytes
+  durationSeconds   Int?            // Recording duration
+
+  // Dimensions (for screen recordings)
+  width             Int?
+  height            Int?
+
+  // Processing
+  processingStartedAt DateTime?
+  processingCompletedAt DateTime?
+  processingError   String?
+
+  // Chunks info (for chunked uploads)
+  totalChunks       Int             @default(0)
+  uploadedChunks    Int             @default(0)
+  chunkUrls         String          @default("[]") // JSON array of chunk URLs
+
+  // Transcription
+  transcriptionUrl  String?         // URL to transcript file
+  transcriptionText String?         // Stored transcript text
+  transcriptionStatus String        @default("pending") // pending | processing | completed | failed
+
+  // Annotations and highlights
+  annotations       String          @default("[]") // JSON array: [{timestamp, text, author, type}]
+  highlights        String          @default("[]") // JSON array: [{start, end, label, color}]
+
+  // Metadata
+  recordedBy        String          // User ID who initiated recording
+  recordingStartedAt DateTime?
+  recordingEndedAt  DateTime?
+
+  // GDPR & retention
+  expiresAt         DateTime?       // Auto-delete after retention period
+  deletedAt         DateTime?       // Soft delete timestamp
+  deletedBy         String?         // User ID who deleted
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([sessionId])
+  @@index([status])
+  @@index([recordedBy])
+  @@index([expiresAt])
+  @@index([createdAt])
 }
 
 model Event {
@@ -503,4 +594,403 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
   @@index([resourceId])
+}
+
+model EmailLog {
+  id          String   @id @default(cuid())
+  userId      String?  // Recipient user ID (null for non-user emails)
+  to          String   // Recipient email address
+  subject     String
+  templateType String  // Template identifier (e.g., "welcome", "feedback_update", "roadmap_update")
+  status      String   @default("pending") // pending | sent | failed | bounced
+  messageId   String?  // SendGrid message ID for tracking
+  error       String?  // Error message if sending failed
+  metadata    String   @default("{}") // JSON object with template params and context
+  sentAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([templateType])
+  @@index([to])
+}
+
+model NotificationPreferences {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Email notification preferences
+  feedbackUpdates   String   @default("real_time") // real_time | daily | weekly | never
+  roadmapUpdates    String   @default("real_time") // real_time | daily | weekly | never
+  researchInvites   String   @default("real_time") // real_time | daily | weekly | never
+  weeklyDigest      Boolean  @default(true)
+
+  // Unsubscribe token for email preferences
+  unsubscribeToken  String   @unique
+
+  updatedAt         DateTime @updatedAt
+  createdAt         DateTime @default(now())
+
+  @@index([userId])
+  @@index([unsubscribeToken])
+}
+
+model HRISSync {
+  id              String   @id @default(cuid())
+  status          String   // "pending" | "in_progress" | "completed" | "failed"
+  syncType        String   // "full" | "incremental" | "manual"
+
+  // Statistics
+  recordsProcessed Int     @default(0)
+  recordsCreated   Int     @default(0)
+  recordsUpdated   Int     @default(0)
+  recordsFailed    Int     @default(0)
+  conflictsDetected Int    @default(0)
+
+  // Timing
+  startedAt       DateTime?
+  completedAt     DateTime?
+
+  // Error tracking
+  errorMessage    String?
+  errorDetails    String?  // JSON object with detailed errors
+
+  // Metadata
+  triggeredBy     String?  // User ID who triggered manual sync
+  metadata        String   @default("{}") // JSON object with sync configuration
+
+  createdAt       DateTime @default(now())
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([syncType])
+}
+
+model HRISConflict {
+  id              String   @id @default(cuid())
+  syncId          String   // Reference to HRISSync
+  conflictType    String   // "duplicate_email" | "duplicate_employee_id" | "email_change" | "data_mismatch" | "village_not_found"
+
+  // HRIS data
+  hrisEmployeeId  String
+  hrisEmail       String?
+  hrisData        String   @default("{}") // JSON object with full HRIS record
+
+  // System data
+  existingUserId  String?  // User ID if conflict with existing user
+  systemData      String?  @default("{}") // JSON object with existing system data
+
+  // Resolution
+  status          String   @default("pending") // "pending" | "auto_resolved" | "manually_resolved" | "ignored"
+  resolution      String?  // "keep_system" | "use_hris" | "merge" | "create_new"
+  resolvedBy      String?  // User ID who resolved conflict
+  resolvedAt      DateTime?
+  resolutionNotes String?
+
+  createdAt       DateTime @default(now())
+
+  @@index([status])
+  @@index([syncId])
+  @@index([hrisEmployeeId])
+  @@index([conflictType])
+  @@index([createdAt])
+}
+
+model CollaborationSession {
+  id              String   @id @default(cuid())
+  sessionName     String   // E.g., "feedback-triage-2025-10-13"
+  type            String   @default("feedback") // "feedback" | "roadmap" | "moderation"
+
+  // Participants
+  participantIds  String   @default("[]") // JSON array of active user IDs
+
+  // Session metadata
+  activeCount     Int      @default(0)
+  lastActivityAt  DateTime @default(now())
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  comments        CollaborationComment[]
+
+  @@index([sessionName])
+  @@index([type])
+  @@index([lastActivityAt])
+}
+
+model CollaborationComment {
+  id          String               @id @default(cuid())
+  sessionId   String
+  session     CollaborationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  // Author
+  authorId    String
+  authorName  String  // Cached for performance
+  authorAvatar String? // Cached avatar URL
+
+  // Content
+  content     String
+
+  // Context - what feedback/item is being discussed
+  feedbackId  String?
+  resourceId  String? // Generic resource ID for roadmap items, etc.
+  resourceType String? // "feedback" | "roadmap" | "moderation"
+
+  // Threading
+  parentId    String?
+  parent      CollaborationComment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies     CollaborationComment[] @relation("CommentReplies")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([sessionId])
+  @@index([feedbackId])
+  @@index([resourceId])
+  @@index([authorId])
+  @@index([parentId])
+  @@index([createdAt])
+}
+
+// ========== GAMIFICATION MODELS ==========
+
+model UserPoints {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Points by category
+  feedbackPoints      Int @default(0)
+  votingPoints        Int @default(0)
+  researchPoints      Int @default(0)
+  qualityPoints       Int @default(0)
+  totalPoints         Int @default(0)
+
+  // Tracking
+  weeklyPoints        Int @default(0)
+  monthlyPoints       Int @default(0)
+  lastWeekReset       DateTime @default(now())
+  lastMonthReset      DateTime @default(now())
+
+  // Metadata
+  level               Int @default(1)
+  nextLevelThreshold  Int @default(100)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId])
+  @@index([totalPoints])
+  @@index([weeklyPoints])
+  @@index([monthlyPoints])
+  @@index([userId, totalPoints])
+}
+
+model Badge {
+  id          String   @id @default(cuid())
+  key         String   @unique // e.g., "feedback_bronze", "vote_silver"
+  name        String
+  description String
+  tier        String   // "bronze" | "silver" | "gold" | "platinum"
+  category    String   // "feedback" | "voting" | "research" | "engagement"
+  iconUrl     String?
+  requirement Int      // Number of actions needed
+  points      Int      @default(0) // Bonus points for earning this badge
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  userBadges  UserBadge[]
+
+  @@index([category])
+  @@index([tier])
+}
+
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  badgeId   String
+  badge     Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  // Progress tracking
+  progress  Int      @default(0)
+  earnedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, badgeId])
+  @@index([userId])
+  @@index([badgeId])
+  @@index([earnedAt])
+  @@index([userId, earnedAt])
+}
+
+model Achievement {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String
+  category    String   // "streak" | "milestone" | "special"
+  iconUrl     String?
+  requirement String   @default("{}") // JSON object with requirements
+  points      Int      @default(0)
+  hidden      Boolean  @default(false) // Secret achievements
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  userAchievements UserAchievement[]
+
+  @@index([category])
+  @@index([hidden])
+}
+
+model UserAchievement {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  progress      String      @default("{}") // JSON object tracking progress
+  earnedAt      DateTime?
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+  @@index([achievementId])
+  @@index([earnedAt])
+  @@index([userId, earnedAt])
+}
+
+model Leaderboard {
+  id          String   @id @default(cuid())
+  period      String   // "weekly" | "monthly" | "all_time"
+  category    String   // "overall" | "feedback" | "voting" | "research"
+
+  // Snapshot data
+  rankings    String   @default("[]") // JSON array of {userId, displayName, points, rank}
+  periodStart DateTime
+  periodEnd   DateTime
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([period])
+  @@index([category])
+  @@index([periodStart])
+  @@index([period, category, periodStart])
+}
+
+model PointTransaction {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  points      Int      // Can be positive or negative
+  category    String   // "feedback" | "voting" | "research" | "quality" | "bonus"
+  action      String   // "submit_feedback" | "vote" | "questionnaire" | "session" | "badge_earned"
+
+  // Reference to the action
+  resourceId  String?
+  resourceType String? // "feedback" | "vote" | "questionnaire" | "session" | "badge"
+
+  metadata    String   @default("{}") // JSON object with additional context
+
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([category])
+  @@index([action])
+  @@index([userId, createdAt])
+  @@index([resourceId, resourceType])
+}
+
+// ========== AI/ML MODELS ==========
+
+model AIUsageLog {
+  id          String   @id @default(cuid())
+
+  // Request details
+  operation   String   // "categorization" | "sentiment" | "duplicate_detection" | "embedding"
+  model       String   // "gpt-4o-mini" | "text-embedding-3-small"
+
+  // User context
+  userId      String?  // User who triggered the AI operation (null for system ops)
+  feedbackId  String?  // Related feedback ID if applicable
+
+  // Usage metrics
+  promptTokens     Int     @default(0)
+  completionTokens Int     @default(0)
+  totalTokens      Int     @default(0)
+
+  // Response metadata
+  success          Boolean @default(true)
+  errorMessage     String?
+  latencyMs        Int?    // Request latency in milliseconds
+
+  // AI output
+  result           String  @default("{}") // JSON object with AI response
+  confidence       Float?  // Confidence score if applicable (0-1)
+
+  // Cost tracking (approximate)
+  estimatedCostUsd Float?  // Estimated cost in USD
+
+  createdAt        DateTime @default(now())
+
+  @@index([operation])
+  @@index([userId])
+  @@index([feedbackId])
+  @@index([createdAt])
+  @@index([success])
+  @@index([operation, createdAt]) // For usage analytics
+}
+
+model FeedbackAIMetadata {
+  id                String   @id @default(cuid())
+  feedbackId        String   @unique // One-to-one with Feedback
+
+  // AI Categorization
+  aiProductArea     String?  // AI-suggested product area
+  categorizationConfidence Float? // 0-1
+  categorizationReasoning  String?
+
+  // Sentiment Analysis
+  sentiment         String?  // "positive" | "neutral" | "negative"
+  sentimentScore    Float?   // 0-1 (0=negative, 0.5=neutral, 1=positive)
+  sentimentConfidence Float?
+  urgencyScore      Float?   // Detected urgency level (0-1)
+
+  // Semantic Embedding (for duplicate detection)
+  embedding         String?  // JSON array of embedding vector (1536 dimensions)
+  embeddingModel    String?  // "text-embedding-3-small"
+
+  // Duplicate Detection
+  semanticDuplicates String  @default("[]") // JSON array of {feedbackId, similarity}
+  duplicateCheckAt   DateTime?
+
+  // Manual Overrides
+  manuallyOverridden Boolean @default(false)
+  overriddenBy       String? // User ID who overrode AI suggestions
+  overriddenAt       DateTime?
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([feedbackId])
+  @@index([aiProductArea])
+  @@index([sentiment])
+  @@index([sentimentScore])
+  @@index([urgencyScore])
 }

@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:collab": "node server.js",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -18,7 +19,9 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "db:reset": "prisma migrate reset"
+    "db:reset": "prisma migrate reset",
+    "i18n:validate": "tsx scripts/validate-translations.ts",
+    "i18n:report": "tsx scripts/validate-translations.ts --report"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -61,10 +64,14 @@
     "lucide-react": "^0.544.0",
     "next": "15.5.4",
     "next-auth": "^5.0.0-beta.29",
+    "next-intl": "^4.3.12",
+    "openai": "^6.3.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.64.0",
     "recharts": "^3.2.1",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^4.1.11"

@@ -36,6 +36,9 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Breadcrumbs } from '@/components/navigation/breadcrumbs';
+import { RecordingControls } from '@/components/research/RecordingControls';
+import { VideoPlayer } from '@/components/research/VideoPlayer';
+import { TranscriptViewer } from '@/components/research/TranscriptViewer';
 
 interface SessionDetailClientProps {
   session: any;
@@ -44,6 +47,7 @@ interface SessionDetailClientProps {
   canJoin: boolean;
   isFacilitator: boolean;
   isParticipant: boolean;
+  recordings?: any[];
 }
 
 const statusColors = {
@@ -60,11 +64,13 @@ export function SessionDetailClient({
   canJoin,
   isFacilitator,
   isParticipant,
+  recordings = [],
 }: SessionDetailClientProps) {
   const router = useRouter();
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [joining, setJoining] = useState(false);
+  const [selectedRecording, setSelectedRecording] = useState<any>(null);
 
   const handleCancel = async () => {
     setCancelling(true);
@@ -323,6 +329,58 @@ export function SessionDetailClient({
             </CardContent>
           </Card>
 
+          {/* Recording Controls (During Session) */}
+          {isFacilitator && session.recordingEnabled && session.status === 'in_progress' && (
+            <RecordingControls
+              sessionId={session.id}
+              onRecordingStart={(recordingId) => {
+                console.log('Recording started:', recordingId);
+              }}
+              onRecordingStop={(blob, duration) => {
+                console.log('Recording stopped:', duration, 'seconds');
+                router.refresh();
+              }}
+              onError={(error) => {
+                console.error('Recording error:', error);
+                alert(error.message);
+              }}
+            />
+          )}
+
+          {/* Recordings Playback (Completed Sessions) */}
+          {recordings.length > 0 && (
+            <div className="space-y-6">
+              {recordings.map((recording) => (
+                <div key={recording.id}>
+                  <VideoPlayer
+                    recordingId={recording.id}
+                    videoUrl={recording.signedUrl || ''}
+                    annotations={recording.annotations || []}
+                    highlights={recording.highlights || []}
+                    canAnnotate={isFacilitator}
+                    onAddAnnotation={async (timestamp, text, type) => {
+                      const response = await fetch(`/api/recording/playback/${recording.id}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ type: 'annotation', timestamp, text, annotationType: type }),
+                      });
+                      if (response.ok) {
+                        router.refresh();
+                      }
+                    }}
+                  />
+
+                  {recording.transcriptionSegments && recording.transcriptionSegments.length > 0 && (
+                    <TranscriptViewer
+                      segments={recording.transcriptionSegments}
+                      language={recording.transcriptionLanguage || 'en'}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Session Notes (Facilitators only) */}
           {session.notes && isFacilitator && (
             <Card>
@@ -343,26 +401,6 @@ export function SessionDetailClient({
                     <p className="text-sm whitespace-pre-wrap">
                       {session.notes.insights}
                     </p>
-                  </div>
-                )}
-
-                {session.notes.recordingUrls?.length > 0 && (
-                  <div>
-                    <h4 className="font-medium mb-2">Recordings</h4>
-                    <ul className="space-y-1">
-                      {session.notes.recordingUrls.map((url: string, index: number) => (
-                        <li key={index}>
-                          <a
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-blue-600 hover:underline"
-                          >
-                            Recording {index + 1}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
                   </div>
                 )}
               </CardContent>

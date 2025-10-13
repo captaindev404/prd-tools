@@ -92,6 +92,27 @@ export default async function SessionDetailPage({
     }
   }
 
+  // Fetch recordings for this session
+  const recordings = await prisma.sessionRecording.findMany({
+    where: {
+      sessionId: id,
+      deletedAt: null, // Only show non-deleted recordings
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+
+  // Parse JSON fields for recordings
+  const recordingsWithParsedData = recordings.map(recording => ({
+    ...recording,
+    annotations: JSON.parse(recording.annotations || '[]'),
+    highlights: JSON.parse(recording.highlights || '[]'),
+    transcriptionSegments: recording.transcriptionText
+      ? JSON.parse(recording.transcriptionText || '[]')
+      : [],
+  }));
+
   const sessionDetail = {
     ...sessionData,
     participantIds,
@@ -110,6 +131,7 @@ export default async function SessionDetailPage({
       canJoin={canJoin}
       isFacilitator={isFacilitator}
       isParticipant={isParticipant}
+      recordings={recordingsWithParsedData}
     />
   );
 }

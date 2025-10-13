@@ -5,14 +5,15 @@ import { getToken } from "next-auth/jwt";
 /**
  * Authentication Middleware for Gentil Feedback Platform
  *
- * This middleware protects routes that require authentication.
- * It runs on every request and checks if the user has a valid session.
+ * This middleware handles authentication and protects routes.
  *
  * Public routes (no authentication required):
  * - / (landing page)
  * - /auth/* (authentication pages)
  * - /api/auth/* (NextAuth API routes)
  * - /unauthorized (access denied page)
+ * - /unsubscribe (email unsubscribe)
+ * - /questionnaires/[id]/respond (public questionnaire responses)
  *
  * All other routes require authentication and will redirect to /auth/signin
  * if the user is not authenticated.
@@ -29,6 +30,7 @@ const publicRoutes = [
   "/auth/signout",
   "/auth/error",
   "/unauthorized",
+  "/unsubscribe",
 ];
 
 /**
@@ -52,7 +54,16 @@ function isPublicRoute(pathname: string): boolean {
   }
 
   // Check prefixes
-  return publicPrefixes.some((prefix) => pathname.startsWith(prefix));
+  if (publicPrefixes.some((prefix) => pathname.startsWith(prefix))) {
+    return true;
+  }
+
+  // Allow public questionnaire responses
+  if (pathname.match(/^\/questionnaires\/[^/]+\/respond$/)) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -60,6 +71,15 @@ function isPublicRoute(pathname: string): boolean {
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Skip middleware for API routes and static files
+  if (
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/_next') ||
+    pathname.includes('.')
+  ) {
+    return NextResponse.next();
+  }
 
   // Allow public routes
   if (isPublicRoute(pathname)) {
