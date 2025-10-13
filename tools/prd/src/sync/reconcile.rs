@@ -134,7 +134,9 @@ pub fn reconcile(db: &Database, docs_dir: &Path, auto_fix: bool) -> Result<Recon
     if inconsistencies.is_empty() {
         println!(
             "{}",
-            "✓ No inconsistencies found! Database is in sync.".green().bold()
+            "✓ No inconsistencies found! Database is in sync."
+                .green()
+                .bold()
         );
         return Ok(ReconcileResult {
             inconsistencies: vec![],
@@ -278,9 +280,9 @@ fn check_tasks_without_docs(db: &Database, docs_dir: &Path) -> Result<Vec<Incons
     let mut issues = Vec::new();
 
     // Get all completed tasks from database
-    let mut stmt = db.get_connection().prepare(
-        "SELECT display_id, title, completed_at FROM tasks WHERE status = 'completed'",
-    )?;
+    let mut stmt = db
+        .get_connection()
+        .prepare("SELECT display_id, title, completed_at FROM tasks WHERE status = 'completed'")?;
 
     let mut rows = stmt.query([])?;
 
@@ -398,7 +400,7 @@ fn check_dependency_mismatches(db: &Database) -> Result<Vec<Inconsistency>> {
         if let Some(display_id) = task.display_id {
             // Get dependencies using raw SQL
             let mut stmt = db.get_connection().prepare(
-                "SELECT depends_on_display_id FROM task_dependencies WHERE task_display_id = ?1"
+                "SELECT depends_on_display_id FROM task_dependencies WHERE task_display_id = ?1",
             )?;
             let deps: Vec<i32> = stmt
                 .query_map([display_id], |row| row.get(0))?
@@ -514,22 +516,12 @@ mod tests {
         let db = Database::new(temp_db.path().to_str().unwrap()).unwrap();
 
         // Create pending task
-        db.create_task(
-            "Test".to_string(),
-            None,
-            Priority::Medium,
-            None,
-            None,
-        )
-        .unwrap();
+        db.create_task("Test".to_string(), None, Priority::Medium, None, None)
+            .unwrap();
 
         // Create completion doc
         let temp_docs = tempdir().unwrap();
-        fs::write(
-            temp_docs.path().join("TASK-001-COMPLETION.md"),
-            "# Done",
-        )
-        .unwrap();
+        fs::write(temp_docs.path().join("TASK-001-COMPLETION.md"), "# Done").unwrap();
 
         // Run reconcile (without applying fixes)
         let inconsistencies = find_all_inconsistencies(&db, temp_docs.path()).unwrap();
@@ -551,13 +543,7 @@ mod tests {
 
         // Create and complete task
         let task = db
-            .create_task(
-                "Test".to_string(),
-                None,
-                Priority::Medium,
-                None,
-                None,
-            )
+            .create_task("Test".to_string(), None, Priority::Medium, None, None)
             .unwrap();
         db.update_task_status(&task.id, TaskStatus::Completed, None)
             .unwrap();
@@ -606,13 +592,7 @@ mod tests {
 
         // Create task and agent
         let task = db
-            .create_task(
-                "Test".to_string(),
-                None,
-                Priority::Medium,
-                None,
-                None,
-            )
+            .create_task("Test".to_string(), None, Priority::Medium, None, None)
             .unwrap();
         let agent = db.create_agent("TestAgent".to_string()).unwrap();
 
@@ -659,22 +639,10 @@ mod tests {
 
         // Create two tasks
         let task1 = db
-            .create_task(
-                "Task 1".to_string(),
-                None,
-                Priority::Medium,
-                None,
-                None,
-            )
+            .create_task("Task 1".to_string(), None, Priority::Medium, None, None)
             .unwrap();
         let task2 = db
-            .create_task(
-                "Task 2".to_string(),
-                None,
-                Priority::Medium,
-                None,
-                None,
-            )
+            .create_task("Task 2".to_string(), None, Priority::Medium, None, None)
             .unwrap();
 
         // Make task 2 depend on task 1 (using raw SQL)
@@ -714,21 +682,11 @@ mod tests {
         let temp_db = tempfile::NamedTempFile::new().unwrap();
         let db = Database::new(temp_db.path().to_str().unwrap()).unwrap();
 
-        db.create_task(
-            "Test".to_string(),
-            None,
-            Priority::Medium,
-            None,
-            None,
-        )
-        .unwrap();
+        db.create_task("Test".to_string(), None, Priority::Medium, None, None)
+            .unwrap();
 
         let temp_docs = tempdir().unwrap();
-        fs::write(
-            temp_docs.path().join("TASK-001-COMPLETION.md"),
-            "# Done",
-        )
-        .unwrap();
+        fs::write(temp_docs.path().join("TASK-001-COMPLETION.md"), "# Done").unwrap();
 
         // Run reconcile with auto_fix = true
         let result = reconcile(&db, temp_docs.path(), true).unwrap();

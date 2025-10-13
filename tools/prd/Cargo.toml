@@ -25,12 +25,19 @@ regex = "1.10"
 serde_yaml = "0.9"
 ratatui = "0.26"
 crossterm = "0.27"
+notify-rust = "4.10"
+toml = "0.8"
+shell-words = "1.1"
+notify = "6.1"
+ctrlc = "3.4"
+git2 = "0.18"
 
 [dev-dependencies]
 tempfile = "3.8"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
+nix = { version = "0.27", features = ["signal"] }
 
 [[bin]]
 name = "prd"

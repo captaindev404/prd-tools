@@ -6,6 +6,7 @@ mod resolver;
 mod sync;
 
 use anyhow::Result;
+use chrono::{DateTime, NaiveDate, Utc};
 use clap::{Parser, Subcommand};
 use colored::*;
 use db::{AgentStatus, Database, Priority, TaskStatus};
@@ -149,7 +150,14 @@ enum Commands {
     },
 
     /// Show statistics
-    Stats,
+    Stats {
+        /// Show visual progress timelines
+        #[arg(short, long)]
+        visual: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 
     /// List all epics with task counts
     Epics,
@@ -277,8 +285,23 @@ enum Commands {
     },
 
     /// Automatically sync task completions from documentation
-    #[command(alias = "sync-docs")]
     SyncDocs {
+        /// Sync from git commit history instead of files
+        #[arg(long)]
+        from_git: bool,
+
+        /// Only sync commits since this date (ISO 8601: 2025-10-01)
+        #[arg(long, requires = "from_git")]
+        since: Option<String>,
+
+        /// Only sync commits until this date (ISO 8601: 2025-10-13)
+        #[arg(long, requires = "from_git")]
+        until: Option<String>,
+
+        /// Sync from specific branch
+        #[arg(long, requires = "from_git")]
+        branch: Option<String>,
+
         /// Preview changes without applying them
         #[arg(long)]
         dry_run: bool,
@@ -321,6 +344,81 @@ enum Commands {
         /// Refresh interval in seconds
         #[arg(long, default_value = "2")]
         refresh_interval: u64,
+    },
+
+    /// Install or uninstall git hook for auto-completion
+    InstallGitHook {
+        /// Uninstall the hook
+        #[arg(long)]
+        uninstall: bool,
+
+        /// Show hook status
+        #[arg(long)]
+        status: bool,
+    },
+
+    /// Manage hook system
+    Hooks {
+        #[command(subcommand)]
+        subcommand: HooksSubcommand,
+    },
+
+    /// Watch docs/tasks directory for completion documents
+    WatchFiles {
+        /// Run as background daemon
+        #[arg(long)]
+        daemon: bool,
+
+        /// Show daemon status
+        #[arg(long)]
+        status: bool,
+
+        /// Stop daemon
+        #[arg(long)]
+        stop: bool,
+
+        /// Path to docs directory
+        #[arg(long, default_value = "docs/tasks")]
+        docs_path: PathBuf,
+
+        /// Run in daemon mode (internal flag)
+        #[arg(long, hide = true)]
+        daemon_mode: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum HooksSubcommand {
+    /// Initialize hooks configuration with examples
+    Init,
+
+    /// List all configured hooks
+    List,
+
+    /// Test a hook without side effects
+    Test {
+        /// Hook name (e.g., on_task_complete)
+        hook_name: String,
+
+        /// Task ID for testing
+        #[arg(long)]
+        task_id: Option<String>,
+
+        /// Agent ID for testing
+        #[arg(long)]
+        agent_id: Option<String>,
+    },
+
+    /// Enable a hook
+    Enable {
+        /// Hook name
+        hook_name: String,
+    },
+
+    /// Disable a hook
+    Disable {
+        /// Hook name
+        hook_name: String,
     },
 }
 
@@ -1265,27 +1363,42 @@ fn main() -> Result<()> {
             }
         }
 
-        Commands::Stats => {
-            let stats = db.get_stats()?;
+        Commands::Stats { visual, json } => {
+            if json {
+                // JSON output
+                let stats = db.get_stats()?;
+                println!("{}", serde_json::to_string_pretty(&stats)?);
+            } else if visual {
+                // Visual timeline
+                use prd_tool::visualization::TimelineRenderer;
+                // Create a library Database instance for visualization
+                let lib_db = prd_tool::Database::new(cli.database.to_str().unwrap())?;
+                let renderer = TimelineRenderer::new(lib_db);
+                let output = renderer.render()?;
+                println!("{}", output);
+            } else {
+                // Simple stats (existing)
+                let stats = db.get_stats()?;
 
-            println!("\n{}", "Task Statistics".bold().underline());
-            println!("Total tasks: {}", stats.total.to_string().cyan().bold());
-            println!("  {} Pending: {}", "○".white(), stats.pending);
-            println!("  {} In Progress: {}", "◐".blue(), stats.in_progress);
-            println!("  {} Blocked: {}", "■".red(), stats.blocked);
-            println!("  {} Review: {}", "◇".yellow(), stats.review);
-            println!("  {} Completed: {}", "●".green(), stats.completed);
-            println!("  {} Cancelled: {}", "✕".dimmed(), stats.cancelled);
+                println!("\n{}", "Task Statistics".bold().underline());
+                println!("Total tasks: {}", stats.total.to_string().cyan().bold());
+                println!("  {} Pending: {}", "○".white(), stats.pending);
+                println!("  {} In Progress: {}", "◐".blue(), stats.in_progress);
+                println!("  {} Blocked: {}", "■".red(), stats.blocked);
+                println!("  {} Review: {}", "◇".yellow(), stats.review);
+                println!("  {} Completed: {}", "●".green(), stats.completed);
+                println!("  {} Cancelled: {}", "✕".dimmed(), stats.cancelled);
 
-            if stats.total > 0 {
-                let progress = (stats.completed as f32 / stats.total as f32) * 100.0;
-                println!("\nProgress: {:.1}%", progress);
+                if stats.total > 0 {
+                    let progress = (stats.completed as f32 / stats.total as f32) * 100.0;
+                    println!("\nProgress: {:.1}%", progress);
 
-                // Simple progress bar
-                let bar_length = 40;
-                let filled = ((progress / 100.0) * bar_length as f32) as usize;
-                let bar = "█".repeat(filled) + &"░".repeat(bar_length - filled);
-                println!("{}", bar.green());
+                    // Simple progress bar
+                    let bar_length = 40;
+                    let filled = ((progress / 100.0) * bar_length as f32) as usize;
+                    let bar = "█".repeat(filled) + &"░".repeat(bar_length - filled);
+                    println!("{}", bar.green());
+                }
             }
         }
 
@@ -1573,15 +1686,172 @@ fn main() -> Result<()> {
             }
         }
 
-        Commands::SyncDocs { dry_run, docs_dir } => {
-            let result = sync::sync_tasks_from_docs(&db, &docs_dir, dry_run)?;
+        Commands::SyncDocs {
+            from_git,
+            since,
+            until,
+            branch,
+            dry_run,
+            docs_dir,
+        } => {
+            if from_git {
+                // Git-based sync
+                use chrono::NaiveDate;
+                use prd_tool::git::GitSync;
 
-            if result.newly_completed == 0 && result.already_synced == 0 {
-                println!("{}", "No tasks to sync.".yellow());
-            }
+                let repo_path = std::env::current_dir()?;
+                let git_sync = GitSync::new(&repo_path)?;
 
-            if !result.failed.is_empty() {
-                std::process::exit(1);
+                // Parse dates
+                let since_dt = since
+                    .as_ref()
+                    .map(|s| {
+                        DateTime::parse_from_rfc3339(s)
+                            .or_else(|_| {
+                                // Try simple date format
+                                NaiveDate::parse_from_str(s, "%Y-%m-%d")
+                                    .map(|d| d.and_hms_opt(0, 0, 0).unwrap())
+                                    .map(|dt| DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
+                                    .map(|dt| dt.fixed_offset())
+                            })
+                            .map_err(|_| anyhow::anyhow!("Invalid date format for --since"))
+                    })
+                    .transpose()?
+                    .map(|dt| dt.with_timezone(&Utc));
+
+                let until_dt = until
+                    .as_ref()
+                    .map(|s| {
+                        DateTime::parse_from_rfc3339(s)
+                            .or_else(|_| {
+                                NaiveDate::parse_from_str(s, "%Y-%m-%d")
+                                    .map(|d| d.and_hms_opt(23, 59, 59).unwrap())
+                                    .map(|dt| DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
+                                    .map(|dt| dt.fixed_offset())
+                            })
+                            .map_err(|_| anyhow::anyhow!("Invalid date format for --until"))
+                    })
+                    .transpose()?
+                    .map(|dt| dt.with_timezone(&Utc));
+
+                let completions =
+                    git_sync.scan_for_completions(since_dt, until_dt, branch.as_deref())?;
+
+                if completions.is_empty() {
+                    println!("\nNo tasks found in git history");
+                    return Ok(());
+                }
+
+                if dry_run {
+                    println!("\n🔍 DRY RUN: No changes will be made\n");
+                    for doc in &completions {
+                        println!("Would mark task #{} complete", doc.task_id);
+                        if let Some(agent_id) = &doc.agent_id {
+                            println!("  Agent: {}", agent_id);
+                        }
+                        println!("  Commit: {}", doc.git_commit_hash.as_ref().unwrap());
+                        println!();
+                    }
+                    println!(
+                        "Total: {} tasks would be marked complete",
+                        completions.len()
+                    );
+                } else {
+                    // Actually sync to database
+                    println!("\n📝 Syncing {} tasks to database...\n", completions.len());
+
+                    let mut synced = 0;
+                    let mut skipped = 0;
+                    let mut errors = 0;
+
+                    for doc in completions {
+                        // Check if task exists
+                        let task_result: Result<Option<String>, _> = db.get_connection().query_row(
+                            "SELECT id FROM tasks WHERE display_id = ?1",
+                            [doc.task_id],
+                            |row| row.get(0),
+                        );
+
+                        match task_result {
+                            Ok(Some(task_uuid)) => {
+                                // Check if already completed
+                                let task = db.get_task(&task_uuid)?;
+                                if let Some(t) = task {
+                                    if t.status == TaskStatus::Completed {
+                                        skipped += 1;
+                                        println!(
+                                            "⚠ Skipped task #{} (already complete)",
+                                            doc.task_id
+                                        );
+                                        continue;
+                                    }
+
+                                    // Mark as completed
+                                    let agent_id = if let Some(ref agent_str) = doc.agent_id {
+                                        // Try to resolve or create agent
+                                        let agent_result =
+                                            resolve_agent_id(db.get_connection(), agent_str);
+                                        match agent_result {
+                                            Ok(id) => Some(id),
+                                            Err(_) => {
+                                                // Create agent
+                                                match db.create_agent(agent_str.clone()) {
+                                                    Ok(agent) => Some(agent.id),
+                                                    Err(_) => None,
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        None
+                                    };
+
+                                    match db.update_task_status(
+                                        &task_uuid,
+                                        TaskStatus::Completed,
+                                        agent_id.as_deref(),
+                                    ) {
+                                        Ok(_) => {
+                                            synced += 1;
+                                            println!("✓ Marked task #{} complete", doc.task_id);
+                                        }
+                                        Err(e) => {
+                                            errors += 1;
+                                            println!("❌ Failed task #{}: {}", doc.task_id, e);
+                                        }
+                                    }
+                                }
+                            }
+                            Ok(None) => {
+                                errors += 1;
+                                println!("❌ Task #{} not found in database", doc.task_id);
+                            }
+                            Err(e) => {
+                                errors += 1;
+                                println!("❌ Database error for task #{}: {}", doc.task_id, e);
+                            }
+                        }
+                    }
+
+                    println!("\nSummary:");
+                    println!("  Newly completed: {}", synced);
+                    println!("  Already synced: {}", skipped);
+                    println!("  Errors: {}", errors);
+
+                    if errors > 0 {
+                        std::process::exit(1);
+                    }
+                }
+            } else {
+                // File-based sync (Phase 1 implementation)
+                let result = sync::sync_tasks_from_docs(&db, &docs_dir, dry_run)?;
+
+                if result.newly_completed == 0 && result.already_synced == 0 {
+                    println!("{}", "No tasks to sync.".yellow());
+                }
+
+                if !result.failed.is_empty() {
+                    std::process::exit(1);
+                }
             }
         }
 
@@ -1645,6 +1915,97 @@ fn main() -> Result<()> {
         Commands::Watch { refresh_interval } => {
             use prd_tool::dashboard::run_dashboard;
             run_dashboard(cli.database.to_str().unwrap(), refresh_interval)?;
+        }
+
+        Commands::InstallGitHook { uninstall, status } => {
+            use prd_tool::git::GitHookManager;
+
+            let repo_path = std::env::current_dir()?;
+            let hook_manager = GitHookManager::new(repo_path);
+
+            if status {
+                hook_manager.status()?;
+            } else if uninstall {
+                hook_manager.uninstall()?;
+            } else {
+                hook_manager.install()?;
+            }
+        }
+
+        Commands::WatchFiles {
+            daemon,
+            status,
+            stop,
+            docs_path,
+            daemon_mode,
+        } => {
+            use prd_tool::watcher;
+            use std::sync::atomic::Ordering;
+            use std::sync::Arc;
+
+            if status {
+                watcher::daemon::status()?;
+            } else if stop {
+                watcher::daemon::stop_daemon()?;
+            } else if daemon {
+                let db_path = cli.database.clone();
+                watcher::daemon::start_daemon(docs_path, db_path)?;
+            } else if daemon_mode {
+                // Internal: running as daemon
+                // FileWatcher expects library Database type
+                let lib_db = prd_tool::Database::new(cli.database.to_str().unwrap())?;
+                let mut watcher = watcher::FileWatcher::new(docs_path, lib_db)?;
+
+                // Setup signal handler for graceful shutdown
+                let running = Arc::clone(&watcher.running);
+                ctrlc::set_handler(move || {
+                    running.store(false, Ordering::SeqCst);
+                })
+                .expect("Error setting Ctrl+C handler");
+
+                watcher.start()?;
+            } else {
+                // Foreground mode
+                // FileWatcher expects library Database type
+                let lib_db = prd_tool::Database::new(cli.database.to_str().unwrap())?;
+                let mut watcher = watcher::FileWatcher::new(docs_path, lib_db)?;
+
+                // Setup Ctrl+C handler
+                let running = Arc::clone(&watcher.running);
+                ctrlc::set_handler(move || {
+                    println!("\nReceived Ctrl+C, stopping...");
+                    running.store(false, Ordering::SeqCst);
+                })
+                .expect("Error setting Ctrl+C handler");
+
+                watcher.start()?;
+            }
+        }
+
+        Commands::Hooks { subcommand } => {
+            use prd_tool::hooks;
+
+            match subcommand {
+                HooksSubcommand::Init => {
+                    hooks::init_hooks_config()?;
+                }
+                HooksSubcommand::List => {
+                    hooks::list_hooks()?;
+                }
+                HooksSubcommand::Test {
+                    hook_name,
+                    task_id,
+                    agent_id,
+                } => {
+                    hooks::test_hook(&hook_name, task_id.as_deref(), agent_id.as_deref())?;
+                }
+                HooksSubcommand::Enable { hook_name } => {
+                    hooks::enable_hook(&hook_name)?;
+                }
+                HooksSubcommand::Disable { hook_name } => {
+                    hooks::disable_hook(&hook_name)?;
+                }
+            }
         }
     }
 

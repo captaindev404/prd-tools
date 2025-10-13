@@ -146,6 +146,23 @@ pub struct AgentProgress {
     pub timestamp: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentMetrics {
+    pub total_tasks: i32,
+    pub completed_tasks: i32,
+    pub failed_tasks: i32,
+    pub avg_completion_time_hours: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Sprint {
+    pub id: i32,
+    pub number: i32,
+    pub start_date: String, // YYYY-MM-DD format
+    pub end_date: String,
+    pub goal: Option<String>,
+}
+
 pub struct Database {
     conn: Connection,
 }
@@ -230,6 +247,39 @@ impl Database {
             CREATE INDEX IF NOT EXISTS idx_agent_progress_agent ON agent_progress(agent_id, timestamp DESC);
             CREATE INDEX IF NOT EXISTS idx_agent_progress_task ON agent_progress(task_id, timestamp DESC);
             CREATE INDEX IF NOT EXISTS idx_agent_progress_timestamp ON agent_progress(timestamp);
+
+            CREATE TABLE IF NOT EXISTS agent_specializations (
+                agent_id TEXT NOT NULL,
+                specialization TEXT NOT NULL,
+                PRIMARY KEY (agent_id, specialization),
+                FOREIGN KEY (agent_id) REFERENCES agents(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS agent_metrics (
+                agent_id TEXT PRIMARY KEY,
+                total_tasks INTEGER DEFAULT 0,
+                completed_tasks INTEGER DEFAULT 0,
+                failed_tasks INTEGER DEFAULT 0,
+                avg_completion_time_hours REAL DEFAULT 0.0,
+                last_updated TEXT,
+                FOREIGN KEY (agent_id) REFERENCES agents(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS sprints (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                number INTEGER NOT NULL UNIQUE,
+                start_date DATE NOT NULL,
+                end_date DATE NOT NULL,
+                goal TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS sprint_tasks (
+                sprint_id INTEGER NOT NULL,
+                task_id INTEGER NOT NULL,
+                PRIMARY KEY (sprint_id, task_id),
+                FOREIGN KEY (sprint_id) REFERENCES sprints(id),
+                FOREIGN KEY (task_id) REFERENCES tasks(display_id)
+            );
             "#,
         )?;
 
@@ -771,6 +821,212 @@ impl Database {
                 .unwrap()
                 .with_timezone(&Utc),
         })
+    }
+
+    // Agent specialization methods
+    pub fn add_agent_specialization(&self, agent_id: &str, spec: &str) -> Result<()> {
+        self.conn.execute(
+            "INSERT OR IGNORE INTO agent_specializations (agent_id, specialization) VALUES (?, ?)",
+            params![agent_id, spec],
+        )?;
+        self.update_agent_metrics(agent_id)?;
+        Ok(())
+    }
+
+    pub fn remove_agent_specialization(&self, agent_id: &str, spec: &str) -> Result<()> {
+        self.conn.execute(
+            "DELETE FROM agent_specializations WHERE agent_id = ? AND specialization = ?",
+            params![agent_id, spec],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_agent_specializations(&self, agent_id: &str) -> Result<Vec<String>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT specialization FROM agent_specializations WHERE agent_id = ? ORDER BY specialization"
+        )?;
+
+        let specs = stmt
+            .query_map(params![agent_id], |row| row.get(0))?
+            .collect::<Result<Vec<String>, _>>()?;
+
+        Ok(specs)
+    }
+
+    // Agent metrics methods
+    pub fn get_agent_metrics(&self, agent_id: &str) -> Result<AgentMetrics> {
+        let metrics = self
+            .conn
+            .query_row(
+                "SELECT total_tasks, completed_tasks, failed_tasks, avg_completion_time_hours
+             FROM agent_metrics WHERE agent_id = ?",
+                params![agent_id],
+                |row| -> rusqlite::Result<AgentMetrics> {
+                    Ok(AgentMetrics {
+                        total_tasks: row.get(0)?,
+                        completed_tasks: row.get(1)?,
+                        failed_tasks: row.get(2)?,
+                        avg_completion_time_hours: row.get(3)?,
+                    })
+                },
+            )
+            .or_else(|_: rusqlite::Error| -> Result<AgentMetrics> {
+                // Return default if not found
+                Ok(AgentMetrics {
+                    total_tasks: 0,
+                    completed_tasks: 0,
+                    failed_tasks: 0,
+                    avg_completion_time_hours: 0.0,
+                })
+            })?;
+
+        Ok(metrics)
+    }
+
+    pub fn update_agent_metrics(&self, agent_id: &str) -> Result<()> {
+        // Recalculate from task history
+        let total: i32 = self
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM tasks WHERE assigned_agent = ?",
+                params![agent_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+
+        let completed: i32 = self
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM tasks WHERE assigned_agent = ? AND status = 'completed'",
+                params![agent_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+
+        let failed: i32 = self
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM tasks WHERE assigned_agent = ? AND status = 'cancelled'",
+                params![agent_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+
+        // Calculate average completion time for completed tasks
+        let avg_time: f64 = self
+            .conn
+            .query_row(
+                "SELECT AVG(actual_duration) FROM tasks
+             WHERE assigned_agent = ? AND status = 'completed' AND actual_duration IS NOT NULL",
+                params![agent_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(0.0);
+
+        // Convert minutes to hours
+        let avg_hours = avg_time / 60.0;
+
+        self.conn.execute(
+            "INSERT OR REPLACE INTO agent_metrics (agent_id, total_tasks, completed_tasks, failed_tasks, avg_completion_time_hours, last_updated)
+             VALUES (?, ?, ?, ?, ?, ?)",
+            params![agent_id, total, completed, failed, avg_hours, Utc::now().to_rfc3339()],
+        )?;
+
+        Ok(())
+    }
+
+    pub fn get_all_agents(&self) -> Result<Vec<Agent>> {
+        self.list_agents()
+    }
+
+    // Sprint operations
+
+    /// Get all sprints ordered by number
+    pub fn get_all_sprints(&self) -> Result<Vec<Sprint>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, number, start_date, end_date, goal FROM sprints ORDER BY number",
+        )?;
+
+        let sprints = stmt
+            .query_map([], |row| {
+                Ok(Sprint {
+                    id: row.get(0)?,
+                    number: row.get(1)?,
+                    start_date: row.get(2)?,
+                    end_date: row.get(3)?,
+                    goal: row.get(4)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(sprints)
+    }
+
+    /// Get all tasks associated with a sprint (by display_id)
+    pub fn get_sprint_tasks(&self, sprint_id: i32) -> Result<Vec<Task>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT t.id, t.display_id, t.title, t.description, t.status, t.priority,
+                    t.parent_id, t.assigned_agent, t.created_at, t.updated_at, t.completed_at,
+                    t.estimated_duration, t.actual_duration, t.epic_name
+             FROM tasks t
+             JOIN sprint_tasks st ON t.display_id = st.task_id
+             WHERE st.sprint_id = ?1
+             ORDER BY t.created_at ASC",
+        )?;
+
+        let tasks = stmt
+            .query_map(params![sprint_id], Self::row_to_task)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(tasks)
+    }
+
+    /// Get all tasks (useful for sprint inference and burndown)
+    pub fn get_all_tasks(&self) -> Result<Vec<Task>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, display_id, title, description, status, priority, parent_id, assigned_agent,
+                    created_at, updated_at, completed_at, estimated_duration, actual_duration, epic_name
+             FROM tasks ORDER BY created_at ASC"
+        )?;
+
+        let tasks = stmt
+            .query_map([], Self::row_to_task)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(tasks)
+    }
+
+    /// Create a new sprint
+    pub fn create_sprint(
+        &self,
+        number: i32,
+        start_date: String,
+        end_date: String,
+        goal: Option<String>,
+    ) -> Result<Sprint> {
+        self.conn.execute(
+            "INSERT INTO sprints (number, start_date, end_date, goal) VALUES (?1, ?2, ?3, ?4)",
+            params![number, start_date, end_date, goal],
+        )?;
+
+        let id = self.conn.last_insert_rowid() as i32;
+
+        Ok(Sprint {
+            id,
+            number,
+            start_date,
+            end_date,
+            goal,
+        })
+    }
+
+    /// Assign a task to a sprint (by display_id)
+    pub fn assign_task_to_sprint(&self, sprint_id: i32, task_display_id: i32) -> Result<()> {
+        self.conn.execute(
+            "INSERT OR IGNORE INTO sprint_tasks (sprint_id, task_id) VALUES (?1, ?2)",
+            params![sprint_id, task_display_id],
+        )?;
+        Ok(())
     }
 }
 

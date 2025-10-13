@@ -16,6 +16,8 @@ pub struct CompletionDoc {
     pub completed_at: DateTime<Utc>,
     /// Full path to the document
     pub file_path: PathBuf,
+    /// Optional git commit hash (for git-based completions)
+    pub git_commit_hash: Option<String>,
 }
 
 /// Frontmatter metadata (optional)
@@ -109,7 +111,7 @@ fn parse_frontmatter(content: &str) -> Option<Frontmatter> {
 /// # Returns
 /// * `Some(CompletionDoc)` on success
 /// * `None` if parsing fails (logs warning)
-fn parse_completion_doc(path: PathBuf) -> Option<CompletionDoc> {
+pub fn parse_completion_doc(path: PathBuf) -> Option<CompletionDoc> {
     // Step 1: Extract task ID from filename
     let task_id = extract_task_id_from_filename(&path)?;
 
@@ -150,6 +152,7 @@ fn parse_completion_doc(path: PathBuf) -> Option<CompletionDoc> {
         agent_id,
         completed_at,
         file_path: path,
+        git_commit_hash: None,
     })
 }
 

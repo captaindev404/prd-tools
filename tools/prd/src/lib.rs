@@ -1,11 +1,20 @@
 pub mod dashboard;
 pub mod db;
+pub mod errors;
+pub mod git;
+pub mod hooks;
+pub mod notifications;
 pub mod resolver;
+pub mod suggestions;
 pub mod sync;
+pub mod visualization;
+pub mod watcher;
 
 pub use db::{
-    Agent, AgentProgress, AgentStatus, Database, Priority, Task, TaskLog, TaskStats, TaskStatus,
+    Agent, AgentMetrics, AgentProgress, AgentStatus, Database, Priority, Task, TaskLog, TaskStats,
+    TaskStatus,
 };
+pub use suggestions::{AgentMatcher, AgentRecommendation};
 
 use anyhow::Result;
 
