@@ -1,8 +1,11 @@
+pub mod dashboard;
 pub mod db;
 pub mod resolver;
 pub mod sync;
 
-pub use db::{Agent, AgentStatus, Database, Priority, Task, TaskLog, TaskStats, TaskStatus};
+pub use db::{
+    Agent, AgentProgress, AgentStatus, Database, Priority, Task, TaskLog, TaskStats, TaskStatus,
+};
 
 use anyhow::Result;
 

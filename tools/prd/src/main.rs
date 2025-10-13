@@ -85,6 +85,9 @@ enum Commands {
         /// Show logs
         #[arg(short, long)]
         logs: bool,
+        /// Show progress history
+        #[arg(short, long)]
+        progress: bool,
     },
 
     /// Update task status
@@ -298,6 +301,26 @@ enum Commands {
         /// Create backup before applying fixes
         #[arg(long)]
         backup: bool,
+    },
+
+    /// Report agent progress on a task
+    ReportProgress {
+        /// Agent ID or name (e.g., "A12" or "agent-name")
+        agent: String,
+        /// Task display ID (e.g., "37" or "#37")
+        task_id: String,
+        /// Progress percentage (0-100)
+        progress: u8,
+        /// Optional progress message
+        message: Option<String>,
+    },
+
+    /// Live dashboard with real-time agent progress
+    #[command(alias = "dashboard")]
+    Watch {
+        /// Refresh interval in seconds
+        #[arg(long, default_value = "2")]
+        refresh_interval: u64,
     },
 }
 
@@ -608,7 +631,7 @@ fn main() -> Result<()> {
             }
         }
 
-        Commands::Show { id, logs } => {
+        Commands::Show { id, logs, progress } => {
             // Resolve ID (supports #42, 42, or UUID)
             let task_uuid = resolve_task_id(db.get_connection(), &id)?;
             let task = db.get_task(&task_uuid)?;
@@ -696,6 +719,38 @@ fn main() -> Result<()> {
                                     log.action.cyan(),
                                     log.details.unwrap_or_default()
                                 );
+                            }
+                        }
+                    }
+
+                    // Show progress if requested
+                    if progress {
+                        if let Some(task_display_id) = t.display_id {
+                            let progress_records = db.get_task_progress(task_display_id)?;
+                            if !progress_records.is_empty() {
+                                println!("\n{}", "Progress History:".bold());
+                                for prog in progress_records {
+                                    let agent_display = db
+                                        .get_agent(&prog.agent_id)
+                                        .ok()
+                                        .flatten()
+                                        .and_then(|a| a.display_id.map(|id| format!("A{}", id)))
+                                        .unwrap_or_else(|| prog.agent_id[..8].to_string());
+                                    let msg = prog
+                                        .message
+                                        .map(|m| format!(" - {}", m))
+                                        .unwrap_or_default();
+                                    println!(
+                                        "  {} - {} @ {}%{}",
+                                        prog.timestamp
+                                            .format("%Y-%m-%d %H:%M:%S")
+                                            .to_string()
+                                            .dimmed(),
+                                        agent_display.cyan(),
+                                        prog.progress.to_string().cyan(),
+                                        msg
+                                    );
+                                }
                             }
                         }
                     }
@@ -1537,10 +1592,7 @@ fn main() -> Result<()> {
         } => {
             if backup {
                 // Create backup
-                let backup_path = format!(
-                    "tools/prd.db.backup.{}",
-                    chrono::Utc::now().timestamp()
-                );
+                let backup_path = format!("tools/prd.db.backup.{}", chrono::Utc::now().timestamp());
                 std::fs::copy(cli.database.clone(), &backup_path)?;
                 println!("{} Created backup: {}", "✓".green(), backup_path.dimmed());
             }
@@ -1554,6 +1606,45 @@ fn main() -> Result<()> {
             if !result.failed.is_empty() {
                 std::process::exit(1);
             }
+        }
+
+        Commands::ReportProgress {
+            agent,
+            task_id,
+            progress,
+            message,
+        } => {
+            // Resolve agent ID (supports A12, 12, name, or UUID)
+            let agent_uuid = resolve_agent_id(db.get_connection(), &agent)?;
+
+            // Resolve task ID (supports #37, 37, or UUID)
+            let task_display_id = if task_id.starts_with('#') {
+                task_id[1..]
+                    .parse::<i32>()
+                    .map_err(|_| anyhow::anyhow!("Invalid task ID format"))?
+            } else {
+                task_id
+                    .parse::<i32>()
+                    .map_err(|_| anyhow::anyhow!("Invalid task ID format"))?
+            };
+
+            // Report progress
+            db.report_progress(&agent_uuid, task_display_id, progress, message)?;
+
+            // Get agent display ID for output
+            let agent_display = format_agent_id(db.get_connection(), &agent_uuid);
+
+            println!(
+                "{} Progress updated: {} @ {}%",
+                "✓".green().bold(),
+                agent_display.cyan(),
+                progress.to_string().cyan()
+            );
+        }
+
+        Commands::Watch { refresh_interval } => {
+            use prd_tool::dashboard::run_dashboard;
+            run_dashboard(cli.database.to_str().unwrap(), refresh_interval)?;
         }
     }
 

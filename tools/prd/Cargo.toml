@@ -23,6 +23,8 @@ csv = "1.3"
 glob = "0.3"
 regex = "1.10"
 serde_yaml = "0.9"
+ratatui = "0.26"
+crossterm = "0.27"
 
 [dev-dependencies]
 tempfile = "3.8"
@@ -33,10 +35,6 @@ libc = "0.2"
 [[bin]]
 name = "prd"
 path = "src/main.rs"
-
-[[bin]]
-name = "prd-dashboard"
-path = "src/dashboard.rs"
 
 [[example]]
 name = "simple_agent"

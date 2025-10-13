@@ -136,6 +136,16 @@ pub struct TaskLog {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentProgress {
+    pub id: i32,
+    pub agent_id: String,
+    pub task_id: i32,
+    pub progress: u8, // 0-100
+    pub message: Option<String>,
+    pub timestamp: DateTime<Utc>,
+}
+
 pub struct Database {
     conn: Connection,
 }
@@ -170,9 +180,6 @@ impl Database {
                 estimated_duration INTEGER,
                 actual_duration INTEGER,
                 epic_name TEXT,
-                completion_doc_path TEXT,
-                auto_completed BOOLEAN DEFAULT FALSE,
-                git_commit_hash TEXT,
                 FOREIGN KEY(parent_id) REFERENCES tasks(id),
                 FOREIGN KEY(assigned_agent) REFERENCES agents(id)
             );
@@ -203,9 +210,29 @@ impl Database {
             CREATE INDEX IF NOT EXISTS idx_tasks_parent ON tasks(parent_id);
             CREATE INDEX IF NOT EXISTS idx_tasks_agent ON tasks(assigned_agent);
             CREATE INDEX IF NOT EXISTS idx_logs_task ON task_logs(task_id);
-            CREATE INDEX IF NOT EXISTS idx_tasks_auto_completed ON tasks(auto_completed) WHERE auto_completed = TRUE;
             "#,
         )?;
+
+        // For in-memory databases used in tests, also create the agent_progress table
+        // This is safe because CREATE TABLE IF NOT EXISTS won't fail if it already exists
+        self.conn.execute_batch(
+            r#"
+            CREATE TABLE IF NOT EXISTS agent_progress (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                agent_id TEXT NOT NULL,
+                task_id INTEGER NOT NULL,
+                progress INTEGER NOT NULL CHECK(progress >= 0 AND progress <= 100),
+                message TEXT,
+                timestamp DATETIME NOT NULL,
+                FOREIGN KEY (agent_id) REFERENCES agents(id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_agent_progress_agent ON agent_progress(agent_id, timestamp DESC);
+            CREATE INDEX IF NOT EXISTS idx_agent_progress_task ON agent_progress(task_id, timestamp DESC);
+            CREATE INDEX IF NOT EXISTS idx_agent_progress_timestamp ON agent_progress(timestamp);
+            "#,
+        )?;
+
         Ok(())
     }
 
@@ -617,6 +644,134 @@ impl Database {
                 .with_timezone(&Utc),
         })
     }
+
+    // Progress tracking operations
+
+    /// Report progress for an agent on a task
+    /// Progress must be 0-100, agent and task must exist
+    pub fn report_progress(
+        &self,
+        agent_id: &str,
+        task_id: i32,
+        progress: u8,
+        message: Option<String>,
+    ) -> Result<()> {
+        // Validate progress range
+        if progress > 100 {
+            return Err(anyhow::anyhow!("Progress must be between 0 and 100"));
+        }
+
+        // Validate agent exists
+        let agent_exists: bool = self.conn.query_row(
+            "SELECT COUNT(*) FROM agents WHERE id = ?1",
+            params![agent_id],
+            |row| Ok(row.get::<_, i32>(0)? > 0),
+        )?;
+
+        if !agent_exists {
+            return Err(anyhow::anyhow!("Agent {} does not exist", agent_id));
+        }
+
+        // Validate task exists (by display_id)
+        let task_exists: bool = self.conn.query_row(
+            "SELECT COUNT(*) FROM tasks WHERE display_id = ?1",
+            params![task_id],
+            |row| Ok(row.get::<_, i32>(0)? > 0),
+        )?;
+
+        if !task_exists {
+            return Err(anyhow::anyhow!("Task #{} does not exist", task_id));
+        }
+
+        // Insert progress record
+        self.conn.execute(
+            "INSERT INTO agent_progress (agent_id, task_id, progress, message, timestamp)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                agent_id,
+                task_id,
+                progress,
+                message,
+                Utc::now().to_rfc3339(),
+            ],
+        )?;
+
+        Ok(())
+    }
+
+    /// Get the latest progress report for a specific agent
+    pub fn get_latest_progress(&self, agent_id: &str) -> Result<Option<AgentProgress>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, agent_id, task_id, progress, message, timestamp
+             FROM agent_progress
+             WHERE agent_id = ?1
+             ORDER BY timestamp DESC
+             LIMIT 1",
+        )?;
+
+        let progress = stmt
+            .query_row(params![agent_id], Self::row_to_progress)
+            .optional()?;
+        Ok(progress)
+    }
+
+    /// Get all progress reports for all agents (latest for each agent)
+    pub fn get_all_progress(&self) -> Result<Vec<AgentProgress>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, agent_id, task_id, progress, message, timestamp
+             FROM agent_progress
+             WHERE id IN (
+                 SELECT MAX(id)
+                 FROM agent_progress
+                 GROUP BY agent_id
+             )
+             ORDER BY timestamp DESC",
+        )?;
+
+        let progress_list = stmt
+            .query_map([], Self::row_to_progress)?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(progress_list)
+    }
+
+    /// Get all progress reports for a specific task
+    pub fn get_task_progress(&self, task_id: i32) -> Result<Vec<AgentProgress>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, agent_id, task_id, progress, message, timestamp
+             FROM agent_progress
+             WHERE task_id = ?1
+             ORDER BY timestamp DESC",
+        )?;
+
+        let progress_list = stmt
+            .query_map(params![task_id], Self::row_to_progress)?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(progress_list)
+    }
+
+    /// Cleanup old progress records older than specified days
+    /// Returns the number of records deleted
+    pub fn cleanup_old_progress(&self, days: i64) -> Result<usize> {
+        let cutoff_time = Utc::now() - chrono::Duration::days(days);
+        let deleted = self.conn.execute(
+            "DELETE FROM agent_progress WHERE timestamp < ?1",
+            params![cutoff_time.to_rfc3339()],
+        )?;
+        Ok(deleted)
+    }
+
+    fn row_to_progress(row: &Row) -> rusqlite::Result<AgentProgress> {
+        Ok(AgentProgress {
+            id: row.get(0)?,
+            agent_id: row.get(1)?,
+            task_id: row.get(2)?,
+            progress: row.get(3)?,
+            message: row.get(4)?,
+            timestamp: DateTime::parse_from_rfc3339(&row.get::<_, String>(5)?)
+                .unwrap()
+                .with_timezone(&Utc),
+        })
+    }
 }
 
 #[derive(Debug, Default, Serialize)]
@@ -628,4 +783,238 @@ pub struct TaskStats {
     pub review: i32,
     pub completed: i32,
     pub cancelled: i32,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_report_progress_valid() -> Result<()> {
+        let db = Database::new(":memory:")?;
+
+        // Create test agent
+        let agent = db.create_agent("test-agent".to_string())?;
+
+        // Create test task
+        let task = db.create_task("Test task".to_string(), None, Priority::Medium, None, None)?;
+        let task_display_id = task.display_id.unwrap();
+
+        // Report progress
+        db.report_progress(
+            &agent.id,
+            task_display_id,
+            50,
+            Some("Half done".to_string()),
+        )?;
+
+        // Verify progress was recorded
+        let latest = db.get_latest_progress(&agent.id)?;
+        assert!(latest.is_some());
+        let progress = latest.unwrap();
+        assert_eq!(progress.progress, 50);
+        assert_eq!(progress.message, Some("Half done".to_string()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_report_progress_invalid_range() -> Result<()> {
+        let db = Database::new(":memory:")?;
+        let agent = db.create_agent("test-agent".to_string())?;
+        let task = db.create_task("Test task".to_string(), None, Priority::Medium, None, None)?;
+        let task_display_id = task.display_id.unwrap();
+
+        // Try to report progress > 100
+        let result = db.report_progress(&agent.id, task_display_id, 101, None);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("must be between 0 and 100"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_report_progress_nonexistent_agent() -> Result<()> {
+        let db = Database::new(":memory:")?;
+        let task = db.create_task("Test task".to_string(), None, Priority::Medium, None, None)?;
+        let task_display_id = task.display_id.unwrap();
+
+        // Try to report progress for nonexistent agent
+        let result = db.report_progress("fake-uuid", task_display_id, 50, None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("does not exist"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_report_progress_nonexistent_task() -> Result<()> {
+        let db = Database::new(":memory:")?;
+        let agent = db.create_agent("test-agent".to_string())?;
+
+        // Try to report progress for nonexistent task
+        let result = db.report_progress(&agent.id, 999, 50, None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("does not exist"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_latest_progress() -> Result<()> {
+        let db = Database::new(":memory:")?;
+        let agent = db.create_agent("test-agent".to_string())?;
+        let task = db.create_task("Test task".to_string(), None, Priority::Medium, None, None)?;
+        let task_display_id = task.display_id.unwrap();
+
+        // Report multiple progress updates
+        db.report_progress(&agent.id, task_display_id, 25, Some("Started".to_string()))?;
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        db.report_progress(
+            &agent.id,
+            task_display_id,
+            50,
+            Some("Half done".to_string()),
+        )?;
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        db.report_progress(
+            &agent.id,
+            task_display_id,
+            75,
+            Some("Almost done".to_string()),
+        )?;
+
+        // Get latest progress
+        let latest = db.get_latest_progress(&agent.id)?;
+        assert!(latest.is_some());
+        let progress = latest.unwrap();
+        assert_eq!(progress.progress, 75);
+        assert_eq!(progress.message, Some("Almost done".to_string()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_all_progress() -> Result<()> {
+        let db = Database::new(":memory:")?;
+
+        // Create multiple agents and tasks
+        let agent1 = db.create_agent("agent-1".to_string())?;
+        let agent2 = db.create_agent("agent-2".to_string())?;
+        let task1 = db.create_task("Task 1".to_string(), None, Priority::Medium, None, None)?;
+        let task2 = db.create_task("Task 2".to_string(), None, Priority::Medium, None, None)?;
+
+        // Report progress for both agents
+        db.report_progress(&agent1.id, task1.display_id.unwrap(), 30, None)?;
+        db.report_progress(&agent2.id, task2.display_id.unwrap(), 60, None)?;
+
+        // Get all progress
+        let all_progress = db.get_all_progress()?;
+        assert_eq!(all_progress.len(), 2);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_task_progress() -> Result<()> {
+        let db = Database::new(":memory:")?;
+        let agent1 = db.create_agent("agent-1".to_string())?;
+        let agent2 = db.create_agent("agent-2".to_string())?;
+        let task = db.create_task("Test task".to_string(), None, Priority::Medium, None, None)?;
+        let task_display_id = task.display_id.unwrap();
+
+        // Report progress from multiple agents on same task
+        db.report_progress(&agent1.id, task_display_id, 30, Some("Agent 1".to_string()))?;
+        db.report_progress(&agent2.id, task_display_id, 60, Some("Agent 2".to_string()))?;
+        db.report_progress(
+            &agent1.id,
+            task_display_id,
+            90,
+            Some("Agent 1 again".to_string()),
+        )?;
+
+        // Get task progress
+        let task_progress = db.get_task_progress(task_display_id)?;
+        assert_eq!(task_progress.len(), 3);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_cleanup_old_progress() -> Result<()> {
+        let db = Database::new(":memory:")?;
+        let agent = db.create_agent("test-agent".to_string())?;
+        let task = db.create_task("Test task".to_string(), None, Priority::Medium, None, None)?;
+        let task_display_id = task.display_id.unwrap();
+
+        // Insert old progress (simulate by direct SQL with past timestamp)
+        let old_timestamp = (Utc::now() - chrono::Duration::days(10)).to_rfc3339();
+        db.get_connection().execute(
+            "INSERT INTO agent_progress (agent_id, task_id, progress, message, timestamp)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                &agent.id,
+                task_display_id,
+                50,
+                None::<String>,
+                old_timestamp
+            ],
+        )?;
+
+        // Insert recent progress
+        db.report_progress(&agent.id, task_display_id, 100, None)?;
+
+        // Cleanup old progress (older than 7 days)
+        let deleted = db.cleanup_old_progress(7)?;
+        assert_eq!(deleted, 1);
+
+        // Verify only recent progress remains
+        let all_progress = db.get_task_progress(task_display_id)?;
+        assert_eq!(all_progress.len(), 1);
+        assert_eq!(all_progress[0].progress, 100);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_progress_boundary_values() -> Result<()> {
+        let db = Database::new(":memory:")?;
+        let agent = db.create_agent("test-agent".to_string())?;
+        let task = db.create_task("Test task".to_string(), None, Priority::Medium, None, None)?;
+        let task_display_id = task.display_id.unwrap();
+
+        // Test 0% (valid)
+        db.report_progress(&agent.id, task_display_id, 0, Some("Starting".to_string()))?;
+
+        // Test 100% (valid)
+        db.report_progress(&agent.id, task_display_id, 100, Some("Done".to_string()))?;
+
+        let latest = db.get_latest_progress(&agent.id)?;
+        assert!(latest.is_some());
+        assert_eq!(latest.unwrap().progress, 100);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_progress_with_no_message() -> Result<()> {
+        let db = Database::new(":memory:")?;
+        let agent = db.create_agent("test-agent".to_string())?;
+        let task = db.create_task("Test task".to_string(), None, Priority::Medium, None, None)?;
+        let task_display_id = task.display_id.unwrap();
+
+        // Report progress without message
+        db.report_progress(&agent.id, task_display_id, 50, None)?;
+
+        let latest = db.get_latest_progress(&agent.id)?;
+        assert!(latest.is_some());
+        let progress = latest.unwrap();
+        assert_eq!(progress.progress, 50);
+        assert_eq!(progress.message, None);
+
+        Ok(())
+    }
 }
