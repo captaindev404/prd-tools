@@ -3,6 +3,7 @@ mod db;
 mod db_extensions;
 mod migrations;
 mod resolver;
+mod sync;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -270,6 +271,33 @@ enum Commands {
         /// CSV file path
         #[arg(long, conflicts_with = "from_file")]
         from_csv: Option<PathBuf>,
+    },
+
+    /// Automatically sync task completions from documentation
+    #[command(alias = "sync-docs")]
+    SyncDocs {
+        /// Preview changes without applying them
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Custom docs directory (default: docs/tasks)
+        #[arg(short, long, default_value = "docs/tasks")]
+        docs_dir: PathBuf,
+    },
+
+    /// Reconcile database with filesystem (detect and fix inconsistencies)
+    Reconcile {
+        /// Apply fixes without confirmation
+        #[arg(long)]
+        auto_fix: bool,
+
+        /// Custom docs directory (default: docs/tasks)
+        #[arg(short, long, default_value = "docs/tasks")]
+        docs_dir: PathBuf,
+
+        /// Create backup before applying fixes
+        #[arg(long)]
+        backup: bool,
     },
 }
 
@@ -1484,6 +1512,44 @@ fn main() -> Result<()> {
             };
 
             let result = batch::complete_batch(&db, records)?;
+
+            if !result.failed.is_empty() {
+                std::process::exit(1);
+            }
+        }
+
+        Commands::SyncDocs { dry_run, docs_dir } => {
+            let result = sync::sync_tasks_from_docs(&db, &docs_dir, dry_run)?;
+
+            if result.newly_completed == 0 && result.already_synced == 0 {
+                println!("{}", "No tasks to sync.".yellow());
+            }
+
+            if !result.failed.is_empty() {
+                std::process::exit(1);
+            }
+        }
+
+        Commands::Reconcile {
+            auto_fix,
+            docs_dir,
+            backup,
+        } => {
+            if backup {
+                // Create backup
+                let backup_path = format!(
+                    "tools/prd.db.backup.{}",
+                    chrono::Utc::now().timestamp()
+                );
+                std::fs::copy(cli.database.clone(), &backup_path)?;
+                println!("{} Created backup: {}", "✓".green(), backup_path.dimmed());
+            }
+
+            let result = sync::reconcile(&db, &docs_dir, auto_fix)?;
+
+            if result.fixed_count == 0 && result.inconsistencies.is_empty() {
+                println!("{}", "Database is healthy!".green().bold());
+            }
 
             if !result.failed.is_empty() {
                 std::process::exit(1);

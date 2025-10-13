@@ -170,6 +170,9 @@ impl Database {
                 estimated_duration INTEGER,
                 actual_duration INTEGER,
                 epic_name TEXT,
+                completion_doc_path TEXT,
+                auto_completed BOOLEAN DEFAULT FALSE,
+                git_commit_hash TEXT,
                 FOREIGN KEY(parent_id) REFERENCES tasks(id),
                 FOREIGN KEY(assigned_agent) REFERENCES agents(id)
             );
@@ -200,6 +203,7 @@ impl Database {
             CREATE INDEX IF NOT EXISTS idx_tasks_parent ON tasks(parent_id);
             CREATE INDEX IF NOT EXISTS idx_tasks_agent ON tasks(assigned_agent);
             CREATE INDEX IF NOT EXISTS idx_logs_task ON task_logs(task_id);
+            CREATE INDEX IF NOT EXISTS idx_tasks_auto_completed ON tasks(auto_completed) WHERE auto_completed = TRUE;
             "#,
         )?;
         Ok(())

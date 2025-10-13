@@ -1,4 +1,5 @@
 pub mod db;
+pub mod resolver;
 pub mod sync;
 
 pub use db::{Agent, AgentStatus, Database, Priority, Task, TaskLog, TaskStats, TaskStatus};
