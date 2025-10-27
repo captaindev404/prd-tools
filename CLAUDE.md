@@ -4,385 +4,260 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Gentil Feedback** (v0.5.0) - A comprehensive product feedback and user research platform for Club Med with:
-- Multi-village identity management with global user accounts
-- Product feedback collection, voting, and roadmap communication
-- User testing panels, questionnaires, and research sessions
-- GDPR-compliant data handling
+PRD Tool is a Rust-based CLI for managing tasks, agents, and dependencies across development teams and AI agents. It provides human-readable IDs (#1, A1), epic grouping, task dependencies, acceptance criteria, progress tracking, and real-time monitoring.
 
-**Status**: In Development (23% Complete - 29/119 tasks completed)
+## Build & Run Commands
 
-## Tech Stack
-
-### Core Framework
-- **Next.js 15.5** - React framework with App Router and Turbopack dev server (server components by default)
-- **TypeScript** - Type-safe development
-- **React 18** - UI library with hooks
-
-### UI & Styling
-- **Shadcn UI** - Component library built on Radix UI
-- **Tailwind CSS** - Utility-first CSS framework
-- **Lucide React** - Icon library
-- **Recharts** - Data visualization
-
-### Backend & Database
-- **Prisma** - Type-safe ORM
-- **SQLite** - Development database
-- **PostgreSQL** - Production database (migration ready)
-
-### Authentication
-- **NextAuth.js v5** - Authentication framework
-- **Azure AD** - Enterprise SSO for Club Med employees
-- **Keycloak** - Alternative SSO provider
-
-### Forms & Validation
-- **React Hook Form** - Form state management
-- **Zod** - Runtime type validation
-
-### Utilities
-- **ULID** - Sortable unique IDs for all entities
-- **date-fns** - Date manipulation
-
-## Architecture
-
-This is a **domain-specific language (DSL) project** that defines the complete schema for the feedback platform in YAML format. The central artifact is `dsl/global.yaml`, which serves as the single source of truth for:
-
-### Core Domain Models
-
-1. **Tenancy & Identity** (`tenancy`, lines 9-36)
-   - Global user IDs (`usr_${ulid}`) that persist across village changes
-   - Multi-village support with identity recovery via AzureAD/Keycloak
-   - Attributes: `employee_id`, `primary_email`, `current_village_id`, `village_history`
-   - GDPR consent tracking for research contact, analytics, and email updates
-
-2. **Access Control** (`access_control`, lines 39-67)
-   - Roles: USER, PM, PO, RESEARCHER, ADMIN, MODERATOR
-   - Fine-grained permissions matrix for feedback, voting, roadmap, research, and moderation actions
-   - Conditional policies (e.g., `requires_consent` for research exports)
-
-3. **Features** (`features`, lines 70-79)
-   - Product areas: Reservations, Check-in, Payments, Housekeeping, Backoffice
-   - Feature states: idea → discovery → shaping → in_progress → released → GA → deprecated
-
-4. **Feedback** (`feedback`, lines 82-113)
-   - IDs: `fb_${ulid}`
-   - Village-agnostic by default (`village_context_optional: true`)
-   - Moderation pipeline with signals: toxicity, spam, PII, off-topic
-   - Deduplication (fuzzy title match at 0.86 threshold)
-   - States: new → triaged → merged → in_roadmap → closed
-   - 15-minute edit window, 10 submissions/user/day rate limit
-
-5. **Voting** (`voting`, lines 116-126)
-   - Weighted model using role, village priority, and panel membership
-   - No downvotes allowed
-   - Vote decay with 180-day half-life for recency bias
-
-6. **Roadmap & Comms** (`roadmap`, lines 129-150)
-   - IDs: `rmp_${ulid}`
-   - Stages: now | next | later | under_consideration
-   - Links to features, feedback, Jira tickets, Figma files
-   - Multi-channel communications (in-app, email, inbox) with audience filtering
-   - Success criteria and guardrail metrics
-
-7. **Research** (`research`, lines 153-215)
-   - **Panels** (`pan_${ulid}`): Eligibility-based user cohorts with consent requirements
-   - **Questionnaires** (`qnn_${ulid}`): Versioned surveys (Likert, NPS, MCQ, text, etc.) with targeting
-   - **Sessions** (`ses_${ulid}`): Usability tests, interviews, prototype walkthroughs with recording
-
-8. **Moderation** (`moderation`, lines 230-239)
-   - Auto-screening for PII redaction, toxicity, and spam
-   - 48-hour SLA for human review by MODERATOR role
-   - PII masking: keep last 4 characters
-
-9. **Integrations** (`integrations`, lines 242-263)
-   - Jira (ODYS, PMS projects), Figma, SendGrid, Kafka event bus
-   - Analytics sinks: Kibana, BigQuery
-   - HRIS daily sync for employee_id linking
-
-10. **Events** (`events`, lines 266-280)
-    - Event-driven architecture for pipelines
-    - Key events: `feedback.created`, `feedback.merged`, `vote.cast`, `roadmap.published`, `questionnaire.response.recorded`, `session.completed`
-
-### Key Constraints
-
-- **Identity**: Global user IDs never tied to villages; recovery via email, HRIS, or secondary identifiers
-- **Privacy**: Data retention: feedback (1825d), research records (1095d), PII backups (30d)
-- **I18n**: Support for English and French (`en`, `fr`)
-- **ID format**: ULID-based for all entities (users, feedback, roadmaps, panels, etc.)
-
-## Development Notes
-
-- This DSL is **declarative**—implementation would typically generate database schemas, API contracts, and UI scaffolding from `global.yaml`
-- Seed data examples are provided at the end of `global.yaml` (lines 316-369)
-- UI hints (lines 303-313) suggest frontend behavior (e.g., duplicate suggestions, minimum character counts)
-
-## Development Workflow
-
-### Task-Based Development
-
-The project follows a structured task-based approach:
-
-1. **Task Definitions**: All 119 tasks are defined in `tools/populate_tasks.sql`
-   - Organized by Epic (Foundation, Auth, Feedback, Voting, Features, Moderation, Settings, Roadmap, Research Panels, Questionnaires, Sessions, Integrations, Analytics, Performance, Security, Testing, Documentation, Admin)
-   - Each task includes: ID, title, description, category, priority, estimated hours, tech stack, dependencies, and acceptance criteria
-
-2. **Task Selection**:
-   - Pick tasks from the build dashboard or `populate_tasks.sql`
-   - Check task dependencies (`depends_on` field)
-   - Ensure prerequisite tasks are completed before starting
-
-3. **Implementation Process**:
-   - Read task description and acceptance criteria
-   - Reference related DSL sections in `dsl/global.yaml`
-   - Implement following code standards (see below)
-   - Test locally
-   - Document completion
-
-4. **Completion Documentation**:
-   - Create completion report (e.g., `TASK-XXX-COMPLETION.md`)
-   - Document what was built, files created/modified, dependencies added
-   - Include testing notes and next steps
-
-5. **Progress Tracking**:
-   - Use build dashboard: `cd tools && npm run dashboard`
-   - View real-time progress at http://localhost:3001
-   - Track completed tasks, active work, and statistics
-
-### Development Commands
-
+### Building
 ```bash
-# Development
-npm run dev              # Start dev server with Turbopack (http://localhost:3000)
-npm run build            # Build for production
-npm run lint             # Run ESLint
+# Release build (recommended)
+cargo build --release
+# Or use convenience script
+./build.sh
 
-# Database
-npm run db:generate      # Generate Prisma client
-npm run db:migrate       # Run migrations
-npm run db:seed          # Seed with test data
-npm run db:studio        # Open Prisma Studio GUI
+# Development build
+cargo build
 
-# Tools
-cd tools
-npm run dashboard        # Build progress dashboard
-npm run update-task      # Update task status
+# Run tests
+cargo test
 ```
 
-### Next.js 15.5 Important Notes
+### Running
+```bash
+# Main CLI
+./target/release/prd <command>
 
-- **Turbopack Dev Server**: The dev server now uses Turbopack for faster builds and Hot Module Replacement (HMR)
-- **Async Request APIs**: Route handlers must handle async `params` and `searchParams` in Next.js 15+
-- **Caching Changes**: Fetch requests are no longer cached by default - use explicit `cache` or `revalidate` options
-- **Node.js Requirement**: Requires Node.js 18.18.0 or higher
-
-## Task Management
-
-### Project Structure (119 Tasks)
-
-**Completed (29 tasks)**:
-- Foundation: 12/12 ✅
-- Authentication: 6/6 ✅
-- Feedback System: 11/11 ✅
-
-**In Progress**:
-- Voting System
-- Feature Catalog
-- Moderation Queue
-
-**Planned**:
-- Roadmap Communications
-- Research Panels & Questionnaires
-- User Testing Sessions
-- Email Integrations
-- Analytics Dashboard
-- Admin Panel
-- Security & Performance
-- Testing & Documentation
-
-### Task Dependencies
-
-Tasks follow a dependency graph defined in `depends_on` field:
-- Example: TASK-019 (Feedback API) depends on TASK-006 (Prisma schema) and TASK-016 (Auth middleware)
-- Always check dependencies before starting a task
-- Completed tasks unlock dependent tasks
-
-## Code Standards & Practices
-
-### File Organization
-
-```
-src/
-├── app/                    # Next.js App Router
-│   ├── api/                # API routes (backend)
-│   │   ├── feedback/       # Feedback CRUD + voting
-│   │   ├── features/       # Feature catalog
-│   │   └── ...
-│   ├── feedback/           # Feedback pages (frontend)
-│   └── dashboard/          # Dashboard pages
-├── components/             # React components
-│   ├── ui/                 # Shadcn UI base components
-│   ├── feedback/           # Feature-specific components
-│   └── layout/             # Layout components
-├── lib/                    # Utilities & helpers
-│   ├── prisma.ts           # Prisma client singleton
-│   ├── pii-redact.ts       # PII redaction logic
-│   └── vote-weight.ts      # Vote weight calculation
-└── types/                  # TypeScript type definitions
+# Dashboard
+./target/release/prd-dashboard [db_path] [refresh_seconds]
 ```
 
-### Component Patterns
+### Common Development Commands
+```bash
+# Initialize database
+prd init [--force]
 
-**Server Components (Default)**:
-```tsx
-// app/feedback/page.tsx
-import { getFeedback } from '@/lib/feedback-service';
+# Run migrations
+prd migrate latest
+prd migrate status
 
-export default async function FeedbackPage() {
-  const feedback = await getFeedback();
-  return <FeedbackList items={feedback} />;
-}
+# Create sample data
+cargo run --example populate_migration_tasks
+cargo run --example multi_agent_workflow
 ```
 
-**Client Components (Interactive)**:
-```tsx
-// components/feedback/vote-button.tsx
-'use client';
+### Testing
+```bash
+# Run all tests
+cargo test
 
-import { useState } from 'react';
+# Test specific module
+cargo test db::
+cargo test suggestions::
+cargo test watcher::
 
-export function VoteButton({ feedbackId }: { feedbackId: string }) {
-  const [voted, setVoted] = useState(false);
-  // ... interactive logic
-}
+# Run with output
+cargo test -- --nocapture
 ```
 
-### API Route Patterns
+## Code Architecture
 
-```typescript
-// app/api/feedback/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+### Core Modules
 
-export async function GET(request: NextRequest) {
-  // 1. Authenticate
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+**`src/db.rs`** (42K lines) - Central database layer
+- Defines `Database` struct with SQLite connection
+- Core types: `Task`, `Agent`, `TaskStatus`, `Priority`, `AgentStatus`
+- All CRUD operations for tasks, agents, logs, and statistics
+- Extensions in `db_extensions.rs`: `DependencyOps`, `AcceptanceCriteriaOps`
 
-  // 2. Validate input
-  const searchParams = request.nextUrl.searchParams;
-  const state = searchParams.get('state');
+**`src/main.rs`** (74K lines) - CLI entry point
+- Uses `clap` for command parsing with `Commands` enum
+- All user-facing commands: create, list, show, assign, sync, complete, etc.
+- Formatting helpers: `format_status()`, `format_priority()`, `format_agent_status()`
+- Calls into `Database` methods for all operations
 
-  // 3. Query database
-  const feedback = await prisma.feedback.findMany({
-    where: { state: state || undefined },
-  });
+**`src/lib.rs`** - Public API for programmatic access
+- `PRDClient` wrapper around `Database` for external use
+- High-level methods: `sync_agent()`, `get_next_task()`, `complete_task()`
+- Used by examples and agent integrations
 
-  // 4. Return response
-  return NextResponse.json({ feedback });
-}
+**`src/resolver.rs`** - ID resolution system
+- Converts human-readable IDs (#42, A5) to UUIDs
+- `resolve_task_id()`, `resolve_agent_id()` - accept multiple formats
+- `format_task_id()`, `format_agent_id()` - display formatting
 
-// For dynamic routes with params (Next.js 15+)
-export async function GET(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+### Feature Modules
 
-  const { id } = await context.params; // Await params in Next.js 15+
+**`src/dashboard/`** - Real-time TUI dashboard
+- `ui.rs`: Terminal UI using `ratatui` and `crossterm`
+- `state.rs`: Dashboard state management
+- Displays active tasks, blocked tasks, agent activity, logs
 
-  const feedback = await prisma.feedback.findUnique({
-    where: { id },
-  });
+**`src/watcher/`** - File watching automation (Phase 3)
+- `file_watcher.rs`: Watches docs/tasks for completion documents
+- `daemon.rs`: Background daemon management (start/stop/status)
+- Uses `notify` crate for filesystem events
 
-  return NextResponse.json({ feedback });
-}
+**`src/sync/`** - Document synchronization
+- `doc_scanner.rs`: Scans for YAML completion documents
+- `sync_engine.rs`: Processes completion documents to update DB
+- `reconcile.rs`: Detects and fixes DB/filesystem inconsistencies
+
+**`src/git/`** - Git integration (Phase 3)
+- `sync.rs`: Scans commit history for task completions
+- `hooks.rs`: Git hook management (post-commit auto-completion)
+- Parses commit messages for task IDs and completion markers
+
+**`src/hooks/`** - Custom hook system
+- `config.rs`: Loads hooks from `.prd-hooks.toml`
+- `executor.rs`: Executes shell commands on events
+- Events: `on_task_complete`, `on_task_error`, `on_milestone_reached`
+
+**`src/suggestions/`** - Agent-task matching (Phase 4)
+- `agent_matcher.rs`: 4-factor weighted scoring system
+  - Specialization match, task history, current load, priority weighting
+  - Returns ranked `AgentRecommendation` list
+- Used for `prd suggest <task-id>` command
+
+**`src/notifications/`** - Desktop notifications (Phase 2)
+- `notifier.rs`: System notifications using `notify-rust`
+- `config.rs`: Notification settings and filters
+- Triggers on: task completion, errors, milestones, blocked tasks
+
+**`src/visualization/`** - Progress visualizations (Phase 4)
+- `timeline.rs`: ASCII sprint timelines and burndown charts
+- Renders task progress over time periods
+- Used by `prd stats --visual` and `prd visualize`
+
+**`src/errors/`** - Error handling (Phase 4)
+- `context.rs`: Contextual error messages with suggestions
+- Fuzzy matching for typos (e.g., "prd asign" → "Did you mean 'assign'?")
+- Helpful error messages for common mistakes
+
+**`src/batch/`** - Batch operations
+- `complete.rs`: Bulk task completion from CLI, JSON, or CSV
+- Parses task-agent mappings for batch updates
+- Used by `prd complete-batch` command
+
+**`src/migrations/`** - Database migrations
+- `runner.rs`: Migration execution and rollback
+- SQL files in `/migrations/`: 001-007 applied sequentially
+- Track schema version in `migrations` table
+
+### Database Schema
+
+**Key tables:**
+- `tasks`: Core task data with `display_id`, `title`, `status`, `priority`, `epic_name`, `parent_id`, `assigned_agent`
+- `agents`: Agent registry with `display_id`, `name`, `status`, `current_task_id`, `specializations`
+- `task_dependencies`: Links tasks with `task_display_id`, `depends_on_display_id`, `dependency_type`
+- `acceptance_criteria`: Per-task checklists with `completed` flag
+- `task_logs`: Audit trail of all task actions
+- `agent_progress`: Progress reports with timestamp, percentage, message
+- `agent_metrics`: Performance tracking (completion rate, success rate)
+- `migrations`: Schema version tracking
+
+**Migration files** in `/migrations/`:
+1. `001_add_display_ids.sql` - Human-readable IDs
+2. `002_add_dependencies.sql` - Task dependencies with circular detection
+3. `003_add_acceptance_criteria.sql` - Checklists
+4. `004_add_completion_fields.sql` - Duration tracking
+5. `005_add_agent_progress.sql` - Real-time progress reporting
+6. `006_add_agent_intelligence.sql` - Specializations and metrics
+7. `007_add_sprints.sql` - Sprint support
+
+## Key Patterns & Conventions
+
+### ID System
+- **Tasks**: Display ID `#1, #2` (stored as `display_id` i32), internal UUID
+- **Agents**: Display ID `A1, A2` (stored as `display_id` i32), internal UUID
+- All commands accept: `#42`, `42`, full UUID
+- Use `resolver.rs` functions for conversion
+
+### Status Flow
+- Tasks: `pending` → `in_progress` → `review` → `completed`
+  - Alternative: → `blocked` or → `cancelled`
+- Agents: `idle` → `working` → `idle`
+  - Alternative: → `blocked` or → `offline`
+
+### Sync Operation
+When `prd sync A1 "#42"`:
+1. Agent status → `working`, set `current_task_id`
+2. Task status → `in_progress`, set `assigned_agent`
+3. Create task log entry
+4. Update agent `last_active` timestamp
+
+### Dependency System
+- Uses display IDs (not UUIDs) for dependencies
+- Circular dependency detection in `get_ready_tasks()` via recursive CTE
+- `prd ready` shows tasks with all dependencies completed
+- Supports `--on` (this depends on) and `--blocks` (this blocks) syntax
+
+### Extension Traits
+The codebase extends `rusqlite::Connection` with custom operations:
+- `DependencyOps`: `add_dependency()`, `get_dependencies()`, `get_blocking_tasks()`, `get_ready_tasks()`
+- `AcceptanceCriteriaOps`: `add_criterion()`, `list_criteria()`, `check_criterion()`, `uncheck_criterion()`
+
+These are defined in `db_extensions.rs` and used throughout.
+
+### Library vs CLI
+- **Library**: `src/lib.rs` exports `PRDClient`, `Database`, types for programmatic use
+- **CLI**: `src/main.rs` handles argument parsing and user interaction
+- Examples use library interface (see `/examples/`)
+
+## Adding New Features
+
+### Adding a Command
+1. Add variant to `Commands` enum in `main.rs`
+2. Implement handler in `match cli.command` block
+3. Add DB method in `db.rs` if needed
+4. Update resolver if working with IDs
+5. Add tests in relevant module
+
+### Adding a Migration
+1. Create `migrations/00X_description.sql`
+2. Include both `CREATE/ALTER` and corresponding `DROP` statements
+3. Test with `prd migrate latest` and `prd migrate rollback`
+4. Migration runner auto-detects new files by number
+
+### Adding Agent Features
+1. Extend `Agent` struct in `db.rs`
+2. Update `create_agent()` and `get_agent()` queries
+3. Add migration for schema change
+4. Update `AgentRow` display struct in `main.rs`
+5. Consider impact on `PRDClient` API
+
+### Adding Task Fields
+1. Extend `Task` struct in `db.rs`
+2. Update `create_task()`, `update_task_status()` queries
+3. Add migration for schema change
+4. Update `TaskRow` display struct and JSON serialization
+5. Update `prd show` command formatting
+
+## Testing Strategy
+
+- Unit tests: inline `#[cfg(test)]` modules in each file
+- Integration tests: `/examples/` for end-to-end workflows
+- Use `:memory:` databases for isolated tests
+- Test database operations with `tempfile` crate
+- Dashboard/watcher tests in respective module test subdirectories
+
+## Common Gotchas
+
+1. **Display IDs vs UUIDs**: Always use resolver functions, never assume format
+2. **Database handles**: Main CLI uses `Database` struct, library uses `PRDClient`
+3. **Connection lifetimes**: Extensions borrow `&Connection`, don't store references
+4. **Circular deps**: `get_ready_tasks()` uses recursive CTE, don't reimplement
+5. **Migration order**: Numbers must be sequential, no gaps allowed
+6. **Status transitions**: Some transitions may have side effects (e.g., completing task updates agent)
+
+## Examples
+
+Example agent implementations in `/examples/`:
+- `simple_agent.rs`: Basic agent loop (get task, work, complete)
+- `multi_agent_workflow.rs`: Coordinated multi-agent scenario
+- `populate_migration_tasks.rs`: Generates test data for migrations
+
+Run with:
+```bash
+cargo run --example simple_agent
+cargo run --example multi_agent_workflow
 ```
-
-### Validation with Zod
-
-```typescript
-import { z } from 'zod';
-
-const feedbackSchema = z.object({
-  title: z.string().min(8).max(120),
-  body: z.string().min(20).max(5000),
-  featureRefs: z.array(z.string()).optional(),
-});
-
-const data = feedbackSchema.parse(input); // Throws on validation error
-```
-
-### Database Queries
-
-Always use Prisma for type-safe queries:
-
-```typescript
-import { prisma } from '@/lib/prisma';
-
-// Include relations
-const feedback = await prisma.feedback.findUnique({
-  where: { id },
-  include: {
-    author: true,
-    votes: true,
-  },
-});
-
-// Aggregations
-const voteCount = await prisma.vote.count({
-  where: { feedbackId },
-});
-```
-
-### Error Handling
-
-```typescript
-try {
-  // ... operation
-} catch (error) {
-  console.error('Operation failed:', error);
-  return NextResponse.json(
-    { error: 'Internal server error' },
-    { status: 500 }
-  );
-}
-```
-
-### Testing (When Implemented)
-
-- **Unit tests**: Co-locate with source (`lib/vote-weight.test.ts`)
-- **Component tests**: Use Testing Library
-- **API tests**: See `docs/API_TESTING.md`
-- **E2E tests**: Use Playwright
-
-## Reference Documentation
-
-### Key Documents
-
-- **[dsl/global.yaml](docs/dsl/global.yaml)** - Single source of truth for domain models
-- **[README.md](./README.md)** - Project overview and setup
-- **[docs/API.md](./docs/API.md)** - Complete API reference
-- **[docs/AUTHENTICATION.md](./docs/AUTHENTICATION.md)** - Auth setup and configuration
-- **[docs/INTEGRATIONS.md](./docs/INTEGRATIONS.md)** - Email, HRIS, Jira, Figma integrations
-- **[docs/USER_GUIDE.md](./docs/USER_GUIDE.md)** - User guide for PMs, Researchers, Moderators
-- **[docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)** - Production deployment guide
-- **[docs/PRD.md](docs/prd/PRD.md)** - Product requirements document
-
-### Task Definitions
-
-- **[tools/populate_tasks.sql](./tools/populate_tasks.sql)** - All 119 tasks with acceptance criteria
-
-### Completion Reports
-
-Task completion is documented in files like in docs/tasks folder:
-- `TASK-002-COMPLETION.md`
-- `TASK-003-012-COMPLETE.md`
-- `TASK-013-018-AUTHENTICATION-COMPLETE.md`
-- `IMPLEMENTATION_SUMMARY.md`
-
-These provide context on what was built and how it works.
