@@ -531,9 +531,21 @@ fn main() -> Result<()> {
             let new_db = Database::new(db_path)?;
             println!("{} Database schema initialized", "✓".green());
 
-            // Run migrations
+            // Mark migrations that are already in base schema as applied
             let conn = new_db.get_connection();
             let runner = MigrationRunner::new(conn);
+            runner.init()?;
+
+            // Mark all migrations 001-007 as applied (base schema includes all features)
+            let base_schema_migrations = vec![1, 2, 3, 4, 5, 6, 7];
+            for version in base_schema_migrations {
+                conn.execute(
+                    "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (?1, datetime('now'))",
+                    [version],
+                )?;
+            }
+
+            // Check for and run any new migrations beyond 007
             println!("{} Running migrations...", "✓".green());
             let applied = runner.migrate_to_latest()?;
             println!(

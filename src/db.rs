@@ -280,6 +280,33 @@ impl Database {
                 FOREIGN KEY (sprint_id) REFERENCES sprints(id),
                 FOREIGN KEY (task_id) REFERENCES tasks(display_id)
             );
+
+            CREATE TABLE IF NOT EXISTS task_dependencies (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_display_id INTEGER NOT NULL,
+                depends_on_display_id INTEGER NOT NULL,
+                dependency_type TEXT DEFAULT 'blocks',
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(task_display_id) REFERENCES tasks(display_id) ON DELETE CASCADE,
+                FOREIGN KEY(depends_on_display_id) REFERENCES tasks(display_id) ON DELETE CASCADE,
+                UNIQUE(task_display_id, depends_on_display_id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_dep_task ON task_dependencies(task_display_id);
+            CREATE INDEX IF NOT EXISTS idx_dep_depends_on ON task_dependencies(depends_on_display_id);
+
+            CREATE TABLE IF NOT EXISTS acceptance_criteria (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_display_id INTEGER NOT NULL,
+                criterion TEXT NOT NULL,
+                completed BOOLEAN DEFAULT 0,
+                created_at TEXT NOT NULL,
+                completed_at TEXT,
+                FOREIGN KEY(task_display_id) REFERENCES tasks(display_id) ON DELETE CASCADE
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_ac_task ON acceptance_criteria(task_display_id);
+            CREATE INDEX IF NOT EXISTS idx_ac_completed ON acceptance_criteria(completed);
             "#,
         )?;
 
