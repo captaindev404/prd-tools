@@ -151,80 +151,71 @@ protocol AIServiceProtocol {
     func generateSpeech(text: String, voice: String, language: String) async throws -> Data
     func generateAvatar(request: AvatarGenerationRequest) async throws -> AvatarGenerationResponse
     func generateSceneIllustration(prompt: String, hero: Hero, previousGenerationId: String?) async throws -> SceneIllustrationResponse
+    func generatePictogram(prompt: String) async throws -> Data
     func cancelCurrentTask()
     var currentTask: URLSessionDataTask? { get set }
 }
 
 class OpenAIService: AIServiceProtocol {
-    private let apiKey: String
-    private let chatURL = "https://api.openai.com/v1/chat/completions"
-    private let ttsURL = "https://api.openai.com/v1/audio/speech"
-    private let imageURL = "https://api.openai.com/v1/images/generations"
     var currentTask: URLSessionDataTask?
 
     // Feature flag for scene-based generation (can be configured)
     var enableSceneBasedGeneration: Bool = true
 
-    init(apiKey: String) {
-        self.apiKey = apiKey
+    init() {
+        // No API key needed - all calls go through backend
     }
     
     func generateStory(request: StoryGenerationRequest) async throws -> StoryGenerationResponse {
         let requestId = UUID().uuidString.prefix(8).lowercased()
         let startTime = Date()
 
-        AppLogger.shared.info("Story generation started", category: .story, requestId: String(requestId))
+        AppLogger.shared.info("Story generation started (via backend)", category: .story, requestId: String(requestId))
         AppLogger.shared.debug("Parameters - Hero: \(request.hero.name), Event: \(request.event.rawValue), Language: \(request.language), Duration: \(Int(request.targetDuration/60))min", category: .story, requestId: String(requestId))
 
-        guard !apiKey.isEmpty else {
-            AppLogger.shared.error("API key is empty", category: .api, requestId: String(requestId))
-            throw AIServiceError.invalidAPIKey
-        }
-        
-        let prompt = buildPrompt(for: request)
-        print("🤖 📝 Generated Prompt:")
-        print("🤖 \(prompt)")
-        print("🤖 ==================")
-        
-        let requestBody = [
-            "model": "gpt-4o",  // Latest OpenAI model as of 2024
-            "messages": [
-                [
-                    "role": "system",
-                    "content": PromptLocalizer.getSystemMessage(for: request.language)
-                ],
-                [
-                    "role": "user",
-                    "content": prompt
-                ]
+        // Build backend URL
+        let backendURL = "\(AppConfiguration.backendBaseURL)/api/stories/generate"
+
+        // Prepare request body matching backend API format
+        let requestBody: [String: Any] = [
+            "hero": [
+                "name": request.hero.name,
+                "primaryTrait": request.hero.primaryTrait.rawValue,
+                "secondaryTrait": request.hero.secondaryTrait.rawValue,
+                "appearance": request.hero.appearance,
+                "specialAbility": request.hero.specialAbility,
+                "avatarPrompt": request.hero.avatarPrompt ?? "",
+                "avatarGenerationId": request.hero.avatarGenerationId ?? ""
             ],
-            "max_tokens": 2000,
-            "temperature": 0.8
-        ] as [String : Any]
-        
+            "event": [
+                "rawValue": request.event.rawValue,
+                "promptSeed": request.event.promptSeed
+            ],
+            "targetDuration": request.targetDuration,
+            "language": request.language
+        ]
+
         guard let jsonData = try? JSONSerialization.data(withJSONObject: requestBody) else {
             print("🤖 ❌ Error: Failed to serialize request JSON")
+            AppLogger.shared.error("Failed to serialize request JSON", category: .api, requestId: String(requestId))
             throw AIServiceError.invalidResponse
         }
 
-        // Comprehensive HTTP Request Logging
+        // Log request
+        AppLogger.shared.info("Calling backend API: \(backendURL)", category: .story, requestId: String(requestId))
         logFullHTTPRequest(
-            url: chatURL,
+            url: backendURL,
             method: "POST",
-            headers: [
-                "Content-Type": "application/json",
-                "Authorization": "Bearer \(apiKey.prefix(10))...[REDACTED]"
-            ],
+            headers: ["Content-Type": "application/json"],
             bodyData: jsonData,
             requestId: String(requestId)
         )
 
-        var urlRequest = URLRequest(url: URL(string: chatURL)!)
+        var urlRequest = URLRequest(url: URL(string: backendURL)!)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         urlRequest.httpBody = jsonData
-        
+
         do {
             let (data, response) = try await URLSession.shared.data(for: urlRequest)
 
@@ -242,7 +233,7 @@ class OpenAIService: AIServiceProtocol {
                 responseTime: responseTime,
                 requestId: String(requestId)
             )
-            
+
             guard httpResponse.statusCode == 200 else {
                 if httpResponse.statusCode == 429 {
                     print("🤖 ⏳ Error: Rate limit exceeded")
@@ -254,39 +245,52 @@ class OpenAIService: AIServiceProtocol {
                 }
                 throw AIServiceError.apiError("HTTP \(httpResponse.statusCode)")
             }
-            
+
             // Log the raw response
             if let responseString = String(data: data, encoding: .utf8) {
                 print("🤖 📥 Raw Response: \(responseString)")
             }
-            
+
+            // Parse backend response format
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let choices = json["choices"] as? [[String: Any]],
-                  let firstChoice = choices.first,
-                  let message = firstChoice["message"] as? [String: Any],
-                  let content = message["content"] as? String else {
-                print("🤖 ❌ Error: Failed to parse JSON response")
+                  let title = json["title"] as? String,
+                  let content = json["content"] as? String,
+                  let estimatedDuration = json["estimatedDuration"] as? Double else {
+                print("🤖 ❌ Error: Failed to parse backend response")
+                AppLogger.shared.error("Failed to parse backend response", category: .api, requestId: String(requestId))
                 throw AIServiceError.invalidResponse
             }
-            
-            print("🤖 ✅ Successfully parsed response")
+
+            print("🤖 ✅ Successfully parsed backend response")
             print("🤖 📖 Generated Story Content:")
             print("🤖 \(content)")
             print("🤖 ==================")
-            
-            let result = parseStoryResponse(content: content, request: request)
+
+            // Create response matching expected format
+            let result = StoryGenerationResponse(
+                title: title,
+                content: content,
+                estimatedDuration: estimatedDuration,
+                scenes: nil // Scenes extracted separately
+            )
+
             print("🤖 📊 Final Result - Title: \(result.title)")
             print("🤖 📊 Final Result - Duration: \(Int(result.estimatedDuration/60)) minutes")
             print("🤖 📊 Final Result - Word Count: \(result.content.split(separator: " ").count)")
-            print("🤖 === Story Generation Completed ===")
-            
+            print("🤖 === Story Generation Completed (via backend) ===")
+
+            AppLogger.shared.success("Story generated successfully via backend", category: .story, requestId: String(requestId))
+            AppLogger.shared.logPerformance(operation: "Story Generation (Backend)", startTime: startTime, requestId: String(requestId))
+
             return result
-            
+
         } catch let error as AIServiceError {
             print("🤖 ❌ AI Service Error: \(error)")
+            AppLogger.shared.error("Story generation failed", category: .story, requestId: String(requestId), error: error)
             throw error
         } catch {
             print("🤖 ❌ Network Error: \(error.localizedDescription)")
+            AppLogger.shared.error("Network error during story generation", category: .story, requestId: String(requestId), error: error)
             throw AIServiceError.networkError(error)
         }
     }
@@ -295,58 +299,56 @@ class OpenAIService: AIServiceProtocol {
         let requestId = UUID().uuidString.prefix(8).lowercased()
         let startTime = Date()
 
-        AppLogger.shared.info("Custom story generation started", category: .story, requestId: String(requestId))
+        AppLogger.shared.info("Custom story generation started (via backend)", category: .story, requestId: String(requestId))
         AppLogger.shared.debug("Hero: \(request.hero.name), Event: \(request.customEvent.title), Duration: \(Int(request.targetDuration/60))min", category: .story, requestId: String(requestId))
-        
-        guard !apiKey.isEmpty else {
-            print("🤖 ❌ Error: API key is empty")
-            throw AIServiceError.invalidAPIKey
-        }
-        
-        let prompt = buildPromptForCustomEvent(request: request)
-        print("🤖 📝 Generated Custom Prompt:")
-        print("🤖 \(prompt)")
-        print("🤖 ==================")
-        
-        let requestBody = [
-            "model": "gpt-4o",
-            "messages": [
-                [
-                    "role": "system",
-                    "content": PromptLocalizer.getSystemMessage(for: request.language)
-                ],
-                [
-                    "role": "user",
-                    "content": prompt
-                ]
+
+        // Build backend URL
+        let backendURL = "\(AppConfiguration.backendBaseURL)/api/stories/generate-custom"
+
+        // Prepare request body matching backend API format
+        let requestBody: [String: Any] = [
+            "hero": [
+                "name": request.hero.name,
+                "primaryTrait": request.hero.primaryTrait.rawValue,
+                "secondaryTrait": request.hero.secondaryTrait.rawValue,
+                "appearance": request.hero.appearance,
+                "specialAbility": request.hero.specialAbility,
+                "avatarPrompt": request.hero.avatarPrompt ?? "",
+                "avatarGenerationId": request.hero.avatarGenerationId ?? ""
             ],
-            "max_tokens": 2000,
-            "temperature": 0.8
-        ] as [String : Any]
-        
+            "customEvent": [
+                "title": request.customEvent.title,
+                "promptSeed": request.customEvent.promptSeed,
+                "keywords": request.customEvent.keywords,
+                "tone": request.customEvent.tone.rawValue,
+                "ageRange": request.customEvent.ageRange.rawValue,
+                "category": request.customEvent.category.rawValue
+            ],
+            "targetDuration": request.targetDuration,
+            "language": request.language
+        ]
+
         guard let jsonData = try? JSONSerialization.data(withJSONObject: requestBody) else {
             print("🤖 ❌ Error: Failed to serialize request JSON")
+            AppLogger.shared.error("Failed to serialize request JSON", category: .api, requestId: String(requestId))
             throw AIServiceError.invalidResponse
         }
 
-        // Comprehensive HTTP Request Logging
+        // Log request
+        AppLogger.shared.info("Calling backend API: \(backendURL)", category: .story, requestId: String(requestId))
         logFullHTTPRequest(
-            url: chatURL,
+            url: backendURL,
             method: "POST",
-            headers: [
-                "Content-Type": "application/json",
-                "Authorization": "Bearer \(apiKey.prefix(10))...[REDACTED]"
-            ],
+            headers: ["Content-Type": "application/json"],
             bodyData: jsonData,
             requestId: String(requestId)
         )
 
-        var urlRequest = URLRequest(url: URL(string: chatURL)!)
+        var urlRequest = URLRequest(url: URL(string: backendURL)!)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         urlRequest.httpBody = jsonData
-        
+
         do {
             let (data, response) = try await URLSession.shared.data(for: urlRequest)
 
@@ -364,39 +366,58 @@ class OpenAIService: AIServiceProtocol {
                 responseTime: responseTime,
                 requestId: String(requestId)
             )
-            
+
             guard httpResponse.statusCode == 200 else {
                 if httpResponse.statusCode == 429 {
                     print("🤖 ⏳ Error: Rate limit exceeded")
                     throw AIServiceError.rateLimitExceeded
                 }
                 print("🤖 ❌ HTTP Error: \(httpResponse.statusCode)")
+                if let errorString = String(data: data, encoding: .utf8) {
+                    print("🤖 📥 Error Response: \(errorString)")
+                }
                 throw AIServiceError.apiError("HTTP \(httpResponse.statusCode)")
             }
-            
+
+            // Parse backend response format
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let choices = json["choices"] as? [[String: Any]],
-                  let firstChoice = choices.first,
-                  let message = firstChoice["message"] as? [String: Any],
-                  let content = message["content"] as? String else {
-                print("🤖 ❌ Error: Failed to parse JSON response")
+                  let title = json["title"] as? String,
+                  let content = json["content"] as? String,
+                  let estimatedDuration = json["estimatedDuration"] as? Double else {
+                print("🤖 ❌ Error: Failed to parse backend response")
+                AppLogger.shared.error("Failed to parse backend response", category: .api, requestId: String(requestId))
                 throw AIServiceError.invalidResponse
             }
-            
+
             print("🤖 ✅ Successfully parsed custom story response")
-            
-            let result = parseCustomStoryResponse(content: content, request: request)
+            print("🤖 📖 Generated Story Content:")
+            print("🤖 \(content)")
+            print("🤖 ==================")
+
+            // Create response matching expected format
+            let result = StoryGenerationResponse(
+                title: title,
+                content: content,
+                estimatedDuration: estimatedDuration,
+                scenes: nil // Scenes extracted separately
+            )
+
             print("🤖 📊 Final Result - Title: \(result.title)")
             print("🤖 📊 Final Result - Duration: \(Int(result.estimatedDuration/60)) minutes")
-            print("🤖 === Custom Story Generation Completed ===")
-            
+            print("🤖 === Custom Story Generation Completed (via backend) ===")
+
+            AppLogger.shared.success("Custom story generated successfully via backend", category: .story, requestId: String(requestId))
+            AppLogger.shared.logPerformance(operation: "Custom Story Generation (Backend)", startTime: startTime, requestId: String(requestId))
+
             return result
-            
+
         } catch let error as AIServiceError {
             print("🤖 ❌ AI Service Error: \(error)")
+            AppLogger.shared.error("Custom story generation failed", category: .story, requestId: String(requestId), error: error)
             throw error
         } catch {
             print("🤖 ❌ Network Error: \(error.localizedDescription)")
+            AppLogger.shared.error("Network error during custom story generation", category: .story, requestId: String(requestId), error: error)
             throw AIServiceError.networkError(error)
         }
     }
@@ -405,78 +426,24 @@ class OpenAIService: AIServiceProtocol {
         let requestId = UUID().uuidString.prefix(8).lowercased()
         let startTime = Date()
 
-        AppLogger.shared.info("Scene extraction started", category: .illustration, requestId: String(requestId))
+        AppLogger.shared.info("Scene extraction started (via backend)", category: .illustration, requestId: String(requestId))
         AppLogger.shared.debug("Story duration: \(Int(request.storyDuration)) seconds", category: .illustration, requestId: String(requestId))
 
-        guard !apiKey.isEmpty else {
-            AppLogger.shared.error("API key is empty", category: .api, requestId: String(requestId))
-            throw AIServiceError.invalidAPIKey
-        }
+        // Build backend URL
+        let backendURL = "\(AppConfiguration.backendBaseURL)/api/stories/extract-scenes"
 
-        // Build the prompt for scene extraction
-        let prompt = """
-        You are an expert at analyzing children's bedtime stories and identifying key visual moments for illustration.
-
-        Analyze the following story and identify the most important scenes for illustration. Consider:
-        - Natural narrative breaks and transitions
-        - Key emotional moments
-        - Visual variety (different settings, actions, moods)
-        - Story pacing (distribute scenes evenly throughout)
-
-        Story Context: \(request.eventContext)
-        Story Duration: \(Int(request.storyDuration)) seconds
-
-        STORY TEXT:
-        \(request.storyContent)
-
-        INSTRUCTIONS:
-        1. Identify the optimal number of scenes for this story (typically 1 scene per 15-20 seconds of narration)
-        2. Choose scenes that best represent the story arc
-        3. For each scene, provide:
-           - The exact text segment from the story
-           - A detailed illustration prompt for GPT-Image-1
-           - Estimated timestamp when this scene would occur during audio playback
-           - The emotional tone and importance
-
-        The illustration prompts should:
-        - Be child-friendly and magical
-        - Use warm, watercolor or soft digital art style
-        - Be specific about colors, composition, and atmosphere
-        - Include the hero character in the scene
-        - Be under 150 words each
-
-        Return your analysis as a JSON object matching this structure:
-        {
-            "scenes": [
-                {
-                    "sceneNumber": 1,
-                    "textSegment": "exact text from story",
-                    "timestamp": 0.0,
-                    "illustrationPrompt": "detailed GPT-Image-1 prompt",
-                    "emotion": "joyful|peaceful|exciting|mysterious|heartwarming|adventurous|contemplative",
-                    "importance": "key|major|minor"
-                }
-            ],
-            "sceneCount": total_number,
-            "reasoning": "brief explanation of scene selection"
-        }
-        """
-
+        // Prepare request body matching backend API format
         let requestBody: [String: Any] = [
-            "model": "gpt-4o",
-            "messages": [
-                [
-                    "role": "system",
-                    "content": "You are an expert at visual storytelling and scene analysis for children's books."
-                ],
-                [
-                    "role": "user",
-                    "content": prompt
-                ]
+            "storyContent": request.storyContent,
+            "storyDuration": request.storyDuration,
+            "hero": [
+                "name": request.hero.name,
+                "primaryTrait": request.hero.primaryTrait.rawValue,
+                "secondaryTrait": request.hero.secondaryTrait.rawValue,
+                "appearance": request.hero.appearance,
+                "specialAbility": request.hero.specialAbility
             ],
-            "max_tokens": 2000,
-            "temperature": 0.7,
-            "response_format": ["type": "json_object"]
+            "eventContext": request.eventContext
         ]
 
         guard let jsonData = try? JSONSerialization.data(withJSONObject: requestBody) else {
@@ -484,10 +451,12 @@ class OpenAIService: AIServiceProtocol {
             throw AIServiceError.invalidResponse
         }
 
-        var urlRequest = URLRequest(url: URL(string: chatURL)!)
+        // Log request
+        AppLogger.shared.info("Calling backend API: \(backendURL)", category: .illustration, requestId: String(requestId))
+
+        var urlRequest = URLRequest(url: URL(string: backendURL)!)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         urlRequest.httpBody = jsonData
 
         do {
@@ -513,48 +482,43 @@ class OpenAIService: AIServiceProtocol {
                 throw AIServiceError.apiError("HTTP \(httpResponse.statusCode)")
             }
 
-            // Parse the JSON response
+            // Parse backend response
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let choices = json["choices"] as? [[String: Any]],
-                  let firstChoice = choices.first,
-                  let message = firstChoice["message"] as? [String: Any],
-                  let content = message["content"] as? String else {
-                AppLogger.shared.error("Failed to parse API response", category: .api, requestId: String(requestId))
+                  let scenesArray = json["scenes"] as? [[String: Any]] else {
+                AppLogger.shared.error("Failed to parse backend response", category: .api, requestId: String(requestId))
                 throw AIServiceError.invalidResponse
             }
 
-            // Parse the JSON content
-            guard let jsonData = content.data(using: .utf8) else {
-                AppLogger.shared.error("Failed to convert content to data", category: .api, requestId: String(requestId))
-                throw AIServiceError.invalidResponse
-            }
+            // Extract reasoning if available
+            let reasoning = json["reasoning"] as? String ?? "Scene extraction completed"
 
-            let decoder = JSONDecoder()
-            let sceneResponse = try decoder.decode(SceneExtractionJSONResponse.self, from: jsonData)
+            // Convert backend response to StoryScene objects
+            let scenes = scenesArray.compactMap { sceneDict -> StoryScene? in
+                guard let sceneNumber = sceneDict["sceneNumber"] as? Int,
+                      let textSegment = sceneDict["textSegment"] as? String,
+                      let illustrationPrompt = sceneDict["illustrationPrompt"] as? String,
+                      let timestamp = sceneDict["timestamp"] as? Double,
+                      let emotionStr = sceneDict["emotion"] as? String,
+                      let importanceStr = sceneDict["importance"] as? String else {
+                    return nil
+                }
 
-            // Convert JSON scenes to StoryScene objects and sort by sceneNumber to ensure proper order
-            let scenes = sceneResponse.scenes
-                .sorted { $0.sceneNumber < $1.sceneNumber }
-                .map { jsonScene in
-                StoryScene(
-                    sceneNumber: jsonScene.sceneNumber,
-                    textSegment: jsonScene.textSegment,
-                    illustrationPrompt: jsonScene.illustrationPrompt,
-                    timestamp: jsonScene.timestamp,
-                    emotion: SceneEmotion(rawValue: jsonScene.emotion) ?? .peaceful,
-                    importance: SceneImportance(rawValue: jsonScene.importance) ?? .major
+                return StoryScene(
+                    sceneNumber: sceneNumber,
+                    textSegment: textSegment,
+                    illustrationPrompt: illustrationPrompt,
+                    timestamp: timestamp,
+                    emotion: SceneEmotion(rawValue: emotionStr) ?? .peaceful,
+                    importance: SceneImportance(rawValue: importanceStr) ?? .major
                 )
-            }
+            }.sorted { $0.sceneNumber < $1.sceneNumber }
 
-            AppLogger.shared.success("Extracted \(scenes.count) scenes from story", category: .illustration, requestId: String(requestId))
-            AppLogger.shared.debug("Scene selection reasoning: \(sceneResponse.reasoning)", category: .illustration, requestId: String(requestId))
-            AppLogger.shared.logPerformance(operation: "Scene Extraction", startTime: startTime, requestId: String(requestId))
+            AppLogger.shared.success("Extracted \(scenes.count) scenes from story via backend", category: .illustration, requestId: String(requestId))
+            AppLogger.shared.debug("Scene selection reasoning: \(reasoning)", category: .illustration, requestId: String(requestId))
+            AppLogger.shared.logPerformance(operation: "Scene Extraction (Backend)", startTime: startTime, requestId: String(requestId))
 
             return scenes
 
-        } catch let error as DecodingError {
-            AppLogger.shared.error("JSON decoding error: \(error)", category: .api, requestId: String(requestId))
-            throw AIServiceError.invalidResponse
         } catch let error as AIServiceError {
             AppLogger.shared.error("AI Service error: \(error)", category: .api, requestId: String(requestId))
             throw error
@@ -564,198 +528,73 @@ class OpenAIService: AIServiceProtocol {
         }
     }
 
-    private func buildPrompt(for request: StoryGenerationRequest) -> String {
-        let targetMinutes = Int(request.targetDuration / 60)
-
-        // Build trait description
-        let traits = "\(request.hero.primaryTrait.description), \(request.hero.secondaryTrait.description), \(request.hero.appearance.isEmpty ? "lovable appearance" : request.hero.appearance), \(request.hero.specialAbility.isEmpty ? "warm heart" : request.hero.specialAbility)"
-
-        // Get base prompt template
-        let prompt = PromptLocalizer.getPromptTemplate(
-            for: request.language,
-            storyLength: targetMinutes,
-            hero: request.hero.name,
-            traits: traits,
-            event: request.event.promptSeed
-        )
-
-        // Add clean story generation instructions
-        return prompt + """
-
-
-        IMPORTANT INSTRUCTIONS:
-        - Write a complete, flowing story without any formatting markers
-        - Use natural, conversational language suitable for audio narration
-        - Include dialogue and sound effects naturally in the text
-        - Avoid special characters or formatting that would sound strange when read aloud
-        - Make the story engaging and immersive for bedtime listening
-        - DO NOT include scene markers, titles, or any meta-information
-        - Just tell the story from beginning to end
-        """
-    }
-
-    private func buildPromptForCustomEvent(request: CustomStoryGenerationRequest) -> String {
-        let targetMinutes = Int(request.targetDuration / 60)
-        let event = request.customEvent
-
-        // Build trait description
-        let traits = "\(request.hero.primaryTrait.description), \(request.hero.secondaryTrait.description), \(request.hero.appearance.isEmpty ? "lovable appearance" : request.hero.appearance), \(request.hero.specialAbility.isEmpty ? "warm heart" : request.hero.specialAbility)"
-
-        // Build enhanced prompt with custom event details
-        var prompt = PromptLocalizer.getPromptTemplate(
-            for: request.language,
-            storyLength: targetMinutes,
-            hero: request.hero.name,
-            traits: traits,
-            event: event.promptSeed
-        )
-
-        // Add additional context from custom event
-        if !event.keywords.isEmpty {
-            prompt += "\n\nPlease include these elements in the story: \(event.keywords.joined(separator: ", "))"
-        }
-
-        // Add tone guidance
-        prompt += "\n\nThe story should have a \(event.tone.rawValue.lowercased()) tone."
-
-        // Add age-appropriate guidance
-        prompt += "\nMake sure the story is appropriate for children aged \(event.ageRange.rawValue)."
-
-        // Add clean story generation instructions
-        prompt += """
-
-
-        IMPORTANT INSTRUCTIONS:
-        - Write a complete, flowing story without any formatting markers
-        - Use natural, conversational language suitable for audio narration
-        - Include dialogue and sound effects naturally in the text
-        - Avoid special characters or formatting that would sound strange when read aloud
-        - Make the story engaging and immersive for bedtime listening
-        - DO NOT include scene markers, titles, or any meta-information
-        - Just tell the story from beginning to end
-        """
-
-        return prompt
-    }
-    
-    private func parseCustomStoryResponse(content: String, request: CustomStoryGenerationRequest) -> StoryGenerationResponse {
-        // The content is now a clean story without any formatting
-        let storyContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        // Use the custom event title
-        let title = request.customEvent.title
-
-        // Estimate duration based on word count (average 200 words per minute)
-        let wordCount = storyContent.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.count
-        let estimatedDuration = TimeInterval(wordCount) / 200.0 * 60.0 // Convert to seconds
-
-        return StoryGenerationResponse(
-            title: title,
-            content: storyContent,
-            estimatedDuration: estimatedDuration,
-            scenes: nil // Scenes will be extracted in a separate API call
-        )
-    }
-    
-    private func parseStoryResponse(content: String, request: StoryGenerationRequest) -> StoryGenerationResponse {
-        // The content is now a clean story without any formatting
-        let storyContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        // Generate a title based on the hero and event
-        let title = "\(request.hero.name) and the \(request.event.rawValue)"
-
-        // Estimate duration based on word count (average 200 words per minute)
-        let wordCount = storyContent.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.count
-        let estimatedDuration = TimeInterval(wordCount) / 200.0 * 60.0 // Convert to seconds
-
-        return StoryGenerationResponse(
-            title: title,
-            content: storyContent,
-            estimatedDuration: estimatedDuration,
-            scenes: nil // Scenes will be extracted in a separate API call
-        )
-    }
-    
     func generateSpeech(text: String, voice: String, language: String) async throws -> Data {
         let requestId = UUID().uuidString.prefix(8).lowercased()
         let startTime = Date()
 
-        AppLogger.shared.info("TTS generation started", category: .audio, requestId: String(requestId))
+        AppLogger.shared.info("TTS generation started (via backend)", category: .audio, requestId: String(requestId))
         AppLogger.shared.debug("Voice: \(voice), Language: \(language), Text length: \(text.count) characters", category: .audio, requestId: String(requestId))
 
-        guard !apiKey.isEmpty else {
-            AppLogger.shared.error("API key is empty", category: .api, requestId: String(requestId))
-            throw AIServiceError.invalidAPIKey
-        }
+        // Build backend URL
+        let backendURL = "\(AppConfiguration.backendBaseURL)/api/audio/generate"
 
-        // Use the gpt-4o-mini-tts model with voice instructions
-        return try await generateSpeechWithModel(text: text, voice: voice, language: language, requestId: String(requestId), startTime: startTime)
-    }
-    
-    /// TTS generation using the gpt-4o-mini-tts model with voice instructions
-    private func generateSpeechWithModel(text: String, voice: String, language: String, requestId: String, startTime: Date) async throws -> Data {
-        AppLogger.shared.debug("Using gpt-4o-mini-tts model", category: .audio, requestId: requestId)
-        
-        // Craft child-friendly storytelling instructions based on the voice and language
-        let instructions = getStorytellingInstructions(for: voice, language: language)
-        
-        // Prepare request body with the model and instructions
+        // Prepare request body matching backend API format
         let requestBody: [String: Any] = [
-            "model": "gpt-4o-mini-tts",
-            "input": text,
+            "text": text,
             "voice": voice,
-            "instructions": instructions,
-            "response_format": "mp3"
+            "language": language
         ]
-        
-        AppLogger.shared.debug("Voice instructions length: \(instructions.count) characters", category: .audio, requestId: requestId)
 
         guard let jsonData = try? JSONSerialization.data(withJSONObject: requestBody) else {
-            AppLogger.shared.error("Failed to encode TTS request JSON", category: .api, requestId: requestId)
+            AppLogger.shared.error("Failed to encode TTS request JSON", category: .api, requestId: String(requestId))
             throw AIServiceError.invalidResponse
         }
-        
-        // Create URL request
-        var urlRequest = URLRequest(url: URL(string: ttsURL)!)
+
+        // Log request
+        AppLogger.shared.info("Calling backend API: \(backendURL)", category: .audio, requestId: String(requestId))
+        AppLogger.shared.logRequest(url: backendURL, method: "POST", requestId: String(requestId), bodySize: jsonData.count)
+
+        var urlRequest = URLRequest(url: URL(string: backendURL)!)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         urlRequest.httpBody = jsonData
-        
-        AppLogger.shared.logRequest(url: ttsURL, method: "POST", requestId: requestId, bodySize: jsonData.count)
 
         do {
             let (data, response) = try await URLSession.shared.data(for: urlRequest)
 
-            if let httpResponse = response as? HTTPURLResponse {
-                let responseTime = Date().timeIntervalSince(startTime)
-                AppLogger.shared.logResponse(statusCode: httpResponse.statusCode, responseTime: responseTime, requestId: requestId, dataSize: data.count)
-
-                if httpResponse.statusCode == 200 {
-                    AppLogger.shared.success("Audio generated - Size: \(data.count / 1024)KB", category: .audio, requestId: requestId)
-                    AppLogger.shared.logPerformance(operation: "TTS generation", startTime: startTime, requestId: requestId)
-                    return data
-                } else {
-                    // Try to parse error message
-                    if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let error = errorJson["error"] as? [String: Any],
-                       let message = error["message"] as? String {
-                        AppLogger.shared.error("TTS API error: \(message)", category: .audio, requestId: requestId)
-                        throw AIServiceError.apiError(message)
-                    } else {
-                        AppLogger.shared.error("TTS HTTP error: \(httpResponse.statusCode)", category: .audio, requestId: requestId)
-                        throw AIServiceError.invalidResponse
-                    }
-                }
-            } else {
-                AppLogger.shared.error("Invalid TTS response type", category: .audio, requestId: requestId)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                AppLogger.shared.error("Invalid HTTP response", category: .api, requestId: String(requestId))
                 throw AIServiceError.invalidResponse
             }
+
+            let responseTime = Date().timeIntervalSince(startTime)
+            AppLogger.shared.logResponse(statusCode: httpResponse.statusCode, responseTime: responseTime, requestId: String(requestId), dataSize: data.count)
+
+            guard httpResponse.statusCode == 200 else {
+                if let errorString = String(data: data, encoding: .utf8) {
+                    AppLogger.shared.error("Backend API error: \(errorString)", category: .audio, requestId: String(requestId))
+                }
+                throw AIServiceError.apiError("HTTP \(httpResponse.statusCode)")
+            }
+
+            // Parse backend response
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let audioBase64 = json["audioData"] as? String,
+                  let audioData = Data(base64Encoded: audioBase64) else {
+                AppLogger.shared.error("Failed to parse backend audio response", category: .audio, requestId: String(requestId))
+                throw AIServiceError.invalidResponse
+            }
+
+            AppLogger.shared.success("Audio generated via backend - Size: \(audioData.count / 1024)KB", category: .audio, requestId: String(requestId))
+            AppLogger.shared.logPerformance(operation: "TTS generation (Backend)", startTime: startTime, requestId: String(requestId))
+
+            return audioData
+
         } catch let error as AIServiceError {
-            AppLogger.shared.error("TTS generation failed", category: .audio, requestId: requestId, error: error)
+            AppLogger.shared.error("TTS generation failed", category: .audio, requestId: String(requestId), error: error)
             throw error
         } catch {
-            AppLogger.shared.error("TTS network error", category: .audio, requestId: requestId, error: error)
+            AppLogger.shared.error("TTS network error", category: .audio, requestId: String(requestId), error: error)
             throw AIServiceError.networkError(error)
         }
     }
@@ -799,265 +638,65 @@ class OpenAIService: AIServiceProtocol {
         }
     }
 
-    /// Basic fallback sanitization for GPT-Image-1 prompts when AI sanitization is not available
-    /// Enhanced basic sanitization that ensures GPT-Image-1 compliance
-    /// - Parameter prompt: The prompt to sanitize
-    /// - Returns: A fully sanitized prompt safe for GPT-Image-1
-    private func enhancedBasicSanitization(_ prompt: String) -> String {
-        // First, remove all non-ASCII characters to avoid foreign language issues
-        let asciiOnly = prompt.unicodeScalars
-            .filter { $0.isASCII }
-            .map { String($0) }
-            .joined()
-
-        // Then apply all safety transformations
-        return basicPromptSanitization(asciiOnly)
-    }
-
-    /// - Parameter prompt: The prompt to sanitize
-    /// - Returns: A sanitized prompt with problematic terms replaced
-    private func basicPromptSanitization(_ prompt: String) -> String {
-        var sanitized = prompt
-
-        // Critical phrase replacements for child safety - order matters (longer phrases first)
-        let phraseReplacements = [
-            // Isolation phrases
-            "standing alone": "standing with friends",
-            "sitting alone": "sitting with companions",
-            "walking alone": "walking with friends",
-            "all alone": "with magical friends",
-            "by himself": "with his friends",
-            "by herself": "with her friends",
-            "by themselves": "with their companions",
-
-            // Dark/scary phrases
-            "dark forest": "bright enchanted garden",
-            "dark woods": "sunny magical meadow",
-            "scary forest": "magical garden",
-            "haunted house": "magical castle",
-            "abandoned house": "cozy cottage",
-
-            // Violence phrases
-            "fighting with": "playing with",
-            "in battle": "on an adventure"
-        ]
-
-        // Apply phrase replacements
-        for (problematic, safe) in phraseReplacements {
-            sanitized = sanitized.replacingOccurrences(
-                of: problematic,
-                with: safe,
-                options: [.caseInsensitive],
-                range: nil
-            )
-        }
-
-        // Word replacements - use word boundaries for accuracy
-        let wordReplacements = [
-            // Isolation words
-            "\\balone\\b": "with friends",
-            "\\blonely\\b": "happy with companions",
-            "\\bisolated\\b": "surrounded by friendly creatures",
-            "\\babandoned\\b": "in a cozy magical place",
-            "\\bsolitary\\b": "with cheerful friends",
-            "\\bsolo\\b": "with companions",
-
-            // Dark/scary words
-            "\\bdark\\b": "bright",
-            "\\bscary\\b": "wonderful",
-            "\\bfrightening\\b": "magical",
-            "\\bterrifying\\b": "amazing",
-            "\\bspooky\\b": "enchanting",
-            "\\bhaunted\\b": "magical",
-            "\\bmysterious\\b": "delightful",
-            "\\bshadowy\\b": "glowing",
-            "\\bgloomy\\b": "bright",
-            "\\beerie\\b": "cheerful",
-            "\\bcreepy\\b": "friendly",
-
-            // Violence words
-            "\\bfighting\\b": "playing",
-            "\\bbattle\\b": "adventure",
-            "\\bweapon\\b": "magical wand",
-            "\\bsword\\b": "toy wand",
-            "\\bswords\\b": "toy wands",
-            "\\battacking\\b": "playing with",
-
-            // Negative emotion words
-            "\\bsad\\b": "happy",
-            "\\bcrying\\b": "smiling",
-            "\\btears\\b": "sparkles",
-            "\\bupset\\b": "curious",
-            "\\bangry\\b": "determined",
-            "\\bscared\\b": "excited",
-            "\\bafraid\\b": "brave",
-            "\\bworried\\b": "thoughtful",
-            "\\bfrightened\\b": "amazed"
-        ]
-
-        // Apply word replacements using regex
-        for (problematic, safe) in wordReplacements {
-            do {
-                let regex = try NSRegularExpression(pattern: problematic, options: [.caseInsensitive])
-                let range = NSRange(location: 0, length: sanitized.utf16.count)
-                sanitized = regex.stringByReplacingMatches(
-                    in: sanitized,
-                    options: [],
-                    range: range,
-                    withTemplate: safe
-                )
-            } catch {
-                // Fallback to simple replacement if regex fails
-                let simplePattern = problematic.replacingOccurrences(of: "\\b", with: "")
-                sanitized = sanitized.replacingOccurrences(
-                    of: simplePattern,
-                    with: safe,
-                    options: [.caseInsensitive],
-                    range: nil
-                )
-            }
-        }
-
-        // Ensure the character is not alone
-        if !sanitized.lowercased().contains("friends") &&
-           !sanitized.lowercased().contains("companions") &&
-           !sanitized.lowercased().contains("family") &&
-           !sanitized.lowercased().contains("creatures") {
-            // Add companions to the scene
-            sanitized = sanitized.replacingOccurrences(of: ".", with: "")
-            sanitized += " surrounded by friendly magical creatures and companions."
-        }
-
-        // Add brightness if not present
-        if !sanitized.lowercased().contains("bright") &&
-           !sanitized.lowercased().contains("colorful") &&
-           !sanitized.lowercased().contains("sunny") &&
-           !sanitized.lowercased().contains("cheerful") {
-            sanitized += " The scene is bright, colorful, cheerful, and child-friendly with warm sunlight and a magical atmosphere."
-        }
-
-        AppLogger.shared.warning("⚠️ Using basic fallback sanitization", category: .illustration)
-        AppLogger.shared.debug("Fallback sanitized prompt: \(sanitized)", category: .illustration)
-        return sanitized
-    }
-
-    /// Dynamically sanitize GPT-Image-1 prompts using OpenAI GPT-4 to ensure policy compliance
+    /// Dynamically sanitize GPT-Image-1 prompts using backend API to ensure policy compliance
     /// - Parameter originalPrompt: The original GPT-Image-1 prompt that needs sanitization
     /// - Returns: A sanitized prompt that is safe for GPT-Image-1 API
     func sanitizePromptWithAI(_ originalPrompt: String) async throws -> String {
         let requestId = UUID().uuidString.prefix(8).lowercased()
-        AppLogger.shared.info("🧹 AI-based prompt sanitization started", category: .illustration, requestId: String(requestId))
+        AppLogger.shared.info("🧹 AI-based prompt sanitization started (via backend)", category: .illustration, requestId: String(requestId))
         AppLogger.shared.debug("Original prompt length: \(originalPrompt.count) characters", category: .illustration, requestId: String(requestId))
 
-        guard !apiKey.isEmpty else {
-            AppLogger.shared.error("API key is empty", category: .api, requestId: String(requestId))
-            throw AIServiceError.invalidAPIKey
-        }
-
-        // Log only in debug mode
         #if DEBUG
         AppLogger.shared.debug("Original prompt for sanitization: \(originalPrompt.prefix(100))...", category: .illustration, requestId: String(requestId))
         #endif
 
-        // Create a comprehensive sanitization prompt for GPT-4
-        let sanitizationPrompt = """
-        You are a GPT-Image-1 prompt sanitizer specializing in children's content. Your task is to rewrite the following image generation prompt to be 100% compliant with OpenAI's GPT-Image-1 content policy while preserving the creative intent.
+        // Build backend URL
+        let backendURL = "\(AppConfiguration.backendBaseURL)/api/ai-assistant/sanitize-prompt"
 
-        CRITICAL GPT-IMAGE-1 POLICY VIOLATIONS TO AVOID:
-        1. NEVER depict children in isolation, distress, danger, or negative situations
-        2. NEVER show children alone, lonely, abandoned, lost, scared, crying, or sad
-        3. NEVER include darkness, shadows, scary elements, or anything frightening
-        4. NEVER depict violence, weapons, fighting, battles, or conflict
-        5. NEVER show unsafe situations or activities that could harm children
-        6. NEVER use words that imply negative emotions or isolation
-
-        MANDATORY TRANSFORMATIONS:
-        - ALL children MUST be shown with friends, family, or friendly magical creatures
-        - ALL scenes MUST be bright, colorful, and cheerful
-        - ALL emotions MUST be positive (happy, excited, curious, playful)
-        - ALL environments MUST feel safe, warm, and welcoming
-        - ALL interactions MUST be friendly and playful
-
-        SPECIFIC WORD REPLACEMENTS (APPLY ALL):
-        - "alone" / "by himself" / "by herself" → "with friends" or "with magical companions"
-        - "lonely" / "solitary" / "isolated" → "surrounded by friendly creatures"
-        - "dark" / "shadowy" / "dim" → "bright" / "glowing" / "sunlit"
-        - "forest" → "magical garden" or "enchanted meadow"
-        - "scary" / "frightening" / "spooky" → "wonderful" / "delightful" / "magical"
-        - "mysterious" → "enchanting and delightful"
-        - "sad" / "crying" / "upset" → "happy" / "smiling" / "cheerful"
-        - Any weapons → "magical wands" or "toy props"
-        - Any violence → "playful games" or "friendly adventures"
-
-        ORIGINAL PROMPT TO SANITIZE:
-        \(originalPrompt)
-
-        IMPORTANT: Return ONLY the sanitized prompt. Ensure EVERY child in the image has companions. Add "surrounded by friends" if needed. The scene MUST be bright and cheerful with NO exceptions.
-        """
-
-        let requestBody = [
-            "model": "gpt-4o",
-            "messages": [
-                [
-                    "role": "system",
-                    "content": "You are a strict GPT-Image-1 content policy enforcer. You MUST rewrite prompts to be 100% safe for children. ALWAYS ensure children are shown with companions, NEVER alone. ALWAYS make scenes bright and positive. Remove ALL negative or scary elements. Output ONLY the sanitized prompt."
-                ],
-                [
-                    "role": "user",
-                    "content": sanitizationPrompt
-                ]
-            ],
-            "max_tokens": 500,
-            "temperature": 0.3  // Lower temperature for more consistent sanitization
-        ] as [String : Any]
+        // Prepare request body
+        let requestBody: [String: Any] = [
+            "prompt": originalPrompt
+        ]
 
         guard let jsonData = try? JSONSerialization.data(withJSONObject: requestBody) else {
-            AppLogger.shared.error("❌ Failed to serialize sanitization request JSON", category: .illustration, requestId: String(requestId))
+            AppLogger.shared.error("Failed to serialize request JSON", category: .api, requestId: String(requestId))
             throw AIServiceError.invalidResponse
         }
 
-        var urlRequest = URLRequest(url: URL(string: chatURL)!)
+        AppLogger.shared.info("Calling backend API: \(backendURL)", category: .illustration, requestId: String(requestId))
+
+        var urlRequest = URLRequest(url: URL(string: backendURL)!)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         urlRequest.httpBody = jsonData
 
         do {
             let (data, response) = try await URLSession.shared.data(for: urlRequest)
 
             guard let httpResponse = response as? HTTPURLResponse else {
-                AppLogger.shared.error("❌ Invalid HTTP response for sanitization", category: .illustration, requestId: String(requestId))
+                AppLogger.shared.error("Invalid HTTP response for sanitization", category: .illustration, requestId: String(requestId))
                 throw AIServiceError.invalidResponse
             }
 
             guard httpResponse.statusCode == 200 else {
-                AppLogger.shared.error("❌ Sanitization API error: HTTP \(httpResponse.statusCode)", category: .illustration, requestId: String(requestId))
+                AppLogger.shared.error("Sanitization API error: HTTP \(httpResponse.statusCode)", category: .illustration, requestId: String(requestId))
 
-                // Try to parse error message
-                if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let error = errorJson["error"] as? [String: Any],
-                   let message = error["message"] as? String {
-                    AppLogger.shared.error("API error message: \(message)", category: .illustration, requestId: String(requestId))
-                    throw AIServiceError.apiError("Sanitization failed: \(message)")
+                if let errorString = String(data: data, encoding: .utf8) {
+                    AppLogger.shared.error("API error message: \(errorString)", category: .illustration, requestId: String(requestId))
                 }
 
                 throw AIServiceError.apiError("Sanitization failed with HTTP \(httpResponse.statusCode)")
             }
 
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let choices = json["choices"] as? [[String: Any]],
-                  let firstChoice = choices.first,
-                  let message = firstChoice["message"] as? [String: Any],
-                  let sanitizedPrompt = message["content"] as? String else {
-                AppLogger.shared.error("❌ Failed to parse sanitization response", category: .illustration, requestId: String(requestId))
+                  let sanitizedPrompt = json["sanitizedPrompt"] as? String else {
+                AppLogger.shared.error("Failed to parse sanitization response", category: .illustration, requestId: String(requestId))
                 throw AIServiceError.invalidResponse
             }
 
-            // Clean up the sanitized prompt (remove any extra whitespace)
             let cleanedPrompt = sanitizedPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
 
-            // Log the sanitization results
-            AppLogger.shared.success("✅ PROMPT SANITIZATION COMPLETE", category: .illustration, requestId: String(requestId))
+            AppLogger.shared.success("✅ PROMPT SANITIZATION COMPLETE (via backend)", category: .illustration, requestId: String(requestId))
             AppLogger.shared.info("=== SANITIZED PROMPT ===", category: .illustration, requestId: String(requestId))
             AppLogger.shared.debug("Sanitized: \(cleanedPrompt)", category: .illustration, requestId: String(requestId))
 
@@ -1065,19 +704,6 @@ class OpenAIService: AIServiceProtocol {
             if originalPrompt != cleanedPrompt {
                 AppLogger.shared.warning("⚠️ Prompt was modified by AI sanitization", category: .illustration, requestId: String(requestId))
                 AppLogger.shared.debug("Original length: \(originalPrompt.count) → Sanitized length: \(cleanedPrompt.count)", category: .illustration, requestId: String(requestId))
-
-                // Log specific changes for debugging
-                let originalWords = Set(originalPrompt.lowercased().components(separatedBy: .whitespacesAndNewlines))
-                let sanitizedWords = Set(cleanedPrompt.lowercased().components(separatedBy: .whitespacesAndNewlines))
-                let removedWords = originalWords.subtracting(sanitizedWords)
-                let addedWords = sanitizedWords.subtracting(originalWords)
-
-                if !removedWords.isEmpty {
-                    AppLogger.shared.debug("Words removed: \(removedWords.joined(separator: ", "))", category: .illustration, requestId: String(requestId))
-                }
-                if !addedWords.isEmpty {
-                    AppLogger.shared.debug("Words added: \(addedWords.joined(separator: ", "))", category: .illustration, requestId: String(requestId))
-                }
             } else {
                 AppLogger.shared.info("✓ Prompt deemed safe, no changes needed", category: .illustration, requestId: String(requestId))
             }
@@ -1097,87 +723,39 @@ class OpenAIService: AIServiceProtocol {
         let requestId = UUID().uuidString.prefix(8).lowercased()
         let startTime = Date()
 
-        AppLogger.shared.info("Avatar generation started", category: .avatar, requestId: String(requestId))
+        AppLogger.shared.info("Avatar generation started (via backend)", category: .avatar, requestId: String(requestId))
         AppLogger.shared.debug("Hero: \(request.hero.name), Size: \(request.size), Quality: \(request.quality)", category: .avatar, requestId: String(requestId))
 
-        guard !apiKey.isEmpty else {
-            AppLogger.shared.error("API key is empty", category: .api, requestId: String(requestId))
-            throw AIServiceError.invalidAPIKey
-        }
+        // Build backend URL
+        let backendURL = "\(AppConfiguration.backendBaseURL)/api/images/generate-avatar"
 
-        // Skip AI-based sanitization and use enhanced basic sanitization directly
-        // This is more reliable and avoids the extra API call that can fail
-        AppLogger.shared.info("Using enhanced basic sanitization for avatar", category: .avatar, requestId: String(requestId))
-        let filteredPrompt = enhancedBasicSanitization(request.prompt)
-
-        // Log filtering activity if any changes were made
-        if request.prompt != filteredPrompt {
-            AppLogger.shared.warning("AI content filtering applied to avatar prompt", category: .avatar, requestId: String(requestId))
-            AppLogger.shared.debug("Original: \(request.prompt.count) → Sanitized: \(filteredPrompt.count) chars", category: .avatar, requestId: String(requestId))
-        }
-
-        // Map quality parameter from DALL-E 3 format to GPT-Image-1 format
-        let gptImageQuality: String
-        switch request.quality.lowercased() {
-        case "standard":
-            gptImageQuality = "medium"
-        case "hd":
-            gptImageQuality = "high"
-        case "low", "medium", "high":
-            gptImageQuality = request.quality // Already in GPT-Image-1 format
-        default:
-            gptImageQuality = "high" // Default to high quality
-        }
-
-        // Log the final sanitized avatar generation prompt
-        AppLogger.shared.info("=== AVATAR GENERATION PROMPT (FULLY SANITIZED) ===", category: .avatar, requestId: String(requestId))
-        AppLogger.shared.logDALLERequest(
-            prompt: filteredPrompt,
-            size: request.size,
-            quality: gptImageQuality,
-            requestId: String(requestId)
-        )
-
-        var requestBody: [String: Any] = [
-            "model": "gpt-image-1",
-            "prompt": filteredPrompt,
-            "n": 1,
+        // Prepare request body - backend will handle sanitization
+        let requestBody: [String: Any] = [
+            "prompt": request.prompt,
+            "hero": [
+                "name": request.hero.name,
+                "primaryTrait": request.hero.primaryTrait.rawValue,
+                "secondaryTrait": request.hero.secondaryTrait.rawValue,
+                "appearance": request.hero.appearance,
+                "specialAbility": request.hero.specialAbility,
+                "avatarPrompt": request.hero.avatarPrompt ?? ""
+            ],
             "size": request.size,
-            "quality": gptImageQuality, // GPT-Image-1 uses low/medium/high instead of standard/hd
-            "background": "auto",
-            "output_format": "png",
-            "moderation": "auto"
+            "quality": request.quality,
+            "previousGenerationId": request.previousGenerationId ?? ""
         ]
-
-        // Add previous generation ID if available for multi-turn consistency
-        if let previousGenerationId = request.previousGenerationId {
-            requestBody["previous_generation_id"] = previousGenerationId
-            AppLogger.shared.info("Using previous generation ID for avatar consistency: \(previousGenerationId)", category: .avatar, requestId: String(requestId))
-        }
-
-        // Log complete request body
-        AppLogger.shared.info("=== GPT-IMAGE-1 AVATAR REQUEST BODY ===", category: .avatar, requestId: String(requestId))
-        if let jsonData = try? JSONSerialization.data(withJSONObject: requestBody, options: .prettyPrinted),
-           let jsonString = String(data: jsonData, encoding: .utf8) {
-            AppLogger.shared.debug("Request JSON: \(jsonString)", category: .avatar, requestId: String(requestId))
-
-            // Log only in debug mode
-            #if DEBUG
-            AppLogger.shared.debug("GPT-Image-1 Avatar Request - Model: gpt-image-1, Size: \(request.size)", category: .avatar, requestId: String(requestId))
-            #endif
-        }
 
         guard let jsonData = try? JSONSerialization.data(withJSONObject: requestBody) else {
             AppLogger.shared.error("Failed to serialize request JSON", category: .api, requestId: String(requestId))
             throw AIServiceError.invalidResponse
         }
 
-        AppLogger.shared.logRequest(url: imageURL, method: "POST", requestId: String(requestId), bodySize: jsonData.count)
+        AppLogger.shared.info("Calling backend API: \(backendURL)", category: .avatar, requestId: String(requestId))
+        AppLogger.shared.logRequest(url: backendURL, method: "POST", requestId: String(requestId), bodySize: jsonData.count)
 
-        var urlRequest = URLRequest(url: URL(string: imageURL)!)
+        var urlRequest = URLRequest(url: URL(string: backendURL)!)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         urlRequest.httpBody = jsonData
 
         do {
@@ -1192,23 +770,8 @@ class OpenAIService: AIServiceProtocol {
             AppLogger.shared.logResponse(statusCode: httpResponse.statusCode, responseTime: responseTime, requestId: String(requestId), dataSize: data.count)
 
             guard httpResponse.statusCode == 200 else {
-                // Log error response details
                 if let errorString = String(data: data, encoding: .utf8) {
-                    AppLogger.shared.error("GPT-Image-1 Error Response: \(errorString)", category: .avatar, requestId: String(requestId))
-
-                    // Try to parse error JSON for more details
-                    if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let error = errorJson["error"] as? [String: Any],
-                       let errorType = error["type"] as? String,
-                       let errorMessage = error["message"] as? String {
-                        AppLogger.shared.error("Error details - Type: \(errorType), Message: \(errorMessage)", category: .avatar, requestId: String(requestId))
-
-                        // Handle specific error types
-                        if errorType == "invalid_request_error" && errorMessage.lowercased().contains("content_policy_violation") {
-                            AppLogger.shared.error("Content policy violation detected in avatar prompt", category: .avatar, requestId: String(requestId))
-                            throw AIServiceError.contentPolicyViolation(errorMessage)
-                        }
-                    }
+                    AppLogger.shared.error("Backend Error Response: \(errorString)", category: .avatar, requestId: String(requestId))
                 }
 
                 if httpResponse.statusCode == 429 {
@@ -1219,71 +782,32 @@ class OpenAIService: AIServiceProtocol {
                 throw AIServiceError.apiError("HTTP \(httpResponse.statusCode)")
             }
 
-            // Log successful response
-            AppLogger.shared.info("=== GPT-IMAGE-1 AVATAR RESPONSE ===", category: .avatar, requestId: String(requestId))
-
-            // Log the full request/response for debugging
-            AppLogger.shared.info("✅ GPT-Image-1 Request Successful - Full Payload:", category: .avatar, requestId: String(requestId))
-            AppLogger.shared.info("URL: \(imageURL)", category: .avatar, requestId: String(requestId))
-            AppLogger.shared.info("Method: POST", category: .avatar, requestId: String(requestId))
-            AppLogger.shared.info("Headers: Content-Type: application/json, Authorization: Bearer [REDACTED]", category: .avatar, requestId: String(requestId))
-            if let prettyJson = try? JSONSerialization.data(withJSONObject: requestBody, options: .prettyPrinted),
-               let prettyString = String(data: prettyJson, encoding: .utf8) {
-                AppLogger.shared.info("Request Body:\n\(prettyString)", category: .avatar, requestId: String(requestId))
-            }
-
+            // Parse backend response
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let dataArray = json["data"] as? [[String: Any]],
-                  let firstImage = dataArray.first,
-                  let b64Json = firstImage["b64_json"] as? String,
-                  let imageData = Data(base64Encoded: b64Json) else {
-                AppLogger.shared.error("Failed to parse image response", category: .api, requestId: String(requestId))
-
-                // Log what we received for debugging
-                if let responseString = String(data: data, encoding: .utf8) {
-                    AppLogger.shared.debug("Raw response (first 500 chars): \(String(responseString.prefix(500)))", category: .avatar, requestId: String(requestId))
-                }
+                  let imageBase64 = json["imageData"] as? String,
+                  let imageData = Data(base64Encoded: imageBase64) else {
+                AppLogger.shared.error("Failed to parse backend avatar response", category: .api, requestId: String(requestId))
                 throw AIServiceError.invalidResponse
             }
 
-            let revisedPrompt = firstImage["revised_prompt"] as? String
+            let revisedPrompt = json["revisedPrompt"] as? String
+            let generationId = json["generationId"] as? String
 
-            // Log success with details
-            AppLogger.shared.logDALLEResponse(
-                success: true,
-                revisedPrompt: revisedPrompt,
-                imageSize: imageData.count,
-                requestId: String(requestId)
-            )
-
-            // Extract GPT-Image-1 specific response fields for cost tracking
-            if let usage = json["usage"] as? [String: Any],
-               let totalTokens = usage["total_tokens"] as? Int,
-               let inputTokens = usage["input_tokens"] as? Int,
-               let outputTokens = usage["output_tokens"] as? Int {
-                AppLogger.shared.info("GPT-Image-1 avatar token usage - Input: \(inputTokens), Output: \(outputTokens), Total: \(totalTokens)", category: .avatar, requestId: String(requestId))
-            }
-
-            AppLogger.shared.logPerformance(operation: "Avatar Generation", startTime: startTime, requestId: String(requestId))
-
-            // Extract GPT-Image-1 generation ID for multi-turn consistency
-            // Check multiple possible field names for generation ID
-            let generationId = firstImage["generation_id"] as? String ??
-                              firstImage["generationId"] as? String ??
-                              firstImage["gen_id"] as? String ??
-                              json["generation_id"] as? String ??
-                              json["generationId"] as? String ??
-                              json["gen_id"] as? String
+            AppLogger.shared.success("Avatar generated via backend - Size: \(imageData.count / 1024)KB", category: .avatar, requestId: String(requestId))
 
             if let generationId = generationId {
                 AppLogger.shared.info("Avatar generation ID extracted: \(generationId)", category: .avatar, requestId: String(requestId))
             } else {
                 AppLogger.shared.warning("No generation ID found in avatar response", category: .avatar, requestId: String(requestId))
-                AppLogger.shared.debug("Available response keys: \(Array(json.keys))", category: .avatar, requestId: String(requestId))
-                if !dataArray.isEmpty {
-                    AppLogger.shared.debug("Available image keys: \(Array(firstImage.keys))", category: .avatar, requestId: String(requestId))
-                }
             }
+
+            // Log usage info if available
+            if let usage = json["usage"] as? [String: Any],
+               let totalTokens = usage["total_tokens"] as? Int {
+                AppLogger.shared.info("GPT-Image-1 avatar token usage - Total: \(totalTokens)", category: .avatar, requestId: String(requestId))
+            }
+
+            AppLogger.shared.logPerformance(operation: "Avatar Generation (Backend)", startTime: startTime, requestId: String(requestId))
 
             return AvatarGenerationResponse(
                 imageData: imageData,
@@ -1305,7 +829,7 @@ class OpenAIService: AIServiceProtocol {
         let requestId = UUID().uuidString.prefix(8).lowercased()
         let startTime = Date()
 
-        AppLogger.shared.info("Scene Illustration Generation Started", category: .illustration, requestId: String(requestId))
+        AppLogger.shared.info("Scene Illustration Generation Started (via backend)", category: .illustration, requestId: String(requestId))
         AppLogger.shared.info("Hero: \(hero.name)", category: .illustration, requestId: String(requestId))
 
         if let previousGenerationId = previousGenerationId {
@@ -1314,77 +838,34 @@ class OpenAIService: AIServiceProtocol {
             AppLogger.shared.debug("No previous generation ID provided - first illustration or fallback", category: .illustration, requestId: String(requestId))
         }
 
-        guard !apiKey.isEmpty else {
-            AppLogger.shared.error("API key is empty", category: .api, requestId: String(requestId))
-            throw AIServiceError.invalidAPIKey
-        }
+        // Build backend URL
+        let backendURL = "\(AppConfiguration.backendBaseURL)/api/images/generate-illustration"
 
-        // Log original prompt
-        AppLogger.shared.info("=== ORIGINAL SCENE PROMPT ===", category: .illustration, requestId: String(requestId))
-        AppLogger.shared.logPrompt(prompt, type: "GPT-Image-1-Scene-Original", requestId: String(requestId), hero: hero.name)
-
-        // Enhance the prompt with child-friendly artistic style
-        let enhancedPrompt = enhanceIllustrationPrompt(prompt, hero: hero)
-
-        // Skip AI-based sanitization and use enhanced basic sanitization directly
-        // This is more reliable and avoids the extra API call that can fail
-        AppLogger.shared.info("Using enhanced basic sanitization for scene", category: .illustration, requestId: String(requestId))
-        let filteredPrompt = enhancedBasicSanitization(enhancedPrompt)
-
-        // Log filtering activity if any changes were made
-        if enhancedPrompt != filteredPrompt {
-            AppLogger.shared.warning("AI content filtering applied to scene illustration prompt", category: .illustration, requestId: String(requestId))
-            AppLogger.shared.debug("Enhanced: \(enhancedPrompt.count) → Sanitized: \(filteredPrompt.count) chars", category: .illustration, requestId: String(requestId))
-        }
-
-        // Log final sanitized prompt
-        AppLogger.shared.info("=== FULLY SANITIZED SCENE PROMPT ===", category: .illustration, requestId: String(requestId))
-        AppLogger.shared.logDALLERequest(
-            prompt: filteredPrompt,
-            size: "1024x1024",
-            quality: "standard",
-            requestId: String(requestId)
-        )
-
-        var requestBody: [String: Any] = [
-            "model": "gpt-image-1",
-            "prompt": filteredPrompt,
-            "n": 1,
-            "size": "1024x1024",
-            "quality": "high", // GPT-Image-1 uses low/medium/high instead of standard
-            "background": "auto",
-            "output_format": "png",
-            "moderation": "auto"
+        // Prepare request body - backend will handle enhancement and sanitization
+        let requestBody: [String: Any] = [
+            "prompt": prompt,
+            "hero": [
+                "name": hero.name,
+                "primaryTrait": hero.primaryTrait.rawValue,
+                "secondaryTrait": hero.secondaryTrait.rawValue,
+                "appearance": hero.appearance,
+                "specialAbility": hero.specialAbility,
+                "avatarPrompt": hero.avatarPrompt ?? ""
+            ],
+            "previousGenerationId": previousGenerationId ?? ""
         ]
-
-        // Add previous generation ID if available for multi-turn consistency
-        if let previousGenerationId = previousGenerationId {
-            requestBody["previous_generation_id"] = previousGenerationId
-        }
-
-        // Log complete request body
-        AppLogger.shared.info("=== GPT-IMAGE-1 REQUEST BODY ===", category: .illustration, requestId: String(requestId))
-        if let jsonData = try? JSONSerialization.data(withJSONObject: requestBody, options: .prettyPrinted),
-           let jsonString = String(data: jsonData, encoding: .utf8) {
-            AppLogger.shared.debug("Request JSON: \(jsonString)", category: .illustration, requestId: String(requestId))
-
-            // Log only in debug mode
-            #if DEBUG
-            AppLogger.shared.debug("GPT-Image-1 Scene Request - Model: gpt-image-1, Size: 1024x1024", category: .illustration, requestId: String(requestId))
-            #endif
-        }
 
         guard let jsonData = try? JSONSerialization.data(withJSONObject: requestBody) else {
             AppLogger.shared.error("Failed to serialize request JSON", category: .api, requestId: String(requestId))
             throw AIServiceError.invalidResponse
         }
 
-        AppLogger.shared.logRequest(url: imageURL, method: "POST", requestId: String(requestId), bodySize: jsonData.count)
+        AppLogger.shared.info("Calling backend API: \(backendURL)", category: .illustration, requestId: String(requestId))
+        AppLogger.shared.logRequest(url: backendURL, method: "POST", requestId: String(requestId), bodySize: jsonData.count)
 
-        var urlRequest = URLRequest(url: URL(string: imageURL)!)
+        var urlRequest = URLRequest(url: URL(string: backendURL)!)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         urlRequest.httpBody = jsonData
 
         do {
@@ -1399,23 +880,8 @@ class OpenAIService: AIServiceProtocol {
             AppLogger.shared.logResponse(statusCode: httpResponse.statusCode, responseTime: responseTime, requestId: String(requestId), dataSize: data.count)
 
             guard httpResponse.statusCode == 200 else {
-                // Log error response details
                 if let errorString = String(data: data, encoding: .utf8) {
-                    AppLogger.shared.error("GPT-Image-1 Error Response: \(errorString)", category: .illustration, requestId: String(requestId))
-
-                    // Try to parse error JSON for more details
-                    if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let error = errorJson["error"] as? [String: Any],
-                       let errorType = error["type"] as? String,
-                       let errorMessage = error["message"] as? String {
-                        AppLogger.shared.error("Error details - Type: \(errorType), Message: \(errorMessage)", category: .illustration, requestId: String(requestId))
-
-                        // Handle specific error types
-                        if errorType == "invalid_request_error" && errorMessage.lowercased().contains("content_policy_violation") {
-                            AppLogger.shared.error("Content policy violation detected in scene illustration prompt", category: .illustration, requestId: String(requestId))
-                            throw AIServiceError.contentPolicyViolation(errorMessage)
-                        }
-                    }
+                    AppLogger.shared.error("Backend Error Response: \(errorString)", category: .illustration, requestId: String(requestId))
                 }
 
                 if httpResponse.statusCode == 429 {
@@ -1426,74 +892,32 @@ class OpenAIService: AIServiceProtocol {
                 throw AIServiceError.apiError("HTTP \(httpResponse.statusCode)")
             }
 
-            // Log successful response
-            AppLogger.shared.info("=== GPT-IMAGE-1 RESPONSE ===", category: .illustration, requestId: String(requestId))
-
-            // Log the full request/response for debugging
-            AppLogger.shared.info("✅ GPT-Image-1 Request Successful - Full Payload:", category: .illustration, requestId: String(requestId))
-            AppLogger.shared.info("URL: \(imageURL)", category: .illustration, requestId: String(requestId))
-            AppLogger.shared.info("Method: POST", category: .illustration, requestId: String(requestId))
-            AppLogger.shared.info("Headers: Content-Type: application/json, Authorization: Bearer [REDACTED]", category: .illustration, requestId: String(requestId))
-            if let prettyJson = try? JSONSerialization.data(withJSONObject: requestBody, options: .prettyPrinted),
-               let prettyString = String(data: prettyJson, encoding: .utf8) {
-                AppLogger.shared.info("Request Body:\n\(prettyString)", category: .illustration, requestId: String(requestId))
-            }
-
+            // Parse backend response
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let dataArray = json["data"] as? [[String: Any]],
-                  let firstImage = dataArray.first,
-                  let b64Json = firstImage["b64_json"] as? String,
-                  let imageData = Data(base64Encoded: b64Json) else {
-                AppLogger.shared.error("Failed to parse image response", category: .api, requestId: String(requestId))
-
-                // Log what we received for debugging
-                if let responseString = String(data: data, encoding: .utf8) {
-                    AppLogger.shared.debug("Raw response (first 500 chars): \(String(responseString.prefix(500)))", category: .illustration, requestId: String(requestId))
-                }
+                  let imageBase64 = json["imageData"] as? String,
+                  let imageData = Data(base64Encoded: imageBase64) else {
+                AppLogger.shared.error("Failed to parse backend illustration response", category: .api, requestId: String(requestId))
                 throw AIServiceError.invalidResponse
             }
 
-            // Extract revised prompt if available
-            let revisedPrompt = firstImage["revised_prompt"] as? String
+            let revisedPrompt = json["revisedPrompt"] as? String
+            let generationId = json["generationId"] as? String
 
-            // Extract GPT-Image-1 generation ID for multi-turn consistency
-            // Check multiple possible field names for generation ID
-            let generationId = firstImage["generation_id"] as? String ??
-                              firstImage["generationId"] as? String ??
-                              firstImage["gen_id"] as? String ??
-                              json["generation_id"] as? String ??
-                              json["generationId"] as? String ??
-                              json["gen_id"] as? String
-            
-            let genId = firstImage["id"] as? String  // TODO fix generation Id retrieval
+            AppLogger.shared.success("Scene illustration generated via backend - Size: \(imageData.count / 1024)KB", category: .illustration, requestId: String(requestId))
 
             if let generationId = generationId {
                 AppLogger.shared.info("Scene illustration generation ID extracted: \(generationId)", category: .illustration, requestId: String(requestId))
             } else {
                 AppLogger.shared.warning("No generation ID found in scene illustration response", category: .illustration, requestId: String(requestId))
-                AppLogger.shared.debug("Available response keys: \(Array(json.keys))", category: .illustration, requestId: String(requestId))
-                if !dataArray.isEmpty {
-                    AppLogger.shared.debug("Available image keys: \(Array(firstImage.keys))", category: .illustration, requestId: String(requestId))
-                }
             }
 
-            // Log success with details
-            AppLogger.shared.logDALLEResponse(
-                success: true,
-                revisedPrompt: revisedPrompt,
-                imageSize: imageData.count,
-                requestId: String(requestId)
-            )
-
-            // Extract GPT-Image-1 specific response fields for cost tracking
+            // Log usage info if available
             if let usage = json["usage"] as? [String: Any],
-               let totalTokens = usage["total_tokens"] as? Int,
-               let inputTokens = usage["input_tokens"] as? Int,
-               let outputTokens = usage["output_tokens"] as? Int {
-                AppLogger.shared.info("GPT-Image-1 illustration token usage - Input: \(inputTokens), Output: \(outputTokens), Total: \(totalTokens)", category: .illustration, requestId: String(requestId))
+               let totalTokens = usage["total_tokens"] as? Int {
+                AppLogger.shared.info("GPT-Image-1 illustration token usage - Total: \(totalTokens)", category: .illustration, requestId: String(requestId))
             }
 
-            AppLogger.shared.logPerformance(operation: "Scene Illustration Generation", startTime: startTime, requestId: String(requestId))
+            AppLogger.shared.logPerformance(operation: "Scene Illustration Generation (Backend)", startTime: startTime, requestId: String(requestId))
 
             return SceneIllustrationResponse(
                 imageData: imageData,
@@ -1629,6 +1053,56 @@ class OpenAIService: AIServiceProtocol {
         AppLogger.shared.info("Batch illustration generation completed: \(successCount)/\(sortedScenes.count) successful", category: .illustration)
 
         return results
+    }
+
+    func generatePictogram(prompt: String) async throws -> Data {
+        let requestId = UUID().uuidString.prefix(8).lowercased()
+        AppLogger.shared.info("Pictogram generation started (via backend)", category: .illustration, requestId: String(requestId))
+
+        // Build backend URL
+        let backendURL = "\(AppConfiguration.backendBaseURL)/api/images/generate-pictogram"
+
+        // Prepare request body
+        let requestBody: [String: Any] = [
+            "prompt": prompt
+        ]
+
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: requestBody) else {
+            AppLogger.shared.error("Failed to serialize request JSON", category: .api, requestId: String(requestId))
+            throw AIServiceError.invalidResponse
+        }
+
+        var urlRequest = URLRequest(url: URL(string: backendURL)!)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.httpBody = jsonData
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: urlRequest)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw AIServiceError.invalidResponse
+            }
+
+            guard httpResponse.statusCode == 200 else {
+                throw AIServiceError.apiError("HTTP \(httpResponse.statusCode)")
+            }
+
+            // Parse response
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let imageDataBase64 = json["imageData"] as? String,
+                  let imageData = Data(base64Encoded: imageDataBase64) else {
+                AppLogger.shared.error("Failed to parse pictogram response", category: .api, requestId: String(requestId))
+                throw AIServiceError.invalidResponse
+            }
+
+            AppLogger.shared.success("Pictogram generated successfully via backend", category: .illustration, requestId: String(requestId))
+            return imageData
+
+        } catch {
+            AppLogger.shared.error("Pictogram generation failed", category: .illustration, requestId: String(requestId), error: error)
+            throw error
+        }
     }
 
     func cancelCurrentTask() {
