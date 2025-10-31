@@ -367,6 +367,134 @@ xcodebuild -project InfiniteStories.xcodeproj -scheme InfiniteStories \
 3. Audio uses gpt-4o-mini-tts with voice-specific instructions
 4. Multi-language support via prompt localization
 
+## PRD Tools - Task Management System
+
+### Overview
+The project includes a Rust-based CLI tool for managing development tasks, agent coordination, and project progress tracking. Located in `tools/prd/`, it provides human-readable task IDs, epic grouping, dependency management, and real-time monitoring.
+
+### Key Features
+- **Human-Readable IDs**: Use `#42` for tasks and `A1` for agents instead of UUIDs
+- **Epic Grouping**: Organize related tasks into epics (e.g., "Auth System", "UI Enhancement")
+- **Task Dependencies**: Define task ordering and blockers with circular dependency detection
+- **Acceptance Criteria**: Track "definition of done" with checklists
+- **Agent Management**: Coordinate work across multiple developers or AI agents
+- **Progress Tracking**: Monitor estimated vs actual time, completion rates
+- **Activity Logging**: Complete audit trail of all task changes
+
+### Installation & Setup
+```bash
+# Build the PRD tool
+cd tools/prd
+cargo build --release
+
+# Initialize database
+./target/release/prd --database tools/prd.db init
+
+# Optional: Create alias for convenience
+alias prd='/path/to/tools/prd/target/release/prd --database /path/to/prd.db'
+```
+
+### Common Workflows
+
+#### Creating and Managing Tasks
+```bash
+# Create a task
+prd create "Implement Firebase Auth" --epic "Backend" --priority high
+# Output: ID: #1
+
+# Add acceptance criteria
+prd ac "#1" add "All unit tests pass"
+prd ac "#1" add "Security review completed"
+
+# Set dependencies
+prd create "Add user profile page" --epic "Backend"  # #2
+prd depends "#2" --on "#1"  # Profile page depends on auth
+
+# View task details
+prd show "#1"
+prd show "#1" --logs  # Include activity history
+```
+
+#### Agent Management
+```bash
+# Create agents
+prd agent-create "backend-dev"   # A1
+prd agent-create "frontend-dev"  # A2
+
+# Assign and start work
+prd sync A1 "#1"  # Sets agent to working, task to in_progress
+
+# Update progress
+prd ac "#1" check 1  # Mark first criterion complete
+
+# Complete task
+prd complete "#1"  # Or: prd update "#1" completed
+
+# View agent status
+prd agent-list
+```
+
+#### Task Discovery
+```bash
+# List all tasks
+prd list
+
+# Filter by status/priority/epic
+prd list --status pending --priority high
+prd list --epic "Backend" --agent A1
+
+# Find tasks ready to work on (all dependencies met)
+prd ready
+
+# Get next task for an agent
+prd next --agent A1 --priority high
+```
+
+#### Project Statistics
+```bash
+# View overall statistics
+prd stats
+
+# View epic progress
+prd epics
+
+# Track time
+prd duration "#1" --estimated 120 --actual 95
+```
+
+### Task Statuses
+- `pending`: Not yet started
+- `in_progress`: Currently being worked on
+- `blocked`: Waiting on dependencies or external factors
+- `review`: Awaiting review/approval
+- `completed`: Successfully finished
+- `cancelled`: No longer needed
+
+### Priority Levels
+- `low`: Nice to have, can be deferred
+- `medium`: Normal priority (default)
+- `high`: Important, should be addressed soon
+- `critical`: Urgent, blocks other work
+
+### Database Location
+The PRD database is stored at `tools/prd.db` in the project root. This location is used consistently across the project for task management.
+
+### Integration with Development
+- Use PRD to track feature implementation tasks
+- Link tasks to git commits for traceability
+- Coordinate work between iOS, backend, and deployment teams
+- Track acceptance criteria for feature completion
+- Monitor epic progress for release planning
+
+### Advanced Features
+- **Batch Operations**: Update multiple tasks at once
+- **Task Breakdown**: Split large tasks into smaller subtasks
+- **Live Dashboard**: Real-time monitoring with `prd watch`
+- **Git Integration**: Sync tasks from commit history
+- **Custom Hooks**: Run scripts on task events
+
+For complete documentation, see `tools/prd/README.md` and `tools/prd/QUICKSTART.md`.
+
 ## Key Technologies
 
 - **SwiftUI**: Declarative UI with navigation, sheets, and animations
