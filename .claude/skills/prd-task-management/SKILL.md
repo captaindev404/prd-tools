@@ -153,6 +153,48 @@ prd batch-assign "#10,#11,#12" A1
 prd duration "#42" --estimated 120 --actual 95
 ```
 
+## Task Breakdown
+
+### Break Task into Subtasks
+```bash
+# Break down a task interactively
+prd breakdown "#42" --interactive
+
+# Basic breakdown (prompts for subtasks)
+prd breakdown "#42"
+```
+
+**Interactive Mode**:
+- Creates multiple subtasks under a parent task
+- Each subtask inherits the epic from parent
+- Subtasks are automatically linked to parent with `--parent` relationship
+
+**Example**:
+```bash
+# Break down epic task
+prd breakdown "#10"
+# Prompts for:
+# - Number of subtasks
+# - Title for each subtask
+# - Priority for each subtask
+```
+
+## Batch Complete
+
+### Complete Multiple Tasks
+```bash
+# Complete multiple tasks at once
+prd complete-batch "#1,#2,#3"
+
+# With task list
+prd complete-batch "#10" "#11" "#12"
+```
+
+**Use Cases**:
+- Bulk task completion after sprint review
+- Closing related tasks simultaneously
+- Cleanup of completed work
+
 ## Best Practices
 
 1. **Use Epics**: Group related tasks under epics for better organization

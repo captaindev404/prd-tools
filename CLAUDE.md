@@ -372,6 +372,16 @@ xcodebuild -project InfiniteStories.xcodeproj -scheme InfiniteStories \
 ### Overview
 The project includes a Rust-based CLI tool for managing development tasks, agent coordination, and project progress tracking. Located in `tools/prd/`, it provides human-readable task IDs, epic grouping, dependency management, and real-time monitoring.
 
+**IMPORTANT**: Always use the PRD Skills as the primary interface for task management. Only use direct Bash commands when a skill is not available for a specific operation.
+
+### Available PRD Skills
+- **prd-task-management**: Create, view, update, and manage tasks
+- **prd-project-overview**: View project statistics, epic progress, and overall summaries
+- **prd-agent-management**: Create and manage development agents
+- **prd-dependencies**: Manage task dependencies and blockers
+- **prd-database-management**: Initialize and manage the database
+- **prd-automation**: Automate task management with git integration, documentation sync, file watching, and hooks
+
 ### Key Features
 - **Human-Readable IDs**: Use `#42` for tasks and `A1` for agents instead of UUIDs
 - **Epic Grouping**: Organize related tasks into epics (e.g., "Auth System", "UI Enhancement")
@@ -387,79 +397,50 @@ The project includes a Rust-based CLI tool for managing development tasks, agent
 cd tools/prd
 cargo build --release
 
-# Initialize database
+# Initialize database (use prd-database-management skill)
+# Or via Bash:
 ./target/release/prd --database tools/prd.db init
-
-# Optional: Create alias for convenience
-alias prd='/path/to/tools/prd/target/release/prd --database /path/to/prd.db'
 ```
 
 ### Common Workflows
 
-#### Creating and Managing Tasks
+#### Using Skills (Recommended)
+```
+# View all tasks - use prd-task-management skill
+Skill: prd-task-management
+Then: list all tasks, filter by status, create tasks, etc.
+
+# View project overview - use prd-project-overview skill
+Skill: prd-project-overview
+Then: view stats, epic progress, ready tasks, etc.
+
+# Manage agents - use prd-agent-management skill
+Skill: prd-agent-management
+Then: create agents, assign tasks, sync work, etc.
+
+# Manage dependencies - use prd-dependencies skill
+Skill: prd-dependencies
+Then: add dependencies, check blockers, etc.
+```
+
+#### Direct Bash Commands (When Skills Not Available)
+Use these only when specific operations aren't covered by skills:
+
 ```bash
 # Create a task
-prd create "Implement Firebase Auth" --epic "Backend" --priority high
-# Output: ID: #1
+./tools/prd/target/release/prd --database tools/prd.db create "Implement Firebase Auth" --epic "Backend" --priority high
 
 # Add acceptance criteria
-prd ac "#1" add "All unit tests pass"
-prd ac "#1" add "Security review completed"
+./tools/prd/target/release/prd --database tools/prd.db ac "#1" add "All unit tests pass"
 
 # Set dependencies
-prd create "Add user profile page" --epic "Backend"  # #2
-prd depends "#2" --on "#1"  # Profile page depends on auth
+./tools/prd/target/release/prd --database tools/prd.db depends "#2" --on "#1"
 
 # View task details
-prd show "#1"
-prd show "#1" --logs  # Include activity history
-```
+./tools/prd/target/release/prd --database tools/prd.db show "#1"
 
-#### Agent Management
-```bash
-# Create agents
-prd agent-create "backend-dev"   # A1
-prd agent-create "frontend-dev"  # A2
-
-# Assign and start work
-prd sync A1 "#1"  # Sets agent to working, task to in_progress
-
-# Update progress
-prd ac "#1" check 1  # Mark first criterion complete
-
-# Complete task
-prd complete "#1"  # Or: prd update "#1" completed
-
-# View agent status
-prd agent-list
-```
-
-#### Task Discovery
-```bash
-# List all tasks
-prd list
-
-# Filter by status/priority/epic
-prd list --status pending --priority high
-prd list --epic "Backend" --agent A1
-
-# Find tasks ready to work on (all dependencies met)
-prd ready
-
-# Get next task for an agent
-prd next --agent A1 --priority high
-```
-
-#### Project Statistics
-```bash
-# View overall statistics
-prd stats
-
-# View epic progress
-prd epics
-
-# Track time
-prd duration "#1" --estimated 120 --actual 95
+# List tasks with filters
+./tools/prd/target/release/prd --database tools/prd.db list --status pending --priority high
 ```
 
 ### Task Statuses
@@ -480,11 +461,13 @@ prd duration "#1" --estimated 120 --actual 95
 The PRD database is stored at `tools/prd.db` in the project root. This location is used consistently across the project for task management.
 
 ### Integration with Development
+- **Use PRD Skills first** for all task management operations
 - Use PRD to track feature implementation tasks
 - Link tasks to git commits for traceability
 - Coordinate work between iOS, backend, and deployment teams
 - Track acceptance criteria for feature completion
 - Monitor epic progress for release planning
+- Invoke skills for interactive task workflows instead of direct commands
 
 ### Advanced Features
 - **Batch Operations**: Update multiple tasks at once
@@ -708,6 +691,7 @@ InfiniteStories/
 
 ## Important Instructions for Development
 
+- **Always** use PRD Skills first for task management (not direct Bash commands)
 - **Always** use SwiftData for model persistence
 - **Never** use mock services - OpenAI API only
 - **Store** API keys in Keychain, never hardcode

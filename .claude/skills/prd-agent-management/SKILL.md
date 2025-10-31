@@ -29,12 +29,6 @@ prd agent-create "frontend-dev"   # Output: ID: A2
 prd agent-create "qa-engineer"    # Output: ID: A3
 ```
 
-### Add Specializations
-```bash
-prd agent-specialize A1 backend api database
-prd agent-specialize A2 frontend react ui
-```
-
 ## Viewing Agents
 
 ### List All Agents
@@ -45,11 +39,8 @@ prd agents  # Shorthand
 
 ### Agent Status
 ```bash
-# View agent status
+# View all agent statuses
 prd agent-status
-
-# View specific agent
-prd show-agent A1
 ```
 
 ## Assigning Work
@@ -118,19 +109,6 @@ prd next --agent A1 --sync
 prd next --agent A1 --priority high --sync
 ```
 
-## Agent Task Matching
-
-### Suggest Best Agent for Task
-```bash
-prd suggest "#42"
-```
-
-This uses intelligent matching based on:
-- Agent specializations
-- Task history and success rate
-- Current agent workload
-- Task priority
-
 ## Batch Operations
 
 ### Assign Multiple Tasks
@@ -186,17 +164,14 @@ prd list --no-agent --priority high
 prd agent-create "backend-specialist"
 # Output: ID: A1
 
-# 2. Add specializations
-prd agent-specialize A1 backend firebase authentication
-
-# 3. Find and assign work
+# 2. Find and assign work
 prd next --agent A1 --priority high --sync
 # Auto-assigns next high-priority task
 
-# 4. Report progress
+# 3. Report progress
 prd report-progress A1 "#42" 50 "Completed auth setup"
 
-# 5. Complete task
+# 4. Complete task
 prd complete "#42"
 
 # Agent automatically returns to idle
@@ -228,21 +203,22 @@ prd agent-status
 # Find unassigned critical tasks
 prd list --no-agent --priority critical
 
-# Get best agent match for task
-prd suggest "#42"
+# Get next task for agent
+prd next --agent A1 --priority high
 ```
 
 ## Best Practices
 
 1. **Use Sync**: Prefer `prd sync A1 "#42"` over manual assignment
-2. **Specialize Agents**: Add specializations to improve task matching
-3. **Report Progress**: Use progress reporting for long-running tasks
-4. **Track Status**: Keep agent status updated for coordination
-5. **Use Smart Matching**: Use `prd suggest` for optimal assignments
+2. **Report Progress**: Use progress reporting for long-running tasks
+3. **Track Status**: Keep agent status updated for coordination
+4. **Use Next Command**: Use `prd next --agent A1` for intelligent task assignment
+5. **Monitor Workload**: Check `prd agent-status` to balance work across agents
 
 ## Integration Notes
 
 - Agent work is tracked in activity logs
 - Agent metrics are calculated based on completion history
-- Specializations improve intelligent task matching
 - Agent status affects task suggestions and workload balancing
+- Progress reporting provides real-time task updates
+- Use `prd next` for intelligent task-to-agent matching

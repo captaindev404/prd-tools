@@ -167,6 +167,33 @@ prd agent-status
 
 Shows quick overview of all agent statuses.
 
+## Live Dashboard
+
+### Watch Mode
+```bash
+# Start live dashboard
+prd watch
+
+# Custom refresh interval (seconds)
+prd watch --refresh-interval 5
+```
+
+**Features**:
+- Real-time agent progress monitoring
+- Auto-refreshing task status updates
+- Live statistics and epic progress
+- Interactive terminal dashboard
+- Refresh interval configurable (default: 2 seconds)
+
+**Use Cases**:
+- Monitor team progress during sprints
+- Track agent work in real-time
+- Live status boards for standups
+- Continuous project health monitoring
+
+**Keyboard Controls**:
+- Press `Ctrl+C` to exit watch mode
+
 ## Examples
 
 ### Daily Standup

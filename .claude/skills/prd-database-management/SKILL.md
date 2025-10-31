@@ -184,6 +184,38 @@ prd migrate rollback <previous-version>
 prd migrate latest
 ```
 
+## Database Reconciliation
+
+### Reconcile Database with Filesystem
+```bash
+# Detect and fix inconsistencies
+prd reconcile
+```
+
+**What it does**:
+- Checks database integrity
+- Verifies task references are valid
+- Detects orphaned or missing data
+- Fixes inconsistencies automatically
+- Reports issues found and fixed
+
+**When to use**:
+- After manual database edits
+- If you suspect data corruption
+- When file-based workflows get out of sync
+- Before major migrations
+- As part of database health checks
+
+**Example Output**:
+```
+Reconciling database...
+✓ Checked 150 tasks
+✓ Checked 5 agents
+✓ Fixed 2 orphaned dependencies
+✓ Removed 1 invalid task reference
+Database reconciliation complete.
+```
+
 ## Database Maintenance
 
 ### Backup Database
