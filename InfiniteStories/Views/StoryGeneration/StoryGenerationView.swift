@@ -156,36 +156,15 @@ struct StoryGenerationView: View {
                 } else {
                     // Generate button
                     VStack(spacing: 15) {
-                        if !appSettings.hasValidAPIKey {
-                            VStack(spacing: 10) {
-                                HStack {
-                                    Image(systemName: "exclamationmark.triangle.fill")
-                                        .foregroundColor(.orange)
-                                    Text("API Key Required")
-                                        .font(.headline)
-                                        .foregroundColor(.orange)
-                                }
-                                
-                                Text("You need to configure your OpenAI API key in Settings to generate stories.")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
-                            }
-                            .padding()
-                            .background(Color.orange.opacity(0.1))
-                            .cornerRadius(12)
-                        }
-                        
                         Button(action: generateStory) {
                             Label("Generate Story", systemImage: "wand.and.stars")
                                 .font(.headline)
                                 .foregroundColor(.white)
                                 .padding()
                                 .frame(maxWidth: .infinity)
-                                .background(appSettings.hasValidAPIKey ? Color.orange : Color.gray)
+                                .background(Color.orange)
                                 .cornerRadius(12)
                         }
-                        .disabled(!appSettings.hasValidAPIKey)
                     }
                     .padding(.horizontal)
                 }

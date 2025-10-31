@@ -282,9 +282,8 @@ struct AvatarGenerationView: View {
     }
 
     private func setupAIService() {
-        if !appSettings.openAIAPIKey.isEmpty {
-            aiService = OpenAIService(apiKey: appSettings.openAIAPIKey)
-        }
+        // No API key needed - all calls go through backend
+        aiService = OpenAIService()
     }
 
     private func generateDefaultPrompt() {
@@ -301,7 +300,7 @@ struct AvatarGenerationView: View {
 
     private func generateAvatar() {
         guard let service = aiService else {
-            generationError = "AI service not available. Please check your API key."
+            generationError = "AI service not available."
             return
         }
 
