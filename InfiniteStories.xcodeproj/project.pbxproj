@@ -24,6 +24,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		CE13B94E2EB2CC2A003A8740 /* InfiniteStories.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = InfiniteStories.xcodeproj; sourceTree = "<group>"; };
 		CE3AA1B92E71C97D00236398 /* InfiniteStories.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = InfiniteStories.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE3AA1C82E71C97E00236398 /* InfiniteStoriesTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = InfiniteStoriesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE3AA1D22E71C97E00236398 /* InfiniteStoriesUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = InfiniteStoriesUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -85,6 +86,11 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		CE13B9522EB2CC2A003A8740 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
 		CE3AA1B02E71C97D00236398 = {
 			isa = PBXGroup;
 			children = (
@@ -211,6 +217,12 @@
 			preferredProjectObjectVersion = 77;
 			productRefGroup = CE3AA1BA2E71C97D00236398 /* Products */;
 			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = CE13B9522EB2CC2A003A8740 /* Products */;
+					ProjectRef = CE13B94E2EB2CC2A003A8740 /* InfiniteStories.xcodeproj */;
+				},
+			);
 			projectRoot = "";
 			targets = (
 				CE3AA1B82E71C97D00236398 /* InfiniteStories */,

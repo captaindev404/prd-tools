@@ -63,13 +63,8 @@ class StoryViewModel: ObservableObject {
     init(audioService: AudioServiceProtocol = AudioService()) {
         self.audioService = audioService
 
-        // Only use real AI service - no mocks
-        if appSettings.hasValidAPIKey {
-            self.aiService = OpenAIService(apiKey: appSettings.openAIAPIKey)
-        } else {
-            // Create a placeholder that will show error messages
-            self.aiService = OpenAIService(apiKey: "")
-        }
+        // Initialize AI service (no API key needed - uses backend)
+        self.aiService = OpenAIService()
 
         setupBackgroundHandlers()
 
@@ -84,15 +79,9 @@ class StoryViewModel: ObservableObject {
         // Initialize illustration generator with context
         self.illustrationGenerator = IllustrationGenerator(aiService: aiService, modelContext: context)
     }
-    
+
     func refreshAIService() {
-        // Update AI service when settings change
-        if appSettings.hasValidAPIKey {
-            self.aiService = OpenAIService(apiKey: appSettings.openAIAPIKey)
-        } else {
-            self.aiService = OpenAIService(apiKey: "")
-        }
-        
+        // No-op: AI service doesn't need refreshing (uses backend)
         // Set the AI service on the audio service for TTS generation
         audioService.setAIService(self.aiService)
     }
@@ -101,8 +90,7 @@ class StoryViewModel: ObservableObject {
         print("📱 === Story Generation Flow Started ===")
         print("📱 Hero: \(hero.name) (\(hero.traitsDescription))")
         print("📱 Event: \(event.rawValue)")
-        print("📱 Has API Key: \(appSettings.hasValidAPIKey)")
-        
+
         isGeneratingStory = true
         generationError = nil
         
@@ -225,8 +213,7 @@ class StoryViewModel: ObservableObject {
         print("📱 === Custom Story Generation Flow Started ===")
         print("📱 Hero: \(hero.name) (\(hero.traitsDescription))")
         print("📱 Custom Event: \(customEvent.title)")
-        print("📱 Has API Key: \(appSettings.hasValidAPIKey)")
-        
+
         isGeneratingStory = true
         generationError = nil
         
@@ -935,20 +922,6 @@ class StoryViewModel: ObservableObject {
         } catch {
             AppLogger.shared.error("Illustration generation failed", category: .illustration, requestId: String(requestId), error: error)
             illustrationErrors.append(error.localizedDescription)
-
-            // Provide more specific error information
-            if let generatorError = error as? IllustrationGenerator.GeneratorError {
-                switch generatorError {
-                case .noHeroAvatar:
-                    AppLogger.shared.error("Hero avatar missing - cannot maintain visual consistency", category: .illustration, requestId: String(requestId))
-                case .textSegmentationFailed:
-                    AppLogger.shared.error("Failed to segment story text for illustrations", category: .illustration, requestId: String(requestId))
-                case .imageGenerationFailed:
-                    AppLogger.shared.error("AI image generation failed", category: .illustration, requestId: String(requestId))
-                case .fileSystemError:
-                    AppLogger.shared.error("Failed to save illustration to file system", category: .illustration, requestId: String(requestId))
-                }
-            }
         }
 
         isGeneratingIllustrations = false
@@ -1171,19 +1144,6 @@ extension StoryViewModel: AudioNavigationDelegate {
 
 // Settings for AI service configuration
 class AppSettings: ObservableObject {
-    private let keychainHelper = KeychainHelper.shared
-    private let apiKeyIdentifier = "com.infinitestories.openai.apikey"
-    
-    @Published var openAIAPIKey: String {
-        didSet {
-            if openAIAPIKey.isEmpty {
-                _ = keychainHelper.delete(key: apiKeyIdentifier)
-            } else {
-                _ = keychainHelper.saveString(openAIAPIKey, for: apiKeyIdentifier)
-            }
-        }
-    }
-    
     @Published var preferredVoice: String {
         didSet {
             UserDefaults.standard.set(preferredVoice, forKey: "preferredVoice")
@@ -1203,10 +1163,7 @@ class AppSettings: ObservableObject {
     }
     
     init() {
-        // Load API key from Keychain (secure storage)
-        self.openAIAPIKey = keychainHelper.loadString(key: apiKeyIdentifier) ?? ""
-        
-        // Load other settings from UserDefaults
+        // Load settings from UserDefaults
         self.preferredVoice = UserDefaults.standard.string(forKey: "preferredVoice") ?? "coral"
         self.defaultStoryLength = UserDefaults.standard.integer(forKey: "defaultStoryLength") == 0 ? 7 : UserDefaults.standard.integer(forKey: "defaultStoryLength")
         
@@ -1215,11 +1172,7 @@ class AppSettings: ObservableObject {
         let defaultLanguage = Self.languageCodeToSupported(systemLanguage)
         self.preferredLanguage = UserDefaults.standard.string(forKey: "preferredLanguage") ?? defaultLanguage
     }
-    
-    var hasValidAPIKey: Bool {
-        return !openAIAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-    
+
     // Available OpenAI voices for TTS (optimized for children's bedtime stories)
     static let availableVoices: [(id: String, name: String, description: String)] = [
         ("coral", "Coral", "Warm and nurturing - ideal for bedtime"),

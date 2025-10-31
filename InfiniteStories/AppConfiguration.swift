@@ -59,8 +59,18 @@ struct AppConfiguration {
     /// Enable smooth theme transition animations
     static let enableThemeTransitions = true
     
+    // MARK: - Backend Configuration
+
+    /// Backend API base URL
+    /// Change this to your deployed backend URL in production
+    #if DEBUG
+    static let backendBaseURL = "http://localhost:3000"
+    #else
+    static let backendBaseURL = "https://your-production-backend-url.com"
+    #endif
+
     // MARK: - Debug Settings
-    
+
     #if DEBUG
     /// Print detailed logs for debugging
     static let verboseLogging = true
