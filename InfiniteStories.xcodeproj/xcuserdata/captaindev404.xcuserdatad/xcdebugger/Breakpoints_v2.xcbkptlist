@@ -160,7 +160,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "863"
             endingLineNumber = "863"
-            landmarkName = "basicPromptSanitization(_:)"
+            landmarkName = "generateSceneIllustration(prompt:hero:previousGenerationId:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -176,15 +176,15 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "817"
             endingLineNumber = "817"
-            landmarkName = "OpenAIService"
-            landmarkType = "3">
+            landmarkName = "generateAvatar(request:)"
+            landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
             uuid = "A069C0A2-6F3C-4DB6-884C-F15E2985EFAA"
-            shouldBeEnabled = "Yes"
+            shouldBeEnabled = "No"
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "InfiniteStories/Services/AIService.swift"
@@ -192,8 +192,52 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "1019"
             endingLineNumber = "1019"
-            landmarkName = "sanitizePromptWithAI(_:)"
+            landmarkName = "generateIllustrationsForScenes(_:hero:storyId:)"
             landmarkType = "7">
+            <Locations>
+               <Location
+                  uuid = "A069C0A2-6F3C-4DB6-884C-F15E2985EFAA - 587e04a268ea739b"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "(1) suspend resume partial function for InfiniteStories.OpenAIService.generateAvatar(request: InfiniteStories.AvatarGenerationRequest) async throws -&gt; InfiniteStories.AvatarGenerationResponse"
+                  moduleName = "InfiniteStories.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/captaindev404/Code/Github/infinite-stories/InfiniteStories/Services/AIService.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "1019"
+                  endingLineNumber = "1019">
+               </Location>
+               <Location
+                  uuid = "A069C0A2-6F3C-4DB6-884C-F15E2985EFAA - 82c21dc3516082a6"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "(2) await resume partial function for InfiniteStories.OpenAIService.generateAvatar(request: InfiniteStories.AvatarGenerationRequest) async throws -&gt; InfiniteStories.AvatarGenerationResponse"
+                  moduleName = "InfiniteStories.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/captaindev404/Code/Github/infinite-stories/InfiniteStories/Services/AIService.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "1019"
+                  endingLineNumber = "1019">
+               </Location>
+               <Location
+                  uuid = "A069C0A2-6F3C-4DB6-884C-F15E2985EFAA - 987483ebf130899e"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "(4) suspend resume partial function for InfiniteStories.OpenAIService.generateAvatar(request: InfiniteStories.AvatarGenerationRequest) async throws -&gt; InfiniteStories.AvatarGenerationResponse"
+                  moduleName = "InfiniteStories.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/captaindev404/Code/Github/infinite-stories/InfiniteStories/Services/AIService.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "1019"
+                  endingLineNumber = "1019">
+               </Location>
+            </Locations>
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -208,7 +252,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "848"
             endingLineNumber = "848"
-            landmarkName = "basicPromptSanitization(_:)"
+            landmarkName = "generateSceneIllustration(prompt:hero:previousGenerationId:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -447,9 +491,7 @@
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "1364"
-            endingLineNumber = "1364"
-            landmarkName = "generateSceneIllustration(prompt:hero:previousGenerationId:)"
-            landmarkType = "7">
+            endingLineNumber = "1364">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -463,9 +505,7 @@
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "1365"
-            endingLineNumber = "1365"
-            landmarkName = "generateSceneIllustration(prompt:hero:previousGenerationId:)"
-            landmarkType = "7">
+            endingLineNumber = "1365">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -479,9 +519,7 @@
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "1361"
-            endingLineNumber = "1361"
-            landmarkName = "generateSceneIllustration(prompt:hero:previousGenerationId:)"
-            landmarkType = "7">
+            endingLineNumber = "1361">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -495,9 +533,7 @@
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "1461"
-            endingLineNumber = "1461"
-            landmarkName = "generateSceneIllustration(prompt:hero:previousGenerationId:)"
-            landmarkType = "7">
+            endingLineNumber = "1461">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -511,9 +547,7 @@
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "1468"
-            endingLineNumber = "1468"
-            landmarkName = "generateSceneIllustration(prompt:hero:previousGenerationId:)"
-            landmarkType = "7">
+            endingLineNumber = "1468">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -527,9 +561,7 @@
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "1393"
-            endingLineNumber = "1393"
-            landmarkName = "generateSceneIllustration(prompt:hero:previousGenerationId:)"
-            landmarkType = "7">
+            endingLineNumber = "1393">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -543,9 +575,7 @@
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "1442"
-            endingLineNumber = "1442"
-            landmarkName = "generateSceneIllustration(prompt:hero:previousGenerationId:)"
-            landmarkType = "7">
+            endingLineNumber = "1442">
          </BreakpointContent>
       </BreakpointProxy>
    </Breakpoints>

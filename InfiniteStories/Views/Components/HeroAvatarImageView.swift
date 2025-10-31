@@ -104,6 +104,18 @@ struct HeroAvatarImageView: View {
                     )
                 )
                 .frame(width: size, height: size)
+                .overlay(
+                    // Dashed border hint for missing avatars
+                    Circle()
+                        .stroke(
+                            style: StrokeStyle(
+                                lineWidth: 2,
+                                lineCap: .round,
+                                dash: [5, 5]
+                            )
+                        )
+                        .foregroundColor(Color.purple.opacity(0.4))
+                )
 
             // Icon or initials
             if hero.name.isEmpty {

@@ -21,15 +21,13 @@ struct HeroCreationView: View {
     @State private var appearance: String = ""
     @State private var specialAbility: String = ""
     @State private var currentStep = 0
+
+    // Post-creation avatar generation
+    @State private var showAvatarPrompt = false
     @State private var showingAvatarGeneration = false
-    @State private var skipAvatar = false
+    @State private var savedHero: Hero?
 
-    // Single hero instance to maintain throughout the creation flow
-    @State private var workingHero: Hero?
-    // Track if avatar was successfully generated
-    @State private var avatarGenerated = false
-
-    private let totalSteps = 5
+    private let totalSteps = 4
     
     var body: some View {
         NavigationView {
@@ -64,9 +62,6 @@ struct HeroCreationView: View {
                         withAnimation {
                             if currentStep == totalSteps - 1 {
                                 saveHero()
-                            } else if currentStep == 3 {
-                                // Moving to avatar step
-                                currentStep += 1
                             } else {
                                 currentStep += 1
                             }
@@ -85,6 +80,25 @@ struct HeroCreationView: View {
                         dismiss()
                     }
                 }
+            }
+        }
+        .sheet(isPresented: $showAvatarPrompt) {
+            AvatarPromptView(
+                hero: savedHero,
+                showingAvatarGeneration: $showingAvatarGeneration,
+                onDismiss: {
+                    showAvatarPrompt = false
+                    dismiss()
+                }
+            )
+        }
+        .sheet(isPresented: $showingAvatarGeneration) {
+            if let hero = savedHero {
+                AvatarGenerationView(hero: hero, isPresented: $showingAvatarGeneration)
+                    .onDisappear {
+                        // After avatar generation, dismiss the whole flow
+                        dismiss()
+                    }
             }
         }
         .onAppear {
@@ -127,8 +141,6 @@ struct HeroCreationView: View {
             secondaryTraitStep
         case 3:
             customizationStep
-        case 4:
-            avatarStep
         default:
             EmptyView()
         }
@@ -206,124 +218,51 @@ struct HeroCreationView: View {
             Text("Let's add some special details!")
                 .font(.title3)
                 .fontWeight(.semibold)
-            
+
             VStack(alignment: .leading, spacing: 15) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("How does \(heroName) look?")
                         .font(.headline)
-                    
+
                     TextField("e.g., has sparkly blue eyes and curly hair", text: $appearance)
                         .textFieldStyle(.roundedBorder)
-                    
+
                     Text("Optional - helps make stories more vivid")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-                
+
                 VStack(alignment: .leading, spacing: 8) {
                     Text("What's \(heroName)'s special ability?")
                         .font(.headline)
-                    
+
                     TextField("e.g., can talk to animals, creates magical rainbows", text: $specialAbility)
                         .textFieldStyle(.roundedBorder)
-                    
+
                     Text("Optional - adds magical elements to stories")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
             }
-            
+
             // Hero preview
             HeroPreviewCard(
                 name: heroName,
                 primaryTrait: primaryTrait,
                 secondaryTrait: secondaryTrait,
                 appearance: appearance,
-                specialAbility: specialAbility,
-                hero: workingHero
+                specialAbility: specialAbility
             )
-        }
-    }
 
-    @ViewBuilder
-    private var avatarStep: some View {
-        VStack(spacing: 25) {
-            Text("Generate \(heroName)'s Avatar")
-                .font(.title3)
-                .fontWeight(.semibold)
-                .multilineTextAlignment(.center)
-
-            Text("Create a magical illustration that represents your hero!")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-
-            VStack(spacing: 20) {
-                // Avatar preview or placeholder
-                if let hero = workingHero, hero.hasAvatar, let avatarURL = hero.avatarURL {
-                    AsyncImage(url: avatarURL) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                    } placeholder: {
-                        ProgressView()
-                    }
-                    .frame(width: 200, height: 200)
-                    .cornerRadius(16)
-                    .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
-
-                    Text("Avatar Generated!")
-                        .font(.caption)
-                        .foregroundColor(.green)
-                        .padding(.top, 4)
-                } else {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color(.systemGray5))
-                        .frame(width: 200, height: 200)
-                        .overlay(
-                            VStack(spacing: 12) {
-                                Image(systemName: "photo.badge.plus")
-                                    .font(.system(size: 40))
-                                    .foregroundColor(.purple)
-
-                                Text("No avatar yet")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                            }
-                        )
-                }
-
-                // Action buttons
-                HStack(spacing: 16) {
-                    if workingHero?.hasAvatar == true {
-                        Button("Regenerate Avatar") {
-                            ensureWorkingHero()
-                            showingAvatarGeneration = true
-                        }
-                        .buttonStyle(.bordered)
-                    } else {
-                        Button("Skip for Now") {
-                            skipAvatar = true
-                        }
-                        .buttonStyle(.bordered)
-
-                        Button("Generate Avatar") {
-                            ensureWorkingHero()
-                            showingAvatarGeneration = true
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }
-                }
+            // Informational note about avatar
+            HStack(spacing: 8) {
+                Image(systemName: "info.circle.fill")
+                    .foregroundColor(.purple)
+                Text("You can generate an AI avatar after creating your hero")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
-        }
-        .sheet(isPresented: $showingAvatarGeneration) {
-            if let hero = workingHero {
-                AvatarGenerationView(hero: hero, isPresented: $showingAvatarGeneration)
-                    .onDisappear {
-                        // Check if avatar was actually generated
-                        avatarGenerated = workingHero?.hasAvatar ?? false
-                    }
-            }
+            .padding(.top, 8)
         }
     }
 
@@ -331,77 +270,115 @@ struct HeroCreationView: View {
         switch currentStep {
         case 0:
             return !heroName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        case 4: // Avatar step
-            return true // Can always proceed (skip is an option)
         default:
             return true
         }
     }
 
-    private func ensureWorkingHero() {
-        guard workingHero == nil else {
-            // Update existing working hero properties
-            updateWorkingHeroProperties()
-            return
-        }
+    private func saveHero() {
+        let hero: Hero
 
         if let heroToEdit = heroToEdit {
-            // Use the existing hero for editing
-            workingHero = heroToEdit
-            updateWorkingHeroProperties()
+            // Update existing hero
+            heroToEdit.name = heroName.trimmingCharacters(in: .whitespacesAndNewlines)
+            heroToEdit.primaryTrait = primaryTrait
+            heroToEdit.secondaryTrait = secondaryTrait
+            heroToEdit.appearance = appearance.trimmingCharacters(in: .whitespacesAndNewlines)
+            heroToEdit.specialAbility = specialAbility.trimmingCharacters(in: .whitespacesAndNewlines)
+            hero = heroToEdit
         } else {
-            // Create a single working hero instance for new heroes
-            workingHero = Hero(
+            // Create new hero
+            hero = Hero(
                 name: heroName.trimmingCharacters(in: .whitespacesAndNewlines),
                 primaryTrait: primaryTrait,
                 secondaryTrait: secondaryTrait,
                 appearance: appearance.trimmingCharacters(in: .whitespacesAndNewlines),
                 specialAbility: specialAbility.trimmingCharacters(in: .whitespacesAndNewlines)
             )
-        }
-    }
-
-    private func updateWorkingHeroProperties() {
-        guard let workingHero = workingHero else { return }
-
-        workingHero.name = heroName.trimmingCharacters(in: .whitespacesAndNewlines)
-        workingHero.primaryTrait = primaryTrait
-        workingHero.secondaryTrait = secondaryTrait
-        workingHero.appearance = appearance.trimmingCharacters(in: .whitespacesAndNewlines)
-        workingHero.specialAbility = specialAbility.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-    
-    private func saveHero() {
-        if let heroToEdit = heroToEdit {
-            // Update existing hero (workingHero points to heroToEdit in this case)
-            updateWorkingHeroProperties()
-            // The hero is already in the model context, just need to save
-        } else {
-            // For new heroes, use the working hero that may have avatar data
-            if let workingHero = workingHero {
-                // This is the same instance that was used for avatar generation
-                // Update its properties one final time
-                updateWorkingHeroProperties()
-                modelContext.insert(workingHero)
-            } else {
-                // Fallback: Create new hero if somehow workingHero is nil
-                let hero = Hero(
-                    name: heroName.trimmingCharacters(in: .whitespacesAndNewlines),
-                    primaryTrait: primaryTrait,
-                    secondaryTrait: secondaryTrait,
-                    appearance: appearance.trimmingCharacters(in: .whitespacesAndNewlines),
-                    specialAbility: specialAbility.trimmingCharacters(in: .whitespacesAndNewlines)
-                )
-                modelContext.insert(hero)
-            }
+            modelContext.insert(hero)
         }
 
         do {
             try modelContext.save()
-            print("Hero saved successfully with avatar: \(workingHero?.hasAvatar ?? false)")
-            dismiss()
+            print("Hero saved successfully: \(hero.name)")
+
+            // For new heroes, offer avatar generation
+            if heroToEdit == nil {
+                savedHero = hero
+                showAvatarPrompt = true
+            } else {
+                // For edited heroes, just dismiss
+                dismiss()
+            }
         } catch {
             print("Failed to save hero: \(error)")
+        }
+    }
+}
+
+struct AvatarPromptView: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let hero: Hero?
+    @Binding var showingAvatarGeneration: Bool
+    let onDismiss: () -> Void
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 30) {
+                Spacer()
+
+                // Avatar icon
+                Image(systemName: "sparkles.rectangle.stack.fill")
+                    .font(.system(size: 80))
+                    .foregroundColor(.purple)
+
+                VStack(spacing: 12) {
+                    Text("Generate Avatar?")
+                        .font(.title)
+                        .fontWeight(.bold)
+
+                    if let heroName = hero?.name {
+                        Text("Create an AI-generated avatar for \(heroName)")
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
+                }
+
+                VStack(spacing: 16) {
+                    Button {
+                        showingAvatarGeneration = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "wand.and.stars")
+                            Text("Generate Avatar")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.purple)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                    }
+
+                    Button {
+                        onDismiss()
+                    } label: {
+                        Text("Maybe Later")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color(.systemGray5))
+                            .foregroundColor(.primary)
+                            .cornerRadius(12)
+                    }
+                }
+                .padding(.horizontal, 40)
+
+                Spacer()
+            }
+            .padding()
+            .navigationTitle("Your Hero is Ready!")
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 }
@@ -445,44 +422,38 @@ struct HeroPreviewCard: View {
     let secondaryTrait: CharacterTrait
     let appearance: String
     let specialAbility: String
-    let hero: Hero? // Optional hero for avatar display
-    
+
     var body: some View {
         VStack(spacing: 15) {
             Text("Hero Preview")
                 .font(.headline)
                 .foregroundColor(.secondary)
-            
+
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    // Show avatar if available, otherwise show simple icon
-                    if let hero = hero, hero.hasAvatar {
-                        HeroAvatarImageView(hero: hero, size: 50)
-                    } else {
-                        Image(systemName: "person.circle.fill")
-                            .font(.largeTitle)
-                            .foregroundColor(.purple)
-                    }
-                    
+                    Image(systemName: "person.circle.fill")
+                        .font(.largeTitle)
+                        .foregroundColor(.purple)
+
                     VStack(alignment: .leading, spacing: 4) {
                         Text(name)
                             .font(.title2)
                             .fontWeight(.bold)
-                        
+
                         Text("\(primaryTrait.rawValue) and \(secondaryTrait.rawValue)")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
-                    
+
                     Spacer()
                 }
-                
+
                 if !appearance.isEmpty {
                     Text("Appearance: \(appearance)")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
-                
+
                 if !specialAbility.isEmpty {
                     Text("Special Ability: \(specialAbility)")
                         .font(.subheadline)

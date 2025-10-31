@@ -128,21 +128,41 @@ struct HeroManagementCard: View {
     let storyCount: Int
     let onEdit: () -> Void
     let onDelete: () -> Void
-    
+
     @State private var isPressed = false
-    
+    @State private var showingAvatarGeneration = false
+
     var body: some View {
         VStack(spacing: 0) {
             // Hero Info Section
             HStack(spacing: 15) {
-                // Hero Avatar
-                HeroAvatarImageView.medium(hero)
-                
+                // Hero Avatar with hint for missing avatars
+                ZStack(alignment: .bottomTrailing) {
+                    HeroAvatarImageView.medium(hero)
+
+                    // Show "Add Avatar" indicator if no avatar
+                    if !hero.hasAvatar {
+                        Button(action: {
+                            showingAvatarGeneration = true
+                        }) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title3)
+                                .foregroundColor(.purple)
+                                .background(
+                                    Circle()
+                                        .fill(Color(.systemBackground))
+                                        .frame(width: 20, height: 20)
+                                )
+                        }
+                        .offset(x: 4, y: 4)
+                    }
+                }
+
                 VStack(alignment: .leading, spacing: 6) {
                     Text(hero.name)
                         .font(.title3)
                         .fontWeight(.semibold)
-                    
+
                     HStack(spacing: 8) {
                         Text(hero.primaryTrait.rawValue)
                             .font(.caption)
@@ -151,7 +171,7 @@ struct HeroManagementCard: View {
                             .background(Color.orange.opacity(0.2))
                             .foregroundColor(.orange)
                             .cornerRadius(5)
-                        
+
                         Text(hero.secondaryTrait.rawValue)
                             .font(.caption)
                             .padding(.horizontal, 8)
@@ -160,7 +180,7 @@ struct HeroManagementCard: View {
                             .foregroundColor(.pink)
                             .cornerRadius(5)
                     }
-                    
+
                     if !hero.specialAbility.isEmpty {
                         HStack {
                             Image(systemName: "sparkles")
@@ -171,10 +191,26 @@ struct HeroManagementCard: View {
                         }
                         .foregroundColor(.secondary)
                     }
+
+                    // Add avatar hint text
+                    if !hero.hasAvatar {
+                        Button(action: {
+                            showingAvatarGeneration = true
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "photo.badge.plus")
+                                    .font(.caption2)
+                                Text("Add Avatar")
+                                    .font(.caption)
+                            }
+                            .foregroundColor(.purple)
+                        }
+                        .padding(.top, 2)
+                    }
                 }
-                
+
                 Spacer()
-                
+
                 // Story Count Badge
                 VStack {
                     Text("\(storyCount)")
@@ -188,7 +224,7 @@ struct HeroManagementCard: View {
             }
             .padding()
             .background(Color(.systemGray6).opacity(colorScheme == .dark ? 0.5 : 1.0))
-            
+
             // Action Buttons
             HStack(spacing: 0) {
                 Button(action: onEdit) {
@@ -201,10 +237,29 @@ struct HeroManagementCard: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                 }
-                
+
                 Divider()
                     .frame(height: 20)
-                
+
+                // Show avatar button or delete button
+                if !hero.hasAvatar {
+                    Button(action: {
+                        showingAvatarGeneration = true
+                    }) {
+                        HStack {
+                            Image(systemName: "wand.and.stars")
+                            Text("Avatar")
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(.purple)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                    }
+
+                    Divider()
+                        .frame(height: 20)
+                }
+
                 Button(action: onDelete) {
                     HStack {
                         Image(systemName: "trash")
@@ -221,6 +276,9 @@ struct HeroManagementCard: View {
         .cornerRadius(15)
         .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
         .scaleEffect(isPressed ? 0.98 : 1.0)
+        .sheet(isPresented: $showingAvatarGeneration) {
+            AvatarGenerationView(hero: hero, isPresented: $showingAvatarGeneration)
+        }
         .onTapGesture {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                 isPressed = true
