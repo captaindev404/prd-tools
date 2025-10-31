@@ -10,14 +10,14 @@ This skill helps you initialize and manage the PRD Tool database.
 
 ## Database Location
 
-**IMPORTANT**: The PRD database is stored at:
+**IMPORTANT**: The PRD database is stored at (relative to project root):
 ```
-/Users/captaindev404/Code/Github/infinite-stories/tools/prd.db
+tools/prd.db
 ```
 
-Always use the full path with `--database` flag:
+Always run commands from the project root with the relative `--database` flag:
 ```bash
-/Users/captaindev404/Code/Github/infinite-stories/tools/prd/target/release/prd --database /Users/captaindev404/Code/Github/infinite-stories/tools/prd.db
+./tools/prd/target/release/prd --database tools/prd.db
 ```
 
 ## Building PRD Tool

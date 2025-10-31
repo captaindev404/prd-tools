@@ -10,9 +10,9 @@ This skill helps you manage task dependencies and ordering using the PRD Tool.
 
 ## Database Location
 
-**IMPORTANT**: Always use the database at `tools/prd.db`:
+**IMPORTANT**: Always run commands from the project root and use the relative database path:
 ```bash
-/Users/captaindev404/Code/Github/infinite-stories/tools/prd/target/release/prd --database /Users/captaindev404/Code/Github/infinite-stories/tools/prd.db
+./tools/prd/target/release/prd --database tools/prd.db
 ```
 
 ## Creating Dependencies

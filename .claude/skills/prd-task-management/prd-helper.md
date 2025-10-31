@@ -4,47 +4,49 @@ This file provides the exact command syntax for running PRD commands in this pro
 
 ## PRD Executable Location
 
+From project root:
 ```
-/Users/captaindev404/Code/Github/infinite-stories/tools/prd/target/release/prd
+tools/prd/target/release/prd
 ```
 
 ## Database Location
 
+From project root:
 ```
-/Users/captaindev404/Code/Github/infinite-stories/tools/prd.db
+tools/prd.db
 ```
 
-## Full Command Template
+## Command Template
+
+**IMPORTANT**: All commands must be run from the project root directory.
 
 ```bash
-/Users/captaindev404/Code/Github/infinite-stories/tools/prd/target/release/prd \
-  --database /Users/captaindev404/Code/Github/infinite-stories/tools/prd.db \
-  <command> [args]
+./tools/prd/target/release/prd --database tools/prd.db <command> [args]
 ```
 
 ## Examples
 
 ```bash
 # List all tasks
-/Users/captaindev404/Code/Github/infinite-stories/tools/prd/target/release/prd \
-  --database /Users/captaindev404/Code/Github/infinite-stories/tools/prd.db \
-  list
+./tools/prd/target/release/prd --database tools/prd.db list
 
 # Create a task
-/Users/captaindev404/Code/Github/infinite-stories/tools/prd/target/release/prd \
-  --database /Users/captaindev404/Code/Github/infinite-stories/tools/prd.db \
-  create "Task title" --priority high
+./tools/prd/target/release/prd --database tools/prd.db create "Task title" --priority high
 
 # Show task details
-/Users/captaindev404/Code/Github/infinite-stories/tools/prd/target/release/prd \
-  --database /Users/captaindev404/Code/Github/infinite-stories/tools/prd.db \
-  show "#42"
+./tools/prd/target/release/prd --database tools/prd.db show "#42"
+
+# View statistics
+./tools/prd/target/release/prd --database tools/prd.db stats
+
+# Create an agent
+./tools/prd/target/release/prd --database tools/prd.db agent-create "agent-name"
 ```
 
-## Shorter Version (from project root)
+## Usage in Skills
 
-From `/Users/captaindev404/Code/Github/infinite-stories/`:
+When using these commands in Claude Code Skills, always use the relative path from the project root:
 
 ```bash
-./tools/prd/target/release/prd --database tools/prd.db <command> [args]
+./tools/prd/target/release/prd --database tools/prd.db <command>
 ```
