@@ -113,6 +113,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // First, call the AI-based sanitization endpoint for robust content filtering
+    let sanitizedPrompt = prompt;
+
+    try {
+      const sanitizationResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/ai-assistant/sanitize-prompt`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ prompt }),
+        }
+      );
+
+      if (sanitizationResponse.ok) {
+        const sanitizationData = await sanitizationResponse.json();
+        sanitizedPrompt = sanitizationData.sanitizedPrompt;
+        console.log('✅ AI sanitization applied successfully');
+      } else {
+        console.warn('⚠️ AI sanitization failed, using original prompt with basic filtering');
+      }
+    } catch (sanitizationError) {
+      console.error('❌ Sanitization error:', sanitizationError);
+      // Continue with original prompt if sanitization fails
+    }
+
     // Enhance prompt with child-friendly artistic style
     const styleGuidance = `Create a beautiful children's book illustration in a warm, whimsical style. Use soft colors, gentle lighting, and a magical atmosphere. The art style should be similar to modern children's picture books with watercolor or soft digital painting techniques. Ensure the image is appropriate for children aged 4-10. Avoid any scary, violent, or inappropriate content. Focus on creating a sense of wonder and joy.`;
 
@@ -124,9 +151,9 @@ export async function POST(request: NextRequest) {
         : ''
     }\n\nCharacter traits: ${hero.primaryTrait} and ${hero.secondaryTrait} should be reflected in their expression and posture.\n\nCRITICAL: The character MUST look IDENTICAL to their established appearance. Same hair color, clothing, features, and overall design in every illustration.`;
 
-    const enhancedPrompt = `${prompt}\n\n${heroConsistency}\n\n${styleGuidance}`;
+    const enhancedPrompt = `${sanitizedPrompt}\n\n${heroConsistency}\n\n${styleGuidance}`;
 
-    // Apply enhanced basic sanitization
+    // Apply additional basic sanitization as a fallback
     const filteredPrompt = enhancedBasicSanitization(enhancedPrompt);
 
     // Build request body

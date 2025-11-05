@@ -148,6 +148,10 @@ struct InfiniteStoriesApp: App {
             }
             .preferredColorScheme(themeSettings.themePreference.colorScheme)
             .environmentObject(themeSettings)
+            .task {
+                // Run migration to fix illustration paths on first launch
+                DataMigrationHelper.fixIllustrationPaths(context: sharedModelContainer.mainContext)
+            }
         }
         .modelContainer(sharedModelContainer)
     }

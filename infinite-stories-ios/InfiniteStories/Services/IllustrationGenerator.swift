@@ -72,8 +72,8 @@ class IllustrationGenerator {
 
                 try response.imageData.write(to: fileURL)
 
-                // Update illustration model
-                illustration.imagePath = fileURL.path
+                // Update illustration model - store only filename, not full path
+                illustration.imagePath = filename
                 illustration.isGenerated = true
                 illustration.retryCount = 0
                 illustration.lastError = nil
@@ -137,8 +137,8 @@ class IllustrationGenerator {
 
         try response.imageData.write(to: fileURL)
 
-        // Update model
-        illustration.imagePath = fileURL.path
+        // Update model - store only filename, not full path
+        illustration.imagePath = filename
         illustration.isGenerated = true
         illustration.retryCount = 0
         illustration.lastError = nil
