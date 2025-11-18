@@ -12,6 +12,8 @@ import BackgroundTasks
 @main
 struct InfiniteStoriesApp: App {
     @StateObject private var themeSettings = ThemeSettings.shared
+    @StateObject private var authState = AuthStateManager()
+
     private func loadRocketSimConnect() {
         #if DEBUG
         guard (Bundle(path: "/Applications/RocketSim.app/Contents/Frameworks/RocketSimConnectLinker.nocache.framework")?.load() == true) else {
@@ -27,6 +29,14 @@ struct InfiniteStoriesApp: App {
         // Register background tasks when app launches
         BackgroundTaskManager.shared.registerBackgroundTasks()
 
+        // Configure URLCache for automatic media caching (avatars, audio, illustrations)
+        let cache = URLCache(
+            memoryCapacity: 50 * 1024 * 1024,   // 50 MB memory cache
+            diskCapacity: 200 * 1024 * 1024,     // 200 MB disk cache
+            directory: nil  // Use default cache directory
+        )
+        URLCache.shared = cache
+
         // Initialize illustration failure handling defaults
         let defaults = UserDefaults.standard
         if defaults.object(forKey: "allowIllustrationFailures") == nil {
@@ -41,11 +51,12 @@ struct InfiniteStoriesApp: App {
     }
     
     var sharedModelContainer: ModelContainer = {
+        // Minimal SwiftData schema - only for preferences and temporary state
+        // Heroes and Stories are fetched from API, not persisted locally
         let schema = Schema([
-            Hero.self,
-            Story.self,
-            StoryIllustration.self,
-            CustomStoryEvent.self
+            HeroVisualProfile.self,      // Visual preferences for avatar generation
+            CustomStoryEvent.self,        // User-defined event preferences
+            StoryIllustration.self        // Temporary local references (can be rebuilt from API)
         ])
         
         // Get the application support directory for SwiftData storage
@@ -138,19 +149,23 @@ struct InfiniteStoriesApp: App {
 
     var body: some Scene {
         WindowGroup {
-            // Easy switching between original and improved UI
-            Group {
-                if AppConfiguration.useImprovedUI {
-                    ImprovedContentView()
-                } else {
-                    ContentView()
+            // Check authentication state first
+            if authState.isAuthenticated {
+                // Easy switching between original and improved UI
+                Group {
+                    if AppConfiguration.useImprovedUI {
+                        ImprovedContentView()
+                    } else {
+                        ContentView()
+                    }
                 }
-            }
-            .preferredColorScheme(themeSettings.themePreference.colorScheme)
-            .environmentObject(themeSettings)
-            .task {
-                // Run migration to fix illustration paths on first launch
-                DataMigrationHelper.fixIllustrationPaths(context: sharedModelContainer.mainContext)
+                .preferredColorScheme(themeSettings.themePreference.colorScheme)
+                .environmentObject(themeSettings)
+                .environmentObject(authState)
+            } else {
+                AuthenticationView()
+                    .preferredColorScheme(themeSettings.themePreference.colorScheme)
+                    .environmentObject(authState)
             }
         }
         .modelContainer(sharedModelContainer)

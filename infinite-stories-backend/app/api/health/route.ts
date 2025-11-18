@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     // Check environment variables
     const requiredEnvVars = [
       'DATABASE_URL',
-      'CLERK_SECRET_KEY',
+      'BETTER_AUTH_SECRET',
       'OPENAI_API_KEY',
       'R2_BUCKET_NAME',
     ];

@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma/client';
-import { getOrCreateUser } from '@/lib/auth/clerk';
+import { requireAuth } from '@/lib/auth/session';
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api-response';
 
 /**
@@ -9,11 +9,15 @@ import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api-
  */
 export async function GET(req: NextRequest) {
   try {
-    const user = await getOrCreateUser();
+    // Check authentication
+    const authUser = await requireAuth();
+    if (!authUser) {
+      return errorResponse('Unauthorized', 'Authentication required', 401);
+    }
 
     // Get user with extended information
     const userProfile = await prisma.user.findUnique({
-      where: { id: user.id },
+      where: { id: authUser.id },
       include: {
         _count: {
           select: {
@@ -30,7 +34,7 @@ export async function GET(req: NextRequest) {
 
     // Get story count separately (stories link to user directly)
     const storyCount = await prisma.story.count({
-      where: { userId: user.id },
+      where: { userId: authUser.id },
     });
 
     return successResponse({
@@ -51,13 +55,17 @@ export async function GET(req: NextRequest) {
  */
 export async function PATCH(req: NextRequest) {
   try {
-    const user = await getOrCreateUser();
+    // Check authentication
+    const authUser = await requireAuth();
+    if (!authUser) {
+      return errorResponse('Unauthorized', 'Authentication required', 401);
+    }
+
     const body = await req.json();
 
     // Update user profile
-    // Note: Most user fields come from Clerk, so we only update limited fields
     const updatedUser = await prisma.user.update({
-      where: { id: user.id },
+      where: { id: authUser.id },
       data: {
         ...(body.name && { name: body.name }),
       },

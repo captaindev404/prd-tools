@@ -57,27 +57,42 @@ export async function generateAvatar(
   }
 
   try {
-    const response = await openai.images.generate({
-      model: 'dall-e-3',
-      prompt: filtered.filtered,
-      n: 1,
-      size,
-      quality: style === 'hd' ? 'hd' : 'standard',
-      response_format: 'url',
+    // Generate avatar using Response API with gpt-5-mini
+    const response = await openai.responses.create({
+      model: 'gpt-5-mini',
+      instructions: 'You are an expert at generating child-friendly avatar images for bedtime story characters.',
+      input: filtered.filtered,
+      image: {
+        size,
+        quality: style === 'hd' ? 'hd' : 'standard',
+      },
     });
 
-    const imageData = response.data[0];
+    // Check response status
+    if (response.status === 'failed') {
+      throw new Error(`OpenAI API error: ${response.error?.message || 'Unknown error'}`);
+    }
 
-    if (!imageData?.url) {
-      throw new Error('No image URL returned from DALL-E');
+    // Extract image from response output
+    const imageUrl = response.output_image_url;
+    if (!imageUrl) {
+      throw new Error('No image URL in OpenAI response');
+    }
+
+    // Log token usage
+    if (response.usage) {
+      console.log('Avatar generation token usage:', {
+        input: response.usage.input_tokens || 0,
+        output: response.usage.output_tokens || 0,
+        total: response.usage.total_tokens || 0,
+      });
     }
 
     return {
-      imageUrl: imageData.url,
+      imageUrl,
       prompt: filtered.filtered,
-      revisedPrompt: imageData.revised_prompt,
-      // Note: DALL-E 3 doesn't return generation_id in the response yet
-      // This would need to be extracted from headers or response metadata if available
+      revisedPrompt: undefined,
+      generationId: response.id,
     };
   } catch (error) {
     console.error('Error generating avatar:', error);

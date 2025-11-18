@@ -73,9 +73,15 @@ struct StoryLibraryDesign {
 
 // MARK: - Improved Story Library View
 struct ImprovedStoryLibraryView: View {
-    @Query(sort: \Story.createdAt, order: .reverse) private var stories: [Story]
-    @Environment(\.modelContext) private var modelContext
+    // API-only state management
+    @State private var stories: [Story] = []
+    @State private var isLoadingData = false
+    @State private var loadError: Error?
+
     @Environment(\.dismiss) private var dismiss
+
+    // Repository
+    private let storyRepository = StoryRepository()
 
     @State private var selectedStory: Story?
     @State private var searchText = ""
@@ -87,9 +93,9 @@ struct ImprovedStoryLibraryView: View {
     @State private var isLoadingMore = false
     @State private var showingAudioRegeneration = false
     @State private var storyToRegenerate: Story?
-    @State private var regeneratingStories: Set<PersistentIdentifier> = []
+    @State private var regeneratingStories: Set<UUID> = []
     @State private var isEditMode = false
-    @State private var selectedStories: Set<PersistentIdentifier> = []
+    @State private var selectedStories: Set<UUID> = []
     @State private var showBulkDeleteConfirmation = false
     @StateObject private var viewModel = StoryViewModel()
     
@@ -214,9 +220,6 @@ struct ImprovedStoryLibraryView: View {
                 selectedStory = story
             }
         }
-        .onAppear {
-            viewModel.setModelContext(modelContext)
-        }
         .alert("Delete Story?", isPresented: $showDeleteConfirmation) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
@@ -235,8 +238,33 @@ struct ImprovedStoryLibraryView: View {
         } message: {
             Text("This will permanently delete \(selectedStories.count) stories. This action cannot be undone.")
         }
+        .task {
+            await loadStories()
+        }
     }
-    
+
+    // MARK: - API Operations
+
+    private func loadStories() async {
+        guard NetworkMonitor.shared.isConnected else {
+            loadError = APIError.networkUnavailable
+            return
+        }
+
+        isLoadingData = true
+        loadError = nil
+
+        do {
+            stories = try await storyRepository.fetchStories(heroId: nil, limit: 100, offset: 0)
+            Logger.ui.success("Loaded \(stories.count) stories")
+        } catch {
+            loadError = error
+            Logger.ui.error("Failed to load stories: \(error.localizedDescription)")
+        }
+
+        isLoadingData = false
+    }
+
     // MARK: - Header Section
     private var headerSection: some View {
         VStack(spacing: StoryLibraryDesign.Spacing.elementSpacing) {
@@ -389,27 +417,60 @@ struct ImprovedStoryLibraryView: View {
     
     // MARK: - Helper Functions
     private func deleteStory(_ story: Story) {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-            viewModel.deleteStoryWithCleanup(story)
+        Task {
+            do {
+                guard let backendId = story.backendId else {
+                    Logger.ui.error("Story has no backend ID")
+                    return
+                }
+                try await storyRepository.deleteStory(id: backendId)
+                withAnimation {
+                    stories.removeAll { $0.id == story.id }
+                }
+                Logger.ui.success("Deleted story: \(story.title)")
+            } catch {
+                loadError = error
+                Logger.ui.error("Failed to delete story: \(error.localizedDescription)")
+            }
         }
     }
 
     private func deleteSelectedStories() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+        Task {
             for storyId in selectedStories {
                 if let story = stories.first(where: { $0.id == storyId }) {
-                    viewModel.deleteStoryWithCleanup(story)
+                    if let backendId = story.backendId {
+                        try? await storyRepository.deleteStory(id: backendId)
+                        withAnimation {
+                            stories.removeAll { $0.id == story.id }
+                        }
+                    }
                 }
             }
             selectedStories.removeAll()
             isEditMode = false
         }
     }
-    
+
     private func toggleFavorite(_ story: Story) {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-            story.isFavorite.toggle()
-            try? modelContext.save()
+        Task {
+            do {
+                guard let backendId = story.backendId else {
+                    Logger.ui.error("Story has no backend ID")
+                    return
+                }
+                let newFavoriteState = !story.isFavorite
+                _ = try await storyRepository.updateStory(id: backendId, title: nil, content: nil, isFavorite: newFavoriteState)
+                withAnimation {
+                    if let index = stories.firstIndex(where: { $0.id == story.id }) {
+                        stories[index].isFavorite = newFavoriteState
+                    }
+                }
+                Logger.ui.success("Updated favorite status")
+            } catch {
+                loadError = error
+                Logger.ui.error("Failed to update favorite: \(error.localizedDescription)")
+            }
         }
     }
     
@@ -517,7 +578,33 @@ struct ImprovedStoryCard: View {
     var isRegenerating: Bool = false
     var hasFailedIllustrations: Bool = false
     var failedIllustrationCount: Int = 0
-    
+
+    init(
+        story: Story,
+        onTap: @escaping () -> Void,
+        onToggleFavorite: (() -> Void)? = nil,
+        onShare: (() -> Void)? = nil,
+        onDelete: (() -> Void)? = nil,
+        onEdit: (() -> Void)? = nil,
+        onRegenerateAudio: (() -> Void)? = nil,
+        onRetryFailedIllustrations: (() -> Void)? = nil,
+        isRegenerating: Bool = false,
+        hasFailedIllustrations: Bool = false,
+        failedIllustrationCount: Int = 0
+    ) {
+        self.story = story
+        self.onTap = onTap
+        self.onToggleFavorite = onToggleFavorite
+        self.onShare = onShare
+        self.onDelete = onDelete
+        self.onEdit = onEdit
+        self.onRegenerateAudio = onRegenerateAudio
+        self.onRetryFailedIllustrations = onRetryFailedIllustrations
+        self.isRegenerating = isRegenerating
+        self.hasFailedIllustrations = hasFailedIllustrations
+        self.failedIllustrationCount = failedIllustrationCount
+    }
+
     @State private var isPressed = false
     @State private var showingActions = false
     @FocusState private var isFocused: Bool
@@ -565,7 +652,7 @@ struct ImprovedStoryCard: View {
             HStack(alignment: .top, spacing: StoryLibraryDesign.Spacing.cardPadding) {
                 // Thumbnail
                 thumbnailView
-                
+
                 // Content
                 VStack(alignment: .leading, spacing: 6) {
                     titleRow
@@ -575,7 +662,7 @@ struct ImprovedStoryCard: View {
                 }
             }
             .padding(StoryLibraryDesign.Spacing.cardPadding)
-            
+
             // Progress bar or regeneration indicator
             if isRegenerating {
                 regenerationProgressBar
@@ -583,10 +670,16 @@ struct ImprovedStoryCard: View {
                 progressBar
             }
         }
+        .frame(minHeight: 120) // Increased minimum height to ensure card is visible
         .background(cardBackground)
         .overlay(cardOverlay)
+        .overlay(
+            // Add visible border to ensure cards are visible
+            RoundedRectangle(cornerRadius: StoryLibraryDesign.Layout.cardCornerRadius)
+                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+        )
         .shadow(
-            color: Color.primary.opacity(isPressed ? 0.15 : 0.1),
+            color: Color.black.opacity(isPressed ? 0.15 : 0.1),
             radius: isPressed ? 4 : StoryLibraryDesign.Layout.cardShadowRadius,
             y: isPressed ? 2 : StoryLibraryDesign.Layout.cardShadowY
         )
@@ -792,7 +885,10 @@ struct ImprovedStoryCard: View {
                     endPoint: .bottomTrailing
                 ) :
                 LinearGradient(
-                    colors: [StoryLibraryDesign.Colors.cardBackground, StoryLibraryDesign.Colors.cardBackground],
+                    colors: [
+                        Color(.systemBackground),
+                        Color(.secondarySystemBackground)
+                    ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
@@ -809,7 +905,7 @@ struct ImprovedStoryCard: View {
                 lineWidth: 1
             )
     }
-    
+
     var body: some View {
         Button(action: {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -1219,7 +1315,7 @@ struct IllustrationBadge: View {
 
 // MARK: - Edit Mode Toolbar
 struct EditModeToolbar: View {
-    @Binding var selectedStories: Set<PersistentIdentifier>
+    @Binding var selectedStories: Set<UUID>
     let totalStories: Int
     let onDelete: () -> Void
     let onSelectAll: () -> Void

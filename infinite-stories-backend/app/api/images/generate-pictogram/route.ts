@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { ImageGenerationRequest, ImageGenerationResponse } from '@/types/openai';
+import { requireAuth } from '@/lib/auth/session';
+import { errorResponse } from '@/lib/api/error-handler';
 
 export async function POST(request: NextRequest) {
   try {
+    // Require authentication
+    const authUser = await requireAuth();
+    if (!authUser) {
+      return errorResponse('Unauthorized', 'Authentication required', 401);
+    }
+
     const apiKey = process.env.OPENAI_API_KEY;
 
     if (!apiKey) {

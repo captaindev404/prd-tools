@@ -9,7 +9,6 @@ final class BackgroundTaskManager {
     static let storyGenerationTaskIdentifier = "com.infinitestories.storygeneration"
     static let audioProcessingTaskIdentifier = "com.infinitestories.audioprocessing"
     
-    private let logger = Logger(subsystem: "com.infinitestories", category: "BackgroundTaskManager")
     private var activeBackgroundTask: UIBackgroundTaskIdentifier = .invalid
     
     private init() {}
@@ -29,13 +28,13 @@ final class BackgroundTaskManager {
             self?.handleAudioProcessingTask(task as! BGProcessingTask)
         }
         
-        logger.info("Background tasks registered")
+        print("INFO: Background tasks registered")
     }
     
     func scheduleStoryGenerationTask() {
         // Only schedule if handlers are registered
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else {
-            logger.info("Skipping background task scheduling in test environment")
+            print("INFO: Skipping background task scheduling in test environment")
             return
         }
         
@@ -46,16 +45,16 @@ final class BackgroundTaskManager {
         
         do {
             try BGTaskScheduler.shared.submit(request)
-            logger.info("Story generation background task scheduled")
+            print("INFO: Story generation background task scheduled")
         } catch {
-            logger.error("Failed to schedule story generation task: \(error.localizedDescription)")
+            print("ERROR: Failed to schedule story generation task: \(error.localizedDescription)")
         }
     }
     
     func scheduleAudioProcessingTask() {
         // Only schedule if handlers are registered
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else {
-            logger.info("Skipping background task scheduling in test environment")
+            print("INFO: Skipping background task scheduling in test environment")
             return
         }
         
@@ -66,15 +65,15 @@ final class BackgroundTaskManager {
         
         do {
             try BGTaskScheduler.shared.submit(request)
-            logger.info("Audio processing background task scheduled")
+            print("INFO: Audio processing background task scheduled")
         } catch {
-            logger.error("Failed to schedule audio processing task: \(error.localizedDescription)")
+            print("ERROR: Failed to schedule audio processing task: \(error.localizedDescription)")
         }
     }
     
     func beginBackgroundTask(withName name: String, expirationHandler: (() -> Void)? = nil) -> UIBackgroundTaskIdentifier {
         let taskId = UIApplication.shared.beginBackgroundTask(withName: name) { [weak self] in
-            self?.logger.warning("Background task \(name) is about to expire")
+            print("WARNING: Background task \(name) is about to expire")
             expirationHandler?()
             if let taskId = self?.activeBackgroundTask, taskId != .invalid {
                 UIApplication.shared.endBackgroundTask(taskId)
@@ -83,14 +82,14 @@ final class BackgroundTaskManager {
         }
         
         activeBackgroundTask = taskId
-        logger.info("Started background task: \(name) with ID: \(taskId.rawValue)")
+        print("INFO: Started background task: \(name) with ID: \(taskId.rawValue)")
         return taskId
     }
     
     func endBackgroundTask(_ identifier: UIBackgroundTaskIdentifier) {
         if identifier != .invalid {
             UIApplication.shared.endBackgroundTask(identifier)
-            logger.info("Ended background task with ID: \(identifier.rawValue)")
+            print("INFO: Ended background task with ID: \(identifier.rawValue)")
             if identifier == activeBackgroundTask {
                 activeBackgroundTask = .invalid
             }
@@ -98,10 +97,10 @@ final class BackgroundTaskManager {
     }
     
     private func handleStoryGenerationTask(_ task: BGProcessingTask) {
-        logger.info("Handling story generation background task")
+        print("INFO: Handling story generation background task")
         
         task.expirationHandler = { [weak self] in
-            self?.logger.warning("Story generation task expired")
+            print("WARNING: Story generation task expired")
             task.setTaskCompleted(success: false)
         }
         
@@ -113,10 +112,10 @@ final class BackgroundTaskManager {
     }
     
     private func handleAudioProcessingTask(_ task: BGProcessingTask) {
-        logger.info("Handling audio processing background task")
+        print("INFO: Handling audio processing background task")
         
         task.expirationHandler = { [weak self] in
-            self?.logger.warning("Audio processing task expired")
+            print("WARNING: Audio processing task expired")
             task.setTaskCompleted(success: false)
         }
         

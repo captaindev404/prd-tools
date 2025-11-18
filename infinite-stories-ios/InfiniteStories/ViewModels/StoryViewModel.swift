@@ -46,25 +46,34 @@ class StoryViewModel: ObservableObject {
     // Timer for updating playback progress
     private var audioUpdateTimer: Timer?
 
-    private var aiService: AIServiceProtocol
+    // Repository pattern dependencies
+    private let heroRepository: HeroRepositoryProtocol
+    private let storyRepository: StoryRepositoryProtocol
+    private let customEventRepository: CustomEventRepositoryProtocol
+
     private let audioService: AudioServiceProtocol
-    private var modelContext: ModelContext?
     private let appSettings = AppSettings()
 
     // Illustration services
-    private var illustrationGenerator: IllustrationGenerator?
     let illustrationSyncManager = IllustrationSyncManager() // Made public for AudioPlayerView
     private var illustrationGenerationTask: Task<Void, Never>?
-    
+
     // Background task support
     private var backgroundTaskId: UIBackgroundTaskIdentifier = .invalid
     private var currentGenerationTask: Task<Void, Never>?
-    
-    init(audioService: AudioServiceProtocol = AudioService()) {
-        self.audioService = audioService
 
-        // Initialize AI service (no API key needed - uses backend)
-        self.aiService = OpenAIService()
+    // MARK: - Initialization with Dependency Injection
+
+    init(
+        heroRepository: HeroRepositoryProtocol,
+        storyRepository: StoryRepositoryProtocol,
+        customEventRepository: CustomEventRepositoryProtocol,
+        audioService: AudioServiceProtocol = AudioService()
+    ) {
+        self.heroRepository = heroRepository
+        self.storyRepository = storyRepository
+        self.customEventRepository = customEventRepository
+        self.audioService = audioService
 
         setupBackgroundHandlers()
 
@@ -73,17 +82,27 @@ class StoryViewModel: ObservableObject {
             audioService.navigationDelegate = self
         }
     }
-    
+
+    // Legacy init for backward compatibility (will be deprecated)
+    convenience init(audioService: AudioServiceProtocol = AudioService()) {
+        // Create default repositories for API-only architecture
+        self.init(
+            heroRepository: HeroRepository(),
+            storyRepository: StoryRepository(),
+            customEventRepository: CustomEventRepository(),
+            audioService: audioService
+        )
+    }
+
     func setModelContext(_ context: ModelContext) {
-        self.modelContext = context
-        // Initialize illustration generator with context
-        self.illustrationGenerator = IllustrationGenerator(aiService: aiService, modelContext: context)
+        // Note: Illustration generation now happens via backend API
+        // IllustrationGenerator is no longer needed as illustrations are generated server-side
+        // This method kept for backward compatibility but is now a no-op
     }
 
     func refreshAIService() {
-        // No-op: AI service doesn't need refreshing (uses backend)
-        // Set the AI service on the audio service for TTS generation
-        audioService.setAIService(self.aiService)
+        // No-op: AI service removed - all AI operations now handled by backend API
+        // Keep for backward compatibility with existing views
     }
     
     func generateStory(for hero: Hero, event: StoryEvent) async {
@@ -93,10 +112,10 @@ class StoryViewModel: ObservableObject {
 
         isGeneratingStory = true
         generationError = nil
-        
+
         // Disable idle timer during story generation
         IdleTimerManager.shared.disableIdleTimer(for: "StoryGeneration")
-        
+
         // Begin background task for story generation
         backgroundTaskId = BackgroundTaskManager.shared.beginBackgroundTask(
             withName: "StoryGeneration",
@@ -104,82 +123,39 @@ class StoryViewModel: ObservableObject {
                 self?.handleBackgroundTaskExpiration()
             }
         )
-        
+
         do {
-            let request = StoryGenerationRequest(
-                hero: hero,
-                event: event,
-                targetDuration: 420, // 7 minutes target
-                language: appSettings.preferredLanguage
+            print("📱 🚀 Calling repository for story generation...")
+
+            // Use repository to generate story (includes AI generation + saving)
+            guard let heroBackendId = hero.backendId else {
+                throw NSError(domain: "StoryViewModel", code: -1,
+                              userInfo: [NSLocalizedDescriptionKey: "Hero has no backend ID"])
+            }
+
+            let story = try await storyRepository.generateStory(
+                heroId: heroBackendId,
+                eventType: event.rawValue,
+                customEventId: nil,
+                language: appSettings.preferredLanguage,
+                generateAudio: true,
+                generateIllustrations: enableIllustrations && hero.hasAvatar
             )
-            
-            print("📱 🚀 Calling AI service for story generation...")
-            let response = try await aiService.generateStory(request: request)
 
             print("📱 ✅ Story generated successfully")
-            print("📱 📊 Response - Title: \(response.title)")
-            print("📱 📊 Response - Content length: \(response.content.count) characters")
-            print("📱 📊 Response - Duration: \(response.estimatedDuration) seconds")
-
-            // Create and save the story
-            let story = Story(
-                title: response.title,
-                content: response.content,
-                event: event,
-                hero: hero
-            )
-            story.estimatedDuration = response.estimatedDuration
-
-            // Extract scenes in a separate API call
-            print("📱 🎨 Extracting scenes for illustrations...")
-            do {
-                let sceneRequest = SceneExtractionRequest(
-                    storyContent: response.content,
-                    storyDuration: response.estimatedDuration,
-                    hero: hero,
-                    eventContext: event.rawValue
-                )
-
-                let scenes = try await aiService.extractScenesFromStory(request: sceneRequest)
-
-                print("📱 ✅ Extracted \(scenes.count) scenes from story")
-
-                // Import scenes for illustration
-                if !scenes.isEmpty {
-                    story.importScenes(from: scenes.map { scene in
-                        (sceneNumber: scene.sceneNumber,
-                         textSegment: scene.textSegment,
-                         illustrationPrompt: scene.illustrationPrompt,
-                         timestamp: scene.timestamp)
-                    })
-                    print("📱 📊 Imported \(scenes.count) scenes into story")
-                }
-            } catch {
-                print("📱 ⚠️ Scene extraction failed (non-critical): \(error)")
-                // Scene extraction failure is non-critical - story still works without illustrations
-            }
-            
-            print("📱 💾 Saving story to SwiftData...")
-            modelContext?.insert(story)
-            try modelContext?.save()
-            print("📱 ✅ Story saved successfully")
+            print("📱 📊 Story - Title: \(story.title)")
+            print("📱 📊 Story - Content length: \(story.content.count) characters")
+            print("📱 📊 Story - Duration: \(story.estimatedDuration) seconds")
 
             // Update current story reference
             currentStory = story
-            
-            // Generate audio file
-            print("📱 🎵 Starting audio generation...")
-            await generateAudioForStory(story)
 
-            // Generate illustrations if enabled and hero has avatar
+            // Audio and illustrations are generated by backend as part of generateStory call
+            // Backend handles generation based on generateAudio and generateIllustrations flags
+
+            // For backward compatibility with illustration tracking
             if enableIllustrations && hero.hasAvatar {
-                AppLogger.shared.info("Illustration generation enabled and hero has avatar", category: .illustration)
-                AppLogger.shared.info("Starting background illustration generation task", category: .illustration)
-                // Run illustration generation in parallel/background
-                illustrationGenerationTask = Task {
-                    await generateIllustrationsForStory(story)
-                }
-                // Don't await - let it run in background
+                AppLogger.shared.info("Illustrations included in story generation", category: .illustration)
             } else {
                 if !enableIllustrations {
                     AppLogger.shared.info("Illustration generation disabled by user preference", category: .illustration)
@@ -193,18 +169,18 @@ class StoryViewModel: ObservableObject {
             print("📱 ❌ Story generation failed: \(error)")
             generationError = handleAIError(error)
         }
-        
+
         isGeneratingStory = false
-        
+
         // Re-enable idle timer after generation
         IdleTimerManager.shared.enableIdleTimer(for: "StoryGeneration")
-        
+
         // End background task
         if backgroundTaskId != .invalid {
             BackgroundTaskManager.shared.endBackgroundTask(backgroundTaskId)
             backgroundTaskId = .invalid
         }
-        
+
         print("📱 === Story Generation Flow Completed ===")
         print("📱 Final state - Error: \(generationError ?? "None")")
     }
@@ -216,10 +192,10 @@ class StoryViewModel: ObservableObject {
 
         isGeneratingStory = true
         generationError = nil
-        
+
         // Disable idle timer during story generation
         IdleTimerManager.shared.disableIdleTimer(for: "StoryGeneration")
-        
+
         // Begin background task for story generation
         backgroundTaskId = BackgroundTaskManager.shared.beginBackgroundTask(
             withName: "StoryGeneration",
@@ -227,153 +203,64 @@ class StoryViewModel: ObservableObject {
                 self?.handleBackgroundTaskExpiration()
             }
         )
-        
+
         do {
-            // Create a custom request for the custom event
-            let request = CustomStoryGenerationRequest(
-                hero: hero,
-                customEvent: customEvent,
-                targetDuration: 420, // 7 minutes target
-                language: appSettings.preferredLanguage
-            )
-            
-            print("📱 🚀 Calling AI service with custom event...")
-            let response = try await aiService.generateStoryWithCustomEvent(request: request)
+            print("📱 🚀 Creating story with custom event via repository...")
 
-            print("📱 ✅ Custom story generated successfully")
-            print("📱 📊 Response - Title: \(response.title)")
-            print("📱 📊 Response - Content length: \(response.content.count) characters")
-            print("📱 📊 Response - Duration: \(response.estimatedDuration) seconds")
-
-            // Create and save the story with custom event
-            let story = Story(
-                title: response.title,
-                content: response.content,
-                customEvent: customEvent,
-                hero: hero
-            )
-            story.estimatedDuration = response.estimatedDuration
-
-            // Extract scenes in a separate API call
-            print("📱 🎨 Extracting scenes for illustrations...")
-            do {
-                let sceneRequest = SceneExtractionRequest(
-                    storyContent: response.content,
-                    storyDuration: response.estimatedDuration,
-                    hero: hero,
-                    eventContext: customEvent.title
-                )
-
-                let scenes = try await aiService.extractScenesFromStory(request: sceneRequest)
-
-                print("📱 ✅ Extracted \(scenes.count) scenes from story")
-
-                // Import scenes for illustration
-                if !scenes.isEmpty {
-                    story.importScenes(from: scenes.map { scene in
-                        (sceneNumber: scene.sceneNumber,
-                         textSegment: scene.textSegment,
-                         illustrationPrompt: scene.illustrationPrompt,
-                         timestamp: scene.timestamp)
-                    })
-                    print("📱 📊 Imported \(scenes.count) scenes into story")
-                }
-            } catch {
-                print("📱 ⚠️ Scene extraction failed (non-critical): \(error)")
-                // Scene extraction failure is non-critical - story still works without illustrations
+            // First enhance the custom event if needed
+            if !customEvent.isAIEnhanced {
+                print("📱 ✨ Enhancing custom event...")
+                _ = try await customEventRepository.enhanceEvent(customEvent)
             }
-            
-            print("📱 💾 Saving custom story to SwiftData...")
-            modelContext?.insert(story)
-            try modelContext?.save()
-            print("📱 ✅ Custom story saved successfully")
+
+            // Generate custom story via API
+            guard let heroBackendId = hero.backendId else {
+                throw NSError(domain: "StoryViewModel", code: -1,
+                              userInfo: [NSLocalizedDescriptionKey: "Hero has no backend ID"])
+            }
+
+            // Custom events are stored locally, so they don't have backend IDs
+            // We'll pass nil for customEventId since the backend doesn't have this custom event
+            let story = try await storyRepository.generateStory(
+                heroId: heroBackendId,
+                eventType: nil,
+                customEventId: nil, // Custom events are local only
+                language: appSettings.preferredLanguage,
+                generateAudio: true,
+                generateIllustrations: enableIllustrations && hero.hasAvatar
+            )
+
+            print("📱 ✅ Custom story created successfully")
+            print("📱 📊 Story - Title: \(story.title)")
 
             // Update current story reference
             currentStory = story
-            
-            // Generate audio file
-            print("📱 🎵 Starting audio generation...")
-            await generateAudioForStory(story)
 
-            // Generate illustrations if enabled and hero has avatar
-            if enableIllustrations && hero.hasAvatar {
-                AppLogger.shared.info("Illustration generation enabled and hero has avatar", category: .illustration)
-                AppLogger.shared.info("Starting background illustration generation task", category: .illustration)
-                // Run illustration generation in parallel/background
-                illustrationGenerationTask = Task {
-                    await generateIllustrationsForStory(story)
-                }
-                // Don't await - let it run in background
-            } else {
-                if !enableIllustrations {
-                    AppLogger.shared.info("Illustration generation disabled by user preference", category: .illustration)
-                }
-                if !hero.hasAvatar {
-                    AppLogger.shared.info("Skipping illustrations - hero needs avatar first", category: .illustration)
-                }
-            }
+            // Audio and illustrations are generated by backend as part of generateStory call
+
+            // Note: Custom event usage count increment would need backend API support
+            // For now, custom events are local-only in SwiftData
 
         } catch {
             print("📱 ❌ Custom story generation failed: \(error)")
             generationError = handleAIError(error)
         }
-        
+
         isGeneratingStory = false
-        
+
         // Re-enable idle timer after generation
         IdleTimerManager.shared.enableIdleTimer(for: "StoryGeneration")
-        
+
         // End background task
         if backgroundTaskId != .invalid {
             BackgroundTaskManager.shared.endBackgroundTask(backgroundTaskId)
             backgroundTaskId = .invalid
         }
-        
+
         print("📱 === Custom Story Generation Flow Completed ===")
         print("📱 Final state - Error: \(generationError ?? "None")")
     }
     
-    private func generateAudioForStory(_ story: Story) async {
-        print("📱 🎵 === Audio Generation Started ===")
-        isGeneratingAudio = true
-        
-        // Disable idle timer during audio generation
-        IdleTimerManager.shared.disableIdleTimer(for: "AudioGeneration")
-        
-        do {
-            let fileName = "story_\(story.createdAt.timeIntervalSince1970)"
-            print("📱 🎵 Generating audio file: \(fileName)")
-            
-            // Get the preferred voice from settings, default to "nova" (great for children)
-            let preferredVoice = appSettings.preferredVoice
-            
-            let audioURL = try await audioService.generateAudioFile(
-                from: story.content,
-                fileName: fileName,
-                voice: preferredVoice,
-                language: appSettings.preferredLanguage
-            )
-            
-            print("📱 🎵 ✅ Audio file generated at: \(audioURL.path)")
-            
-            // Save the audio file reference
-            story.audioFileName = audioURL.lastPathComponent
-            try modelContext?.save()
-            
-            print("📱 🎵 ✅ Audio reference saved to story")
-            
-        } catch {
-            print("📱 🎵 ❌ Audio generation failed: \(error.localizedDescription)")
-            // Story is still saved even if audio generation fails
-        }
-        
-        isGeneratingAudio = false
-        
-        // Re-enable idle timer after audio generation
-        IdleTimerManager.shared.enableIdleTimer(for: "AudioGeneration")
-        
-        print("📱 🎵 === Audio Generation Completed ===")
-    }
     
     func playStory(_ story: Story) {
         print("📱 🎵 === Audio Playback Started ===")
@@ -390,36 +277,39 @@ class StoryViewModel: ObservableObject {
             illustrationSyncManager.configure(story: story, audioService: audioService)
         }
 
-        // Check if audio needs regeneration first
-        if story.audioNeedsRegeneration {
-            print("📱 🎵 Audio needs regeneration after text edit...")
+        // Check if audio needs regeneration or generation
+        guard let audioFileName = story.audioFileName, !story.audioNeedsRegeneration else {
+            print("📱 🎵 Audio needs generation or regeneration...")
             Task {
-                await regenerateAudioForStory(story)
-                if let updatedFileName = story.audioFileName {
-                    print("📱 🎵 Audio regenerated, starting playback...")
-                    playAudioFile(fileName: updatedFileName, story: story)
+                do {
+                    // Generate audio via repository API
+                    guard let storyBackendId = story.backendId else {
+                        throw NSError(domain: "StoryViewModel", code: -1,
+                                      userInfo: [NSLocalizedDescriptionKey: "Story has no backend ID"])
+                    }
+
+                    let audioUrl = try await storyRepository.generateAudio(
+                        storyId: storyBackendId,
+                        language: appSettings.preferredLanguage,
+                        voice: appSettings.preferredVoice
+                    )
+
+                    print("📱 🎵 Audio generated, URL: \(audioUrl)")
+                    // Update story with new audio URL
+                    story.audioFileName = audioUrl
+                    story.clearAudioRegenerationFlag()
+
+                    // Play via URLCache
+                    if let url = URL(string: audioUrl) {
+                        playAudioFromURL(url, story: story)
+                    }
                     story.incrementPlayCount()
-                    try? modelContext?.save()
                     startAudioUpdateTimer()
                     updateNowPlayingForStory(story)
-                } else {
-                    print("📱 🎵 ❌ Failed to regenerate audio file")
-                }
-            }
-            return
-        }
-
-        guard let audioFileName = story.audioFileName else {
-            print("📱 🎵 No audio file found, generating audio...")
-            // Generate audio if it doesn't exist
-            Task {
-                await generateAudioForStory(story)
-                if let updatedFileName = story.audioFileName {
-                    print("📱 🎵 Audio generated, starting playback...")
-                    playAudioFile(fileName: updatedFileName, story: story)
-                    updateNowPlayingForStory(story)
-                } else {
-                    print("📱 🎵 ❌ Failed to generate audio file")
+                    currentStory = story
+                } catch {
+                    print("📱 🎵 ❌ Audio generation failed: \(error)")
+                    generationError = "Failed to generate audio: \(error.localizedDescription)"
                 }
             }
             return
@@ -429,9 +319,9 @@ class StoryViewModel: ObservableObject {
         playAudioFile(fileName: audioFileName, story: story)
         story.incrementPlayCount()
 
-        print("📱 🎵 Incremented play count to: \(story.playCount)")
-        try? modelContext?.save()
-        print("📱 🎵 Saved play count to database")
+        // Play count update would need backend API support
+        // For now, play counts are tracked locally in story object
+        // TODO: Add updatePlayCount API endpoint
 
         // Update Now Playing info
         updateNowPlayingForStory(story)
@@ -441,6 +331,16 @@ class StoryViewModel: ObservableObject {
     }
     
     private func playAudioFile(fileName: String, story: Story? = nil) {
+        // Check if fileName is a URL or local file path
+        if fileName.starts(with: "http://") || fileName.starts(with: "https://") {
+            // It's a URL, play from URLCache
+            if let url = URL(string: fileName) {
+                playAudioFromURL(url, story: story)
+            }
+            return
+        }
+
+        // It's a local file path
         let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let audioURL = documentsPath.appendingPathComponent(fileName)
 
@@ -468,8 +368,32 @@ class StoryViewModel: ObservableObject {
             generationError = "Failed to play audio file. Please regenerate the audio."
         }
     }
-    
-    
+
+    private func playAudioFromURL(_ url: URL, story: Story? = nil) {
+        print("📱 🎵 Attempting to play audio from URL: \(url.absoluteString)")
+
+        do {
+            // Create metadata if story is provided
+            if let story = story {
+                let artwork = createArtworkForStory(story)
+                let metadata = AudioMetadata(
+                    title: story.title,
+                    artist: story.hero?.name,
+                    artwork: artwork
+                )
+                try audioService.playAudio(from: url, metadata: metadata)
+            } else {
+                try audioService.playAudio(from: url)
+            }
+            updateAudioState()
+            startAudioUpdateTimer()
+            print("📱 🎵 ✅ Audio playback started successfully")
+        } catch {
+            print("📱 🎵 ❌ Audio playback failed: \(error.localizedDescription)")
+            generationError = "Failed to play audio. Please check your internet connection."
+        }
+    }
+
     func stopAudio() {
         audioService.stopAudio()
         updateAudioState()
@@ -569,26 +493,30 @@ class StoryViewModel: ObservableObject {
     }
     
     private func handleAIError(_ error: Error) -> String {
-        if let aiError = error as? AIServiceError {
-            switch aiError {
-            case .invalidAPIKey:
-                return "Please configure your OpenAI API key in settings"
-            case .networkError:
+        // Handle API errors from backend
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .networkUnavailable:
                 return "Network error. Please check your internet connection"
-            case .invalidResponse:
-                return "Received invalid response from AI service"
-            case .apiError(let message):
-                return "API Error: \(message)"
+            case .unauthorized:
+                return "Please sign in to continue"
+            case .forbidden:
+                return "You don't have access to this resource"
+            case .notFound:
+                return "Resource not found"
             case .rateLimitExceeded:
                 return "Rate limit exceeded. Please try again later"
-            case .imageGenerationFailed:
-                return "Failed to generate image. Please try again"
-            case .fileSystemError:
-                return "Failed to save file. Please check storage permissions"
-            case .invalidPrompt:
-                return "The prompt contains invalid content. Please try with different settings"
-            case .contentPolicyViolation(let message):
-                return "Content policy violation: \(message). Please try with different content"
+            case .validationError(let fields):
+                let errors = fields.map { "\($0.key): \($0.value)" }.joined(separator: ", ")
+                return "Validation error: \(errors)"
+            case .serverError:
+                return "Server error. Please try again later"
+            case .networkError(let error):
+                return "Network error: \(error.localizedDescription)"
+            case .decodingError(let error):
+                return "Failed to parse response: \(error.localizedDescription)"
+            case .unknown(let error):
+                return "Unexpected error: \(error.localizedDescription)"
             }
         } else {
             return "An unexpected error occurred: \(error.localizedDescription)"
@@ -601,24 +529,30 @@ class StoryViewModel: ObservableObject {
     }
     
     // MARK: - Story Management
-    
-    func deleteStoryWithCleanup(_ story: Story) {
-        // Delete audio file if it exists
-        if let audioFileName = story.audioFileName {
-            deleteAudioFile(fileName: audioFileName)
+
+    func deleteStoryWithCleanup(_ story: Story) async {
+        do {
+            // Delete via repository API
+            guard let storyBackendId = story.backendId else {
+                throw NSError(domain: "StoryViewModel", code: -1,
+                              userInfo: [NSLocalizedDescriptionKey: "Story has no backend ID"])
+            }
+            try await storyRepository.deleteStory(id: storyBackendId)
+
+            // URLCache will handle cleanup of media files automatically
+            // No manual file deletion needed
+
+            print("📱 🗑 Story deleted: \(story.title)")
+        } catch {
+            print("📱 ❌ Failed to delete story: \(error)")
+            generationError = "Failed to delete story: \(error.localizedDescription)"
         }
-        
-        // Delete the story from database
-        modelContext?.delete(story)
-        try? modelContext?.save()
-        
-        print("📱 🗑 Story deleted: \(story.title)")
     }
-    
+
     private func deleteAudioFile(fileName: String) {
         let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let audioURL = documentsPath.appendingPathComponent(fileName)
-        
+
         do {
             if FileManager.default.fileExists(atPath: audioURL.path) {
                 try FileManager.default.removeItem(at: audioURL)
@@ -628,7 +562,7 @@ class StoryViewModel: ObservableObject {
             print("📱 ❌ Failed to delete audio file: \(error)")
         }
     }
-    
+
     func regenerateAudioForStory(_ story: Story, withProgress: Bool = false) async {
         print("📱 🔄 Regenerating audio for story: \(story.title)")
 
@@ -648,11 +582,29 @@ class StoryViewModel: ObservableObject {
 
         if withProgress {
             audioGenerationProgress = 0.2
-            audioGenerationStage = "Generating audio with OpenAI..."
+            audioGenerationStage = "Generating audio with backend..."
         }
 
-        // Generate new audio
-        await generateAudioForStory(story)
+        do {
+            // Generate new audio via repository
+            guard let storyBackendId = story.backendId else {
+                throw NSError(domain: "StoryViewModel", code: -1,
+                              userInfo: [NSLocalizedDescriptionKey: "Story has no backend ID"])
+            }
+
+            let audioUrl = try await storyRepository.generateAudio(
+                storyId: storyBackendId,
+                language: appSettings.preferredLanguage,
+                voice: appSettings.preferredVoice
+            )
+            // Update story with new audio URL
+            story.audioFileName = audioUrl
+            story.clearAudioRegenerationFlag()
+            currentStory = story
+        } catch {
+            print("📱 ❌ Audio regeneration failed: \(error)")
+            generationError = "Failed to regenerate audio: \(error.localizedDescription)"
+        }
 
         if withProgress {
             audioGenerationProgress = 1.0
@@ -878,11 +830,6 @@ class StoryViewModel: ObservableObject {
             return
         }
 
-        guard let generator = illustrationGenerator else {
-            AppLogger.shared.error("Illustration generator not initialized", category: .illustration, requestId: String(requestId))
-            return
-        }
-
         isGeneratingIllustrations = true
         illustrationGenerationProgress = 0.0
         illustrationGenerationStage = "Preparing illustrations..."
@@ -892,30 +839,28 @@ class StoryViewModel: ObservableObject {
         IdleTimerManager.shared.disableIdleTimer(for: "IllustrationGeneration")
 
         do {
-            // Check existing illustration status
-            if story.illustrations.isEmpty {
-                AppLogger.shared.warning("No pre-defined illustration scenes found", category: .illustration, requestId: String(requestId))
-                AppLogger.shared.info("Generator will create illustrations from text segments", category: .illustration, requestId: String(requestId))
-            } else {
-                AppLogger.shared.success("Found \(story.illustrations.count) pre-defined illustration scenes", category: .illustration, requestId: String(requestId))
-                for (index, illustration) in story.illustrations.enumerated() {
-                    AppLogger.shared.debug("Scene \(index + 1): Generated=\(illustration.isGenerated), HasPath=\(illustration.imagePath != nil)", category: .illustration, requestId: String(requestId))
-                }
-            }
-
             illustrationGenerationProgress = 0.3
             illustrationGenerationStage = "Generating images with AI..."
-            AppLogger.shared.info("Starting AI image generation", category: .illustration, requestId: String(requestId))
+            AppLogger.shared.info("Starting AI image generation via repository", category: .illustration, requestId: String(requestId))
 
-            // Generate illustrations
-            try await generator.generateIllustrations(for: story)
+            // Use repository to generate illustrations via backend API
+            guard let storyBackendId = story.backendId else {
+                throw NSError(domain: "StoryViewModel", code: -1,
+                              userInfo: [NSLocalizedDescriptionKey: "Story has no backend ID"])
+            }
+
+            let updatedStory = try await storyRepository.generateIllustrations(storyId: storyBackendId)
+            currentStory = updatedStory
+
+            // Backend handles all illustration generation
+            // No local generator needed
 
             illustrationGenerationProgress = 1.0
             illustrationGenerationStage = "Illustrations complete!"
 
             // Log final status
-            let generatedCount = story.illustrations.filter { $0.isGenerated }.count
-            AppLogger.shared.success("Generated \(generatedCount)/\(story.illustrations.count) illustrations successfully", category: .illustration, requestId: String(requestId))
+            let generatedCount = updatedStory.illustrations.filter { $0.isGenerated }.count
+            AppLogger.shared.success("Generated \(generatedCount)/\(updatedStory.illustrations.count) illustrations successfully", category: .illustration, requestId: String(requestId))
 
             AppLogger.shared.logPerformance(operation: "Complete Illustration Generation", startTime: startTime, requestId: String(requestId))
 
@@ -937,18 +882,21 @@ class StoryViewModel: ObservableObject {
         let requestId = UUID().uuidString.prefix(8).lowercased()
         AppLogger.shared.info("Regenerating single illustration", category: .illustration, requestId: String(requestId))
 
-        guard let generator = illustrationGenerator else {
-            AppLogger.shared.error("Illustration generator not initialized", category: .illustration, requestId: String(requestId))
+        // Note: Individual illustration regeneration now requires regenerating all illustrations via backend
+        // This is because illustrations are generated server-side in a batch
+        guard let story = illustration.story, let storyId = story.backendId else {
+            AppLogger.shared.error("Cannot regenerate - story not found or not saved", category: .illustration, requestId: String(requestId))
+            illustrationErrors.append("Cannot regenerate - story not available")
             return
         }
 
         do {
-            AppLogger.shared.info("Scene #\(illustration.displayOrder + 1) regeneration started", category: .illustration, requestId: String(requestId))
-            try await generator.regenerateIllustration(illustration)
-            AppLogger.shared.success("Scene #\(illustration.displayOrder + 1) regenerated successfully", category: .illustration, requestId: String(requestId))
+            AppLogger.shared.info("Regenerating illustrations for story via backend API", category: .illustration, requestId: String(requestId))
+            _ = try await storyRepository.generateIllustrations(storyId: storyId)
+            AppLogger.shared.success("Illustrations regenerated successfully", category: .illustration, requestId: String(requestId))
         } catch {
-            AppLogger.shared.error("Failed to regenerate illustration", category: .illustration, requestId: String(requestId), error: error)
-            illustrationErrors.append("Failed to regenerate illustration: \(error.localizedDescription)")
+            AppLogger.shared.error("Failed to regenerate illustrations", category: .illustration, requestId: String(requestId), error: error)
+            illustrationErrors.append("Failed to regenerate illustrations: \(error.localizedDescription)")
         }
     }
 
@@ -972,9 +920,10 @@ class StoryViewModel: ObservableObject {
         let requestId = UUID().uuidString.prefix(8).lowercased()
         AppLogger.shared.info("Retrying failed illustration #\(illustration.displayOrder + 1)", category: .illustration, requestId: String(requestId))
 
-        guard let generator = illustrationGenerator else {
-            AppLogger.shared.error("Illustration generator not initialized", category: .illustration, requestId: String(requestId))
-            illustrationErrors.append("Cannot retry - illustration service not available")
+        // Note: Individual illustration retry now requires regenerating all illustrations via backend
+        guard let story = illustration.story, let storyId = story.backendId else {
+            AppLogger.shared.error("Cannot retry - story not found or not saved", category: .illustration, requestId: String(requestId))
+            illustrationErrors.append("Cannot retry - story not available")
             return
         }
 
@@ -987,10 +936,9 @@ class StoryViewModel: ObservableObject {
             // Reset the illustration's retry count and error state
             illustration.resetError()
             illustration.retryCount = 0  // Reset retry count for manual retry
-            try? modelContext?.save()
 
-            // Attempt to regenerate the illustration
-            try await generator.regenerateIllustration(illustration)
+            // Regenerate all illustrations via backend API
+            _ = try await storyRepository.generateIllustrations(storyId: storyId)
 
             AppLogger.shared.success("Successfully retried illustration #\(illustration.displayOrder + 1)", category: .illustration, requestId: String(requestId))
             illustrationGenerationStage = "Illustration retry successful!"
@@ -1020,9 +968,9 @@ class StoryViewModel: ObservableObject {
 
         AppLogger.shared.info("Retrying \(failedIllustrations.count) failed illustrations", category: .illustration, requestId: String(requestId))
 
-        guard let generator = illustrationGenerator else {
-            AppLogger.shared.error("Illustration generator not initialized", category: .illustration, requestId: String(requestId))
-            illustrationErrors.append("Cannot retry - illustration service not available")
+        guard let storyId = story.backendId else {
+            AppLogger.shared.error("Story not saved to backend - cannot retry", category: .illustration, requestId: String(requestId))
+            illustrationErrors.append("Cannot retry - story not available")
             return
         }
 
@@ -1032,8 +980,14 @@ class StoryViewModel: ObservableObject {
         illustrationGenerationStage = "Retrying failed illustrations..."
         illustrationErrors.removeAll()
 
-        // Use the generator's batch retry method
-        await generator.retryFailedIllustrations(for: story)
+        // Regenerate all illustrations via backend API
+        do {
+            _ = try await storyRepository.generateIllustrations(storyId: storyId)
+            AppLogger.shared.success("Successfully retried all failed illustrations", category: .illustration, requestId: String(requestId))
+        } catch {
+            AppLogger.shared.error("Failed to retry illustrations", category: .illustration, requestId: String(requestId), error: error)
+            illustrationErrors.append("Failed to retry illustrations: \(error.localizedDescription)")
+        }
 
         // Update UI state
         illustrationGenerationProgress = 1.0

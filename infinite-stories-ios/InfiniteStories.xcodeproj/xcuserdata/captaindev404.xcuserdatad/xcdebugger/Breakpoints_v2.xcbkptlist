@@ -192,7 +192,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "1019"
             endingLineNumber = "1019"
-            landmarkName = "generateIllustrationsForScenes(_:hero:storyId:)"
+            landmarkName = "saveIllustrationImage(_:for:sceneNumber:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -208,7 +208,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "848"
             endingLineNumber = "848"
-            landmarkName = "generateSceneIllustration(prompt:hero:previousGenerationId:)"
+            landmarkName = "generateAvatar(request:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -416,7 +416,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "835"
             endingLineNumber = "835"
-            landmarkName = "createArtworkForStory(_:)"
+            landmarkName = "generateIllustrationsForStory(_:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>

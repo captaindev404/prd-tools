@@ -10,19 +10,21 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User model (from Clerk authentication)
+// User model (from Better Auth)
 model User {
   id String @id @default(cuid())
-  clerkId String @unique
   email String @unique
+  emailVerified Boolean @default(false)
   name String?
-  imageUrl String?
+  image String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
   heroes Hero[]
   customEvents CustomStoryEvent[]
+  sessions Session[]
+  accounts Account[]
 
   // Usage tracking
   totalStoriesGenerated Int @default(0)
@@ -30,8 +32,58 @@ model User {
   totalIllustrationsGenerated Int @default(0)
   lastStoryGeneratedAt DateTime?
 
-  @@index([clerkId])
   @@index([email])
+}
+
+// Better Auth Session model
+model Session {
+  id String @id @default(cuid())
+  expiresAt DateTime
+  token String @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
+
+// Better Auth Account model
+model Account {
+  id String @id @default(cuid())
+  accountId String
+  providerId String
+  userId String
+  accessToken String?
+  refreshToken String?
+  idToken String?
+  accessTokenExpiresAt DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope String?
+  password String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+}
+
+// Better Auth Verification model
+model Verification {
+  id String @id @default(cuid())
+  identifier String
+  value String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([identifier, value])
 }
 
 // Hero (Character) model
@@ -178,6 +230,7 @@ model StoryIllustration {
 
   // Generation metadata
   generationId String? // For multi-turn consistency
+  previousGenerationId String? // References previous image in multi-turn chain
   generationStatus String @default("pending") // pending, processing, completed, failed
   generationError String? @db.Text
   retryCount Int @default(0)
@@ -228,7 +281,7 @@ model CustomStoryEvent {
   updatedAt DateTime @updatedAt
 
   // Relations
-  user User @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   stories Story[]
 
   @@index([userId])

@@ -5,7 +5,6 @@
 - Vercel account
 - PostgreSQL database (Vercel Postgres, Supabase, or other)
 - Cloudflare R2 bucket
-- Clerk application
 - OpenAI API key
 
 ## Environment Variables
@@ -14,9 +13,8 @@ Configure these in Vercel dashboard or `.env.local`:
 
 ```
 DATABASE_URL=postgresql://...
-CLERK_SECRET_KEY=sk_...
-CLERK_WEBHOOK_SECRET=whsec_...
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...
+BETTER_AUTH_SECRET=... # Generate with: openssl rand -base64 32
+BETTER_AUTH_URL=https://your-domain.vercel.app
 OPENAI_API_KEY=sk-...
 R2_ACCOUNT_ID=...
 R2_ACCESS_KEY_ID=...
@@ -37,12 +35,16 @@ npx prisma migrate deploy
 npx prisma generate
 ```
 
-## Clerk Webhook Setup
+## Better Auth Setup
 
-1. Go to Clerk Dashboard > Webhooks
-2. Add endpoint: `https://your-domain.vercel.app/api/webhooks/clerk`
-3. Subscribe to: `user.created`, `user.updated`, `user.deleted`
-4. Copy signing secret to `CLERK_WEBHOOK_SECRET`
+Better Auth is self-contained and doesn't require external webhook configuration. Authentication endpoints are automatically available at `/api/auth/*`.
+
+### Available Auth Endpoints
+
+- POST `/api/auth/sign-up/email` - Email/password signup
+- POST `/api/auth/sign-in/email` - Email/password login
+- POST `/api/auth/sign-out` - Logout
+- GET `/api/auth/session` - Get current session
 
 ## Deployment
 
@@ -96,8 +98,9 @@ DATABASE_URL="production-url" npx prisma migrate deploy
 
 ### API errors
 - Verify all environment variables are set
-- Check Clerk webhook signature
+- Check BETTER_AUTH_SECRET is properly configured
 - Verify OpenAI API key permissions
+- Ensure BETTER_AUTH_URL matches your deployment URL
 
 ### File upload issues
 - Verify R2 credentials

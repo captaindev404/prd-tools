@@ -28,8 +28,11 @@
 		CE3AA1B92E71C97D00236398 /* InfiniteStories.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = InfiniteStories.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE3AA1C82E71C97E00236398 /* InfiniteStoriesTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = InfiniteStoriesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE3AA1D22E71C97E00236398 /* InfiniteStoriesUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = InfiniteStoriesUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		CE4F69AA2EBE4A0B00C84C35 /* InfiniteStories.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = InfiniteStories.xcodeproj; sourceTree = "<group>"; };
 		CE70BB742EB95D6A00DBE3C9 /* InfiniteStories.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = InfiniteStories.xcodeproj; sourceTree = "<group>"; };
+		CE8B1C972EC76A2100D60B87 /* InfiniteStories.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = InfiniteStories.xcodeproj; sourceTree = "<group>"; };
 		CE9694A62EB57F5200D739B6 /* InfiniteStories.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = InfiniteStories.xcodeproj; sourceTree = "<group>"; };
+		CEF88A3D2EC1FCEE00509585 /* InfiniteStories.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = InfiniteStories.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -113,6 +116,13 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		CE4F69AD2EBE4A0B00C84C35 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 		CE70BB772EB95D6A00DBE3C9 /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -120,7 +130,21 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		CE8B1C9A2EC76A2100D60B87 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 		CE9694AA2EB57F5200D739B6 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		CEF88A402EC1FCEE00509585 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -239,12 +263,24 @@
 					ProjectRef = CE70BB742EB95D6A00DBE3C9 /* InfiniteStories.xcodeproj */;
 				},
 				{
+					ProductGroup = CEF88A402EC1FCEE00509585 /* Products */;
+					ProjectRef = CEF88A3D2EC1FCEE00509585 /* InfiniteStories.xcodeproj */;
+				},
+				{
 					ProductGroup = CE9694AA2EB57F5200D739B6 /* Products */;
 					ProjectRef = CE9694A62EB57F5200D739B6 /* InfiniteStories.xcodeproj */;
 				},
 				{
 					ProductGroup = CE13B9522EB2CC2A003A8740 /* Products */;
 					ProjectRef = CE13B94E2EB2CC2A003A8740 /* InfiniteStories.xcodeproj */;
+				},
+				{
+					ProductGroup = CE4F69AD2EBE4A0B00C84C35 /* Products */;
+					ProjectRef = CE4F69AA2EBE4A0B00C84C35 /* InfiniteStories.xcodeproj */;
+				},
+				{
+					ProductGroup = CE8B1C9A2EC76A2100D60B87 /* Products */;
+					ProjectRef = CE8B1C972EC76A2100D60B87 /* InfiniteStories.xcodeproj */;
 				},
 			);
 			projectRoot = "";

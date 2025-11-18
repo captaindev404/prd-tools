@@ -10,12 +10,19 @@ import SwiftData
 
 // MARK: - Main Improved Content View
 struct ImprovedContentView: View {
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var themeSettings: ThemeSettings
-    @Query private var heroes: [Hero]
-    @Query(sort: \Story.createdAt, order: .reverse) private var stories: [Story]
-    
+
+    // API-only state management
+    @State private var heroes: [Hero] = []
+    @State private var stories: [Story] = []
+    @State private var isLoading = false
+    @State private var loadError: Error?
+
+    // Repositories
+    private let heroRepository = HeroRepository()
+    private let storyRepository = StoryRepository()
+
     @State private var showingHeroCreation = false
     @State private var showingStoryGeneration = false
     @State private var showingSettings = false
@@ -46,7 +53,15 @@ struct ImprovedContentView: View {
     }
     
     private var recentStories: [Story] {
-        Array(stories.prefix(6))  // Increased from 3 to 6 since we have more space
+        // Sort by creation date (newest first) and take first 6
+        let sorted = stories.sorted(by: { $0.createdAt > $1.createdAt })
+        print("📱 DEBUG recentStories: \(stories.count) stories -> \(sorted.count) sorted")
+        if !sorted.isEmpty {
+            print("📱 DEBUG recentStories: First date: \(sorted[0].createdAt)")
+        }
+        let recent = Array(sorted.prefix(6))
+        print("📱 DEBUG recentStories: Returning \(recent.count) recent stories")
+        return recent
     }
     
     private var favoriteStories: [Story] {
@@ -58,81 +73,351 @@ struct ImprovedContentView: View {
             ZStack {
                 // Magical Background
                 MagicalBackgroundView()
-                    .allowsHitTesting(false)
 
-                ScrollView {
-                    VStack(spacing: 0) {
-                        // Hero Section
-                        HeroSectionView(
-                            heroes: heroes,
-                            animateHero: $animateHero,
-                            sparkleAnimation: $sparkleAnimation,
-                            showingHeroCreation: $showingHeroCreation,
-                            selectedHeroForStory: $selectedHeroForStory,
-                            showingStoryGeneration: $showingStoryGeneration
-                        )
-                        .padding(.top, 20)
-
-                        // Recent Stories - Now with more space
-                        if !recentStories.isEmpty {
-                            RecentStoriesView(
-                                stories: Array(stories.prefix(6)),  // Show more stories now
-                                selectedStory: $selectedStory
-                            )
-                            .padding(.top, 25)
-                        }
-
-                        // Empty State
-                        if heroes.isEmpty {
-                            EmptyStateView(showingHeroCreation: $showingHeroCreation)
-                                .padding(.top, 40)
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 100) // Extra padding for floating button
+                // Loading/Error/Content states
+                if isLoading && heroes.isEmpty {
+                    ProgressView("Loading...")
+                        .scaleEffect(1.2)
+                } else if let error = loadError {
+                    ErrorView(error: error, retryAction: {
+                        Task { await loadData() }
+                    })
+                } else {
+                    mainContent
                 }
-                .refreshable {
-                    await refreshData()
-                }
+            }
+            .navigationTitle("InfiniteStories")
+            .navigationBarTitleDisplayMode(.large)
+            .task {
+                await loadData()
+            }
+        }
+    }
 
-                // Floating Elements (performance optimized)
-                if shouldShowFloatingElements {
-                    FloatingElementsView(
-                        cloudOffset: $cloudOffset,
-                        starRotation: $starRotation
-                    )
-                    .allowsHitTesting(false)
-                }
+    private var recentStoriesSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Only show section if we have stories
+            if !stories.isEmpty {
+                // Header
+                HStack {
+                    Text("Recent Adventures")
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .foregroundColor(MagicalColors.primary)
 
-                // Floating Create Story Button
-                if !heroes.isEmpty {
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Spacer()
-                            FloatingCreateStoryButton(
-                                showingStoryGeneration: $showingStoryGeneration
-                            )
-                            .padding(.trailing, 20)
-                            .padding(.bottom, 30)
-                        }
-                    }
-                }
-
-                // Floating Custom Event Management Button
-                VStack {
                     Spacer()
-                    HStack {
-                        FloatingCustomEventButton(
-                            showingCustomEventManagement: $showingCustomEventManagement
+
+                    NavigationLink(destination: ImprovedStoryLibraryView()) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "books.vertical.fill")
+                                .font(.system(size: 14))
+                            Text("View All")
+                                .font(.system(size: 14, weight: .medium, design: .rounded))
+                        }
+                        .foregroundColor(MagicalColors.accent)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(
+                            Capsule()
+                                .fill(MagicalColors.accent.opacity(0.1))
                         )
-                        .padding(.leading, 20)
-                        .padding(.bottom, 30)
-                        Spacer()
+                        .overlay(
+                            Capsule()
+                                .stroke(MagicalColors.accent.opacity(0.2), lineWidth: 1)
+                        )
+                    }
+                }
+
+                // Story Cards - Direct rendering without computed property
+                VStack(spacing: 12) {
+                    ForEach(Array(stories.sorted(by: { $0.createdAt > $1.createdAt }).prefix(6)), id: \.id) { story in
+                        Button {
+                            selectedStory = story
+                        } label: {
+                            storyCardLabel(for: story)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            } else if heroes.isEmpty {
+                EmptyStateView(showingHeroCreation: $showingHeroCreation)
+                    .padding()
+            }
+        }
+        .padding(.top, 25)
+    }
+
+    private func storyCardLabel(for story: Story) -> some View {
+        HStack(spacing: 12) {
+            // Hero Avatar or Event Icon Thumbnail
+            ZStack {
+                if let hero = story.hero {
+                    // Show hero avatar
+                    HeroAvatarImageView(hero: hero, size: 50)
+                } else {
+                    // Fallback to event icon
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(
+                            LinearGradient(
+                                colors: [MagicalColors.accent.opacity(0.2), MagicalColors.accent.opacity(0.1)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 50, height: 50)
+                        .overlay(
+                            Image(systemName: story.eventIcon)
+                                .font(.system(size: 20))
+                                .foregroundColor(MagicalColors.accent)
+                        )
+                }
+
+                // Show first illustration as preview if available
+                if let firstIllustration = story.illustrations.first {
+                    AsyncImage(url: firstIllustration.imageURL) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 50, height: 50)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(MagicalColors.accent.opacity(0.3), lineWidth: 1)
+                            )
+                    } placeholder: {
+                        EmptyView()
                     }
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
+
+            // Content
+            VStack(alignment: .leading, spacing: 4) {
+                // Title and Hero Name
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(story.title)
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundColor(MagicalColors.text)
+                        .lineLimit(1)
+
+                    if let hero = story.hero {
+                        Text("Hero: \(hero.name)")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(MagicalColors.accent)
+                    }
+                }
+
+                // Content preview
+                Text(story.shortContent)
+                    .font(.system(size: 13))
+                    .foregroundColor(MagicalColors.secondary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+
+                // Metadata row
+                HStack(spacing: 8) {
+                    // Event badge
+                    HStack(spacing: 3) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 10))
+                        Text(story.eventTitle)
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                    }
+                    .foregroundColor(eventColor(for: story))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(
+                        Capsule()
+                            .fill(eventColor(for: story).opacity(0.15))
+                    )
+
+                    // Illustration count
+                    if !story.illustrations.isEmpty {
+                        HStack(spacing: 2) {
+                            Image(systemName: "photo.stack.fill")
+                                .font(.system(size: 10))
+                            Text("\(story.illustrations.count)")
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                        .foregroundColor(.purple)
+                    }
+
+                    // Audio duration
+                    if story.hasAudio {
+                        HStack(spacing: 2) {
+                            Image(systemName: "speaker.wave.2.fill")
+                                .font(.system(size: 10))
+                            Text("\(Int(story.estimatedDuration / 60))m")
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                        .foregroundColor(.orange)
+                    }
+
+                    // Play count
+                    if story.playCount > 0 {
+                        HStack(spacing: 2) {
+                            Image(systemName: "play.circle.fill")
+                                .font(.system(size: 10))
+                            Text("\(story.playCount)")
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                        .foregroundColor(.blue)
+                    }
+
+                    Spacer()
+
+                    // Date
+                    Text(formatSmartDate(story.createdAt))
+                        .font(.system(size: 10))
+                        .foregroundColor(MagicalColors.secondary.opacity(0.8))
+                }
+            }
+
+            // Right side badges
+            VStack(alignment: .trailing, spacing: 4) {
+                // New badge
+                if story.playCount == 0 {
+                    Text("NEW")
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule()
+                                .fill(Color.mint)
+                        )
+                }
+
+                // Favorite icon
+                if story.isFavorite {
+                    Image(systemName: "heart.fill")
+                        .foregroundColor(.red)
+                        .font(.system(size: 14))
+                }
+
+                Spacer()
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, minHeight: 90)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(.systemBackground))
+                .shadow(color: Color.black.opacity(0.06), radius: 6, y: 2)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(MagicalColors.primary.opacity(0.1), lineWidth: 1)
+        )
+    }
+
+    // Helper function to get event color
+    private func eventColor(for story: Story) -> Color {
+        if let builtInEvent = story.builtInEvent {
+            switch builtInEvent {
+            case .bedtime: return .purple
+            case .schoolDay: return .yellow
+            case .birthday: return .pink
+            case .weekend: return .green
+            case .rainyDay: return .blue
+            case .family: return .orange
+            default: return MagicalColors.accent
+            }
+        } else if let customEvent = story.customEvent {
+            return Color(hex: customEvent.colorHex)
+        } else {
+            return MagicalColors.accent
+        }
+    }
+
+    // Helper function to format date smartly
+    private func formatSmartDate(_ date: Date) -> String {
+        let calendar = Calendar.current
+        let now = Date()
+
+        if calendar.isDateInToday(date) {
+            let formatter = DateFormatter()
+            formatter.timeStyle = .short
+            return "Today, \(formatter.string(from: date))"
+        } else if calendar.isDateInYesterday(date) {
+            return "Yesterday"
+        } else if let daysAgo = calendar.dateComponents([.day], from: date, to: now).day, daysAgo < 7 {
+            return "\(daysAgo)d ago"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MMM d"
+            return formatter.string(from: date)
+        }
+    }
+
+    private var mainContent: some View {
+        ZStack {
+            // Main Content
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Hero Section
+                    HeroSectionView(
+                        heroes: heroes,
+                        animateHero: $animateHero,
+                        sparkleAnimation: $sparkleAnimation,
+                        showingHeroCreation: $showingHeroCreation,
+                        selectedHeroForStory: $selectedHeroForStory,
+                        showingStoryGeneration: $showingStoryGeneration
+                    )
+
+                    // Recent Stories Section
+                    recentStoriesSection
+
+                    // Empty State
+                    if heroes.isEmpty {
+                        EmptyStateView(showingHeroCreation: $showingHeroCreation)
+                            .padding(.top, 20)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+                .padding(.bottom, 100) // Extra padding for floating button
+            }
+            .refreshable {
+                await loadData()
+            }
+
+            // Floating Elements (performance optimized)
+            if shouldShowFloatingElements {
+                FloatingElementsView(
+                    cloudOffset: $cloudOffset,
+                    starRotation: $starRotation
+                )
+                .allowsHitTesting(false)
+            }
+
+            // Floating Create Story Button (always visible)
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    FloatingCreateStoryButton(
+                        hasHeroes: !heroes.isEmpty,
+                        showingStoryGeneration: $showingStoryGeneration,
+                        showingHeroCreation: $showingHeroCreation
+                    )
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 30)
+                }
+            }
+
+            // Floating Custom Event Management Button
+            VStack {
+                Spacer()
+                HStack {
+                    FloatingCustomEventButton(
+                        showingCustomEventManagement: $showingCustomEventManagement
+                    )
+                    .padding(.leading, 20)
+                    .padding(.bottom, 30)
+                    Spacer()
+                }
+            }
+        }
+        .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     MagicalLogoView()
@@ -164,10 +449,20 @@ struct ImprovedContentView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showingHeroCreation) {
+            .sheet(isPresented: $showingHeroCreation, onDismiss: {
+                // Reload heroes when hero creation sheet is dismissed
+                Task {
+                    await loadData()
+                }
+            }) {
                 HeroCreationView(heroToEdit: nil)
             }
-            .sheet(isPresented: $showingStoryGeneration) {
+            .sheet(isPresented: $showingStoryGeneration, onDismiss: {
+                // Reload stories when story generation sheet is dismissed
+                Task {
+                    await loadData()
+                }
+            }) {
                 if heroes.count > 1 {
                     HeroSelectionForStoryView(selectedHero: $selectedHeroForStory, showingStoryGeneration: $showingStoryGeneration)
                 } else if let hero = selectedHeroForStory ?? heroes.first {
@@ -209,7 +504,6 @@ struct ImprovedContentView: View {
             .onAppear {
                 startAnimations()
             }
-        }
     }
     
     private func startAnimations() {
@@ -259,30 +553,108 @@ struct ImprovedContentView: View {
     }
     
     @MainActor
+    private func loadData() async {
+
+        guard NetworkMonitor.shared.isConnected else {
+            loadError = APIError.networkUnavailable
+            return
+        }
+        isLoading = true
+        loadError = nil
+
+        do {
+            // Fetch heroes first
+            print("📱 DEBUG: Fetching heroes...")
+            let fetchedHeroes = try await heroRepository.fetchHeroes()
+            print("📱 DEBUG: Fetched \(fetchedHeroes.count) heroes")
+            heroes = fetchedHeroes
+
+            // Then fetch stories, passing heroes to match them properly
+            print("📱 DEBUG: Fetching stories...")
+            let fetchedStories = try await storyRepository.fetchStories(
+                heroId: nil,
+                limit: 50,
+                offset: 0,
+                heroes: fetchedHeroes
+            )
+            print("📱 DEBUG: Fetched \(fetchedStories.count) stories from API")
+
+            stories = fetchedStories
+            print("📱 DEBUG: Assigned \(stories.count) stories to state")
+            print("📱 DEBUG: Recent stories computed: \(recentStories.count)")
+
+            Logger.ui.success("Loaded \(heroes.count) heroes and \(stories.count) stories")
+            Logger.ui.info("Recent stories count: \(recentStories.count)")
+            if !stories.isEmpty {
+                Logger.ui.info("First story: \(stories[0].title), created: \(stories[0].createdAt)")
+                print("📱 DEBUG: First story details:")
+                print("  - Title: \(stories[0].title)")
+                print("  - Created: \(stories[0].createdAt)")
+                print("  - Hero: \(stories[0].hero?.name ?? "No hero")")
+                print("  - BackendId: \(stories[0].backendId ?? "No backend ID")")
+            } else {
+                print("📱 ⚠️ DEBUG: Stories array is empty after fetch!")
+            }
+        } catch {
+            loadError = error
+            Logger.ui.error("Failed to load data: \(error.localizedDescription)")
+        }
+
+        isLoading = false
+    }
+
+    @MainActor
     private func refreshData() async {
         isRefreshing = true
-        
-        do {
-            // Simulate refresh delay
-            try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-            
-            // In production, this would reload data from server
-            // For now, we just refresh the UI
-            
-        } catch {
-            errorMessage = "Failed to refresh: \(error.localizedDescription)"
-            showingError = true
-        }
-        
+        await loadData()
         isRefreshing = false
     }
     
     private func handleStoryPlayed(_ story: Story) {
-        do {
-            // Save the updated play count
-            try modelContext.save()
-        } catch {
-            print("Failed to update story play count: \(error)")
+        // Play count update would need backend API support
+        // For now, play counts are tracked locally in story object
+        // TODO: Add updatePlayCount API endpoint
+    }
+
+    private func toggleFavorite(_ story: Story) {
+        Task {
+            do {
+                guard let backendId = story.backendId else {
+                    Logger.ui.error("Story has no backend ID")
+                    return
+                }
+                let newFavoriteState = !story.isFavorite
+                _ = try await storyRepository.updateStory(id: backendId, title: nil, content: nil, isFavorite: newFavoriteState)
+
+                // Update local state
+                if let index = stories.firstIndex(where: { $0.id == story.id }) {
+                    stories[index].isFavorite = newFavoriteState
+                }
+
+                Logger.ui.success("Updated favorite status")
+            } catch {
+                Logger.ui.error("Failed to update favorite: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func deleteStory(_ story: Story) {
+        Task {
+            do {
+                guard let backendId = story.backendId else {
+                    Logger.ui.error("Story has no backend ID")
+                    return
+                }
+                try await storyRepository.deleteStory(id: backendId)
+
+                withAnimation {
+                    stories.removeAll { $0.id == story.id }
+                }
+
+                Logger.ui.success("Deleted story: \(story.title)")
+            } catch {
+                Logger.ui.error("Failed to delete story: \(error.localizedDescription)")
+            }
         }
     }
 }
@@ -390,9 +762,12 @@ struct HeroSectionView: View {
 
 // MARK: - Floating Create Story Button
 struct FloatingCreateStoryButton: View {
+    let hasHeroes: Bool
     @Binding var showingStoryGeneration: Bool
+    @Binding var showingHeroCreation: Bool
     @State private var isPressed = false
     @State private var isAnimating = false
+    @State private var showNoHeroAlert = false
 
     var body: some View {
         Button(action: {
@@ -400,7 +775,11 @@ struct FloatingCreateStoryButton: View {
             let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
             impactFeedback.impactOccurred()
 
-            showingStoryGeneration = true
+            if hasHeroes {
+                showingStoryGeneration = true
+            } else {
+                showNoHeroAlert = true
+            }
         }) {
             ZStack {
                 // Shadow layer
@@ -444,6 +823,14 @@ struct FloatingCreateStoryButton: View {
         }
         .accessibilityLabel("Create new story")
         .accessibilityHint("Generate a new magical story")
+        .alert("Create a Hero First", isPresented: $showNoHeroAlert) {
+            Button("Create Hero", role: .none) {
+                showingHeroCreation = true
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("You need to create at least one hero before generating stories. Would you like to create a hero now?")
+        }
     }
 }
 
@@ -964,7 +1351,228 @@ struct MagicalColors {
 
 
 // MARK: - Preview
-#Preview {
+#Preview("Empty State") {
     ImprovedContentView()
         .modelContainer(for: Hero.self, inMemory: true)
+}
+
+#Preview("With Stories") {
+    struct PreviewWrapper: View {
+        @State private var heroes: [Hero] = []
+        @State private var stories: [Story] = []
+
+        var body: some View {
+            ImprovedContentView_Preview(
+                heroes: heroes,
+                stories: stories
+            )
+            .onAppear {
+                // Create mock heroes
+                let hero1 = Hero(
+                    name: "Luna",
+                    primaryTrait: .brave,
+                    secondaryTrait: .magical,
+                    appearance: "sparkly blue eyes and silver hair",
+                    specialAbility: "create beautiful dreams",
+                    backendId: "hero-1"
+                )
+                hero1.avatarImagePath = "https://via.placeholder.com/150"
+
+                let hero2 = Hero(
+                    name: "Max",
+                    primaryTrait: .curious,
+                    secondaryTrait: .kind,
+                    appearance: "curly red hair and freckles",
+                    specialAbility: "talk to animals",
+                    backendId: "hero-2"
+                )
+                hero2.avatarImagePath = "https://via.placeholder.com/150"
+
+                heroes = [hero1, hero2]
+
+                // Create mock stories
+                let story1 = Story(
+                    title: "Luna's Magical Dream Adventure",
+                    content: "Once upon a time, Luna discovered she could enter other people's dreams...",
+                    event: .bedtime,
+                    hero: hero1
+                )
+                story1.backendId = "story-1"
+                story1.createdAt = Date()
+                story1.isFavorite = true
+
+                let story2 = Story(
+                    title: "Max and the Talking Forest",
+                    content: "Max ventured into the enchanted forest where every animal had a story to tell...",
+                    event: .weekend,
+                    hero: hero2
+                )
+                story2.backendId = "story-2"
+                story2.createdAt = Date().addingTimeInterval(-3600)
+
+                let story3 = Story(
+                    title: "The Birthday Surprise",
+                    content: "It was Luna's special day, and the whole magical kingdom was preparing...",
+                    event: .birthday,
+                    hero: hero1
+                )
+                story3.backendId = "story-3"
+                story3.createdAt = Date().addingTimeInterval(-7200)
+                story3.playCount = 2
+
+                stories = [story1, story2, story3]
+
+                // Add illustrations to first story
+                let illustration1 = StoryIllustration(
+                    timestamp: 0,
+                    imagePrompt: "Luna floating in a starry dream world",
+                    displayOrder: 0,
+                    textSegment: "Luna discovered she could enter dreams"
+                )
+                illustration1.imagePath = "https://via.placeholder.com/300"
+                illustration1.isGenerated = true
+                story1.illustrations = [illustration1]
+            }
+        }
+    }
+
+    return PreviewWrapper()
+        .modelContainer(for: Hero.self, inMemory: true)
+}
+
+// Preview version of ImprovedContentView with injected data
+struct ImprovedContentView_Preview: View {
+    @State var heroes: [Hero]
+    @State var stories: [Story]
+    @State private var isLoading = false
+    @State private var loadError: Error?
+
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var showingHeroCreation = false
+    @State private var showingStoryGeneration = false
+    @State private var showingSettings = false
+    @State private var selectedStory: Story?
+    @State private var selectedHeroForStory: Hero?
+    @State private var animateHero = false
+    @State private var sparkleAnimation = false
+    @State private var cloudOffset: CGFloat = -100
+    @State private var starRotation: Double = 0
+    @State private var isRefreshing = false
+    @State private var errorMessage: String?
+    @State private var showingError = false
+    @State private var showingFullJourney = false
+    @State private var showingCustomEventManagement = false
+
+    private var shouldShowFloatingElements: Bool { true }
+    private var totalStoriesRead: Int { stories.reduce(0) { $0 + $1.playCount } }
+    private var currentStreak: Int { 3 }
+
+    private var recentStories: [Story] {
+        Array(stories.sorted(by: { $0.createdAt > $1.createdAt }).prefix(6))
+    }
+
+    private var favoriteStories: [Story] {
+        stories.filter { $0.isFavorite }
+    }
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                MagicalBackgroundView()
+
+                ZStack {
+                    VStack(spacing: 0) {
+                        ScrollView {
+                            VStack(spacing: 0) {
+                                HeroSectionView(
+                                    heroes: heroes,
+                                    animateHero: $animateHero,
+                                    sparkleAnimation: $sparkleAnimation,
+                                    showingHeroCreation: $showingHeroCreation,
+                                    selectedHeroForStory: $selectedHeroForStory,
+                                    showingStoryGeneration: $showingStoryGeneration
+                                )
+                                .padding(.top, 20)
+
+                                // Recent Stories
+                                VStack {
+                                    // Debug info
+                                    HStack {
+                                        Text("Stories: \(stories.count)")
+                                            .font(.caption)
+                                            .foregroundColor(.red)
+                                        Divider()
+                                            .frame(height: 15)
+                                        Text("Recent: \(recentStories.count)")
+                                            .font(.caption)
+                                            .foregroundColor(.red)
+                                    }
+                                    .padding(5)
+                                    .background(Color.yellow.opacity(0.2))
+                                    .cornerRadius(5)
+
+                                    if !recentStories.isEmpty {
+                                        VStack(alignment: .leading, spacing: 12) {
+                                            HStack {
+                                                Text("Recent Adventures")
+                                                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                                                    .foregroundColor(MagicalColors.primary)
+                                                Spacer()
+                                            }
+
+                                            LazyVStack(spacing: 12) {
+                                                ForEach(recentStories) { story in
+                                                    ImprovedStoryCard(
+                                                        story: story,
+                                                        onTap: { selectedStory = story }
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        .padding(.top, 25)
+                                    } else {
+                                        Text("No recent stories available")
+                                            .font(.subheadline)
+                                            .foregroundColor(.secondary)
+                                            .padding()
+                                    }
+                                }
+
+                                if heroes.isEmpty {
+                                    EmptyStateView(showingHeroCreation: $showingHeroCreation)
+                                        .padding(.top, 40)
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 100)
+                        }
+
+                        if shouldShowFloatingElements {
+                            FloatingElementsView(
+                                cloudOffset: $cloudOffset,
+                                starRotation: $starRotation
+                            )
+                            .allowsHitTesting(false)
+                        }
+                    }
+
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            FloatingCreateStoryButton(
+                                hasHeroes: !heroes.isEmpty,
+                                showingStoryGeneration: $showingStoryGeneration,
+                                showingHeroCreation: $showingHeroCreation
+                            )
+                            .padding(.trailing, 20)
+                            .padding(.bottom, 30)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("InfiniteStories")
+            .navigationBarTitleDisplayMode(.large)
+        }
+    }
 }

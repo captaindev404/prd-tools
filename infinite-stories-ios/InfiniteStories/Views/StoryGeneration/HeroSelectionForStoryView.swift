@@ -11,52 +11,33 @@ import SwiftData
 struct HeroSelectionForStoryView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
-    @Query(sort: \Hero.createdAt, order: .reverse) private var heroes: [Hero]
-    @Query private var stories: [Story]
-    
+
+    // API-only state management
+    @State private var heroes: [Hero] = []
+    @State private var isLoading = false
+    @State private var loadError: Error?
+
+    // Repository
+    private let heroRepository = HeroRepository()
+
     @Binding var selectedHero: Hero?
     @Binding var showingStoryGeneration: Bool
-    
+
     @State private var showingActualStoryGeneration = false
     
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Header
-                    VStack(spacing: 10) {
-                        Image(systemName: "person.2.circle")
-                            .font(.system(size: 50))
-                            .foregroundColor(.purple)
-                        
-                        Text("Choose Your Hero")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                        
-                        Text("Select which hero will star in this story")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .padding(.top)
-                    
-                    // Heroes Grid
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 15) {
-                        ForEach(heroes) { hero in
-                            HeroSelectionCard(
-                                hero: hero,
-                                storyCount: storiesCount(for: hero),
-                                isSelected: selectedHero == hero,
-                                onSelect: {
-                                    selectedHero = hero
-                                    showingActualStoryGeneration = true
-                                }
-                            )
-                        }
-                    }
-                    .padding(.horizontal)
+            Group {
+                if isLoading {
+                    ProgressView("Loading heroes...")
+                        .scaleEffect(1.2)
+                } else if let error = loadError {
+                    ErrorView(error: error, retryAction: {
+                        Task { await loadHeroes() }
+                    })
+                } else {
+                    heroSelectionContent
                 }
-                .padding(.vertical)
             }
             .navigationTitle("Select Hero")
             .navigationBarTitleDisplayMode(.inline)
@@ -75,11 +56,70 @@ struct HeroSelectionForStoryView: View {
                         }
                 }
             }
+            .task {
+                await loadHeroes()
+            }
         }
     }
-    
-    private func storiesCount(for hero: Hero) -> Int {
-        stories.filter { $0.hero == hero }.count
+
+    private var heroSelectionContent: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                // Header
+                VStack(spacing: 10) {
+                    Image(systemName: "person.2.circle")
+                        .font(.system(size: 50))
+                        .foregroundColor(.purple)
+
+                    Text("Choose Your Hero")
+                        .font(.title2)
+                        .fontWeight(.bold)
+
+                    Text("Select which hero will star in this story")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.top)
+
+                // Heroes Grid
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 15) {
+                    ForEach(heroes, id: \.id) { hero in
+                        HeroSelectionCard(
+                            hero: hero,
+                            storyCount: 0, // TODO: Fetch from API
+                            isSelected: selectedHero?.id == hero.id,
+                            onSelect: {
+                                selectedHero = hero
+                                showingActualStoryGeneration = true
+                            }
+                        )
+                    }
+                }
+                .padding(.horizontal)
+            }
+            .padding(.vertical)
+        }
+    }
+
+    private func loadHeroes() async {
+        guard NetworkMonitor.shared.isConnected else {
+            loadError = APIError.networkUnavailable
+            return
+        }
+
+        isLoading = true
+        loadError = nil
+
+        do {
+            heroes = try await heroRepository.fetchHeroes()
+            Logger.ui.success("Loaded \(heroes.count) heroes for selection")
+        } catch {
+            loadError = error
+            Logger.ui.error("Failed to load heroes: \(error.localizedDescription)")
+        }
+
+        isLoading = false
     }
 }
 

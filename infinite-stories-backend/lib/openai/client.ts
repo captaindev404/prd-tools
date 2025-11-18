@@ -9,7 +9,7 @@ export const openai = new OpenAI({
   organization: process.env.OPENAI_ORG_ID,
 });
 
-// Voice options for audio generation
+// Voice options for audio generation (updated for gpt-4o-mini-tts)
 export const VOICE_OPTIONS = [
   'alloy',
   'echo',
@@ -17,10 +17,14 @@ export const VOICE_OPTIONS = [
   'onyx',
   'nova',
   'shimmer',
+  'ash',
+  'ballad',
+  'coral',
+  'sage',
 ] as const;
 
 export type VoiceOption = typeof VOICE_OPTIONS[number];
 
 // Supported languages
-export const SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de', 'it'] as const;
+export const SUPPORTED_LANGUAGES = ['English', 'Spanish', 'French', 'German', 'Italian'] as const;
 export type SupportedLanguage = typeof SUPPORTED_LANGUAGES[number];

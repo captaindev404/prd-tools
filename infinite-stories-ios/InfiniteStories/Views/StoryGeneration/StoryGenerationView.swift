@@ -225,7 +225,7 @@ struct StoryGenerationView: View {
             }
             .onAppear {
                 viewModel.setModelContext(modelContext)
-                viewModel.refreshAIService() // Refresh AI service to get latest API key
+                // Note: refreshAIService() removed - all AI operations now via backend API
             }
             .sheet(isPresented: $showIllustrationProgress) {
                 if let story = generatedStory {

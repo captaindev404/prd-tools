@@ -1,21 +1,30 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
-if (!process.env.R2_ACCOUNT_ID || !process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY || !process.env.R2_BUCKET_NAME) {
-  throw new Error('Missing required R2 environment variables');
+// Lazy initialization of R2 client
+let _r2Client: S3Client | null = null;
+
+function getR2Client(): S3Client {
+  if (!_r2Client) {
+    if (!process.env.R2_ACCOUNT_ID || !process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY || !process.env.R2_BUCKET_NAME) {
+      throw new Error('Missing required R2 environment variables');
+    }
+
+    _r2Client = new S3Client({
+      region: 'auto',
+      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+      },
+    });
+  }
+
+  return _r2Client;
 }
 
-// Initialize R2 client (S3-compatible)
-export const r2Client = new S3Client({
-  region: 'auto',
-  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-  },
-});
-
-export const R2_BUCKET = process.env.R2_BUCKET_NAME;
+export const r2Client = getR2Client;
+export const R2_BUCKET = process.env.R2_BUCKET_NAME || '';
 export const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || `https://${R2_BUCKET}.r2.dev`;
 
 /**
@@ -28,8 +37,9 @@ export async function uploadToR2(params: {
   metadata?: Record<string, string>;
 }): Promise<string> {
   const { key, body, contentType, metadata } = params;
+  const client = r2Client();
 
-  await r2Client.send(
+  await client.send(
     new PutObjectCommand({
       Bucket: R2_BUCKET,
       Key: key,
@@ -51,6 +61,7 @@ export async function getUploadUrl(params: {
   expiresIn?: number;
 }): Promise<string> {
   const { key, contentType, expiresIn = 3600 } = params;
+  const client = r2Client();
 
   const command = new PutObjectCommand({
     Bucket: R2_BUCKET,
@@ -58,7 +69,7 @@ export async function getUploadUrl(params: {
     ContentType: contentType,
   });
 
-  return getSignedUrl(r2Client, command, { expiresIn });
+  return getSignedUrl(client, command, { expiresIn });
 }
 
 /**
@@ -69,20 +80,22 @@ export async function getDownloadUrl(params: {
   expiresIn?: number;
 }): Promise<string> {
   const { key, expiresIn = 3600 } = params;
+  const client = r2Client();
 
   const command = new GetObjectCommand({
     Bucket: R2_BUCKET,
     Key: key,
   });
 
-  return getSignedUrl(r2Client, command, { expiresIn });
+  return getSignedUrl(client, command, { expiresIn });
 }
 
 /**
  * Delete a file from R2
  */
 export async function deleteFromR2(key: string): Promise<void> {
-  await r2Client.send(
+  const client = r2Client();
+  await client.send(
     new DeleteObjectCommand({
       Bucket: R2_BUCKET,
       Key: key,
@@ -95,7 +108,8 @@ export async function deleteFromR2(key: string): Promise<void> {
  */
 export async function fileExists(key: string): Promise<boolean> {
   try {
-    await r2Client.send(
+    const client = r2Client();
+    await client.send(
       new HeadObjectCommand({
         Bucket: R2_BUCKET,
         Key: key,

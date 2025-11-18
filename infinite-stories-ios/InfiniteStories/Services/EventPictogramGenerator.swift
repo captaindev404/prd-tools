@@ -16,14 +16,18 @@ class EventPictogramGenerator: ObservableObject {
     @Published var currentOperation: String = ""
     @Published var generationProgress: Double = 0.0
 
-    private let aiService = OpenAIService()
-
     /// Generate a pictogram for a custom event using backend API
     func generatePictogram(
         for event: CustomStoryEvent,
         style: PictogramStyle,
         regenerate: Bool = false
     ) async throws -> URL {
+        // Check network connectivity
+        guard NetworkMonitor.shared.isConnected else {
+            throw NSError(domain: "EventPictogramGenerator", code: -1,
+                        userInfo: [NSLocalizedDescriptionKey: "No internet connection"])
+        }
+
         isGenerating = true
         generationError = nil
         currentOperation = "Generating pictogram..."
@@ -35,8 +39,8 @@ class EventPictogramGenerator: ObservableObject {
         generationProgress = 0.6
         currentOperation = "Calling backend API..."
 
-        // Use dedicated pictogram endpoint
-        let imageData = try await aiService.generatePictogram(prompt: prompt)
+        // Call backend pictogram generation endpoint
+        let imageData = try await generatePictogramViaBackend(prompt: prompt)
 
         generationProgress = 0.9
         currentOperation = "Processing image..."
@@ -57,6 +61,50 @@ class EventPictogramGenerator: ObservableObject {
         generationProgress = 1.0
 
         return fileURL
+    }
+
+    private func generatePictogramViaBackend(prompt: String) async throws -> Data {
+        let backendURL = "\(AppConfiguration.backendBaseURL)/api/images/generate-pictogram"
+
+        guard let url = URL(string: backendURL) else {
+            throw NSError(domain: "EventPictogramGenerator", code: -2,
+                        userInfo: [NSLocalizedDescriptionKey: "Invalid backend URL"])
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Add auth header if available
+        if let token = AuthStateManager.shared.sessionToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let requestBody: [String: Any] = ["prompt": prompt]
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NSError(domain: "EventPictogramGenerator", code: -3,
+                        userInfo: [NSLocalizedDescriptionKey: "Invalid response from server"])
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            let errorMessage = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw NSError(domain: "EventPictogramGenerator", code: httpResponse.statusCode,
+                        userInfo: [NSLocalizedDescriptionKey: "Backend error (\(httpResponse.statusCode)): \(errorMessage)"])
+        }
+
+        // Parse response to get base64 image data
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let base64String = json["imageData"] as? String,
+              let imageData = Data(base64Encoded: base64String) else {
+            throw NSError(domain: "EventPictogramGenerator", code: -4,
+                        userInfo: [NSLocalizedDescriptionKey: "Failed to parse image data from response"])
+        }
+
+        return imageData
     }
 
     private func saveImageToDisk(image: UIImage, event: CustomStoryEvent) throws -> URL {

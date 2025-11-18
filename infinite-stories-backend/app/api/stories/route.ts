@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma/client';
-import { getOrCreateUser } from '@/lib/auth/clerk';
+import { requireAuth } from '@/lib/auth/session';
 import {
   successResponse,
   errorResponse,
@@ -19,7 +19,21 @@ export async function POST(req: NextRequest) {
   const startTime = Date.now();
 
   try {
-    const user = await getOrCreateUser();
+    // Check authentication
+    const authUser = await requireAuth();
+    if (!authUser) {
+      return errorResponse('Unauthorized', 'Authentication required', 401);
+    }
+
+    // Get full user from database
+    const user = await prisma.user.findUnique({
+      where: { id: authUser.id },
+    });
+
+    if (!user) {
+      return errorResponse('NotFound', 'User not found', 404);
+    }
+
     const body = await req.json();
 
     // Validate required fields
@@ -138,21 +152,18 @@ export async function POST(req: NextRequest) {
     });
 
     return successResponse(
-      {
-        story: createdStory,
-        scenes: scenes.length,
-      },
+      createdStory,
       'Story generated successfully',
       201
     );
   } catch (error) {
     // Record failed API usage
     const duration = Date.now() - startTime;
-    const user = await getOrCreateUser().catch(() => null);
+    const authUser = await requireAuth().catch(() => null);
 
-    if (user) {
+    if (authUser) {
       await recordApiUsage({
-        userId: user.id,
+        userId: authUser.id,
         operation: 'story_generation',
         model: 'gpt-4o',
         requestDuration: duration,
@@ -171,7 +182,20 @@ export async function POST(req: NextRequest) {
  */
 export async function GET(req: NextRequest) {
   try {
-    const user = await getOrCreateUser();
+    // Check authentication
+    const authUser = await requireAuth();
+    if (!authUser) {
+      return errorResponse('Unauthorized', 'Authentication required', 401);
+    }
+
+    // Get full user from database
+    const user = await prisma.user.findUnique({
+      where: { id: authUser.id },
+    });
+
+    if (!user) {
+      return errorResponse('NotFound', 'User not found', 404);
+    }
 
     // Parse query parameters
     const { searchParams } = new URL(req.url);
@@ -179,6 +203,7 @@ export async function GET(req: NextRequest) {
     const includeIllustrations = searchParams.get('includeIllustrations') === 'true';
     const language = searchParams.get('language');
     const isFavorite = searchParams.get('isFavorite') === 'true';
+    const updatedAfter = searchParams.get('updatedAfter'); // ISO8601 timestamp for incremental sync
     const limit = parseInt(searchParams.get('limit') || '20');
     const offset = parseInt(searchParams.get('offset') || '0');
 
@@ -197,6 +222,18 @@ export async function GET(req: NextRequest) {
 
     if (isFavorite) {
       where.isFavorite = true;
+    }
+
+    // Add incremental sync filter if provided
+    if (updatedAfter) {
+      try {
+        const updatedAfterDate = new Date(updatedAfter);
+        where.updatedAt = {
+          gt: updatedAfterDate,
+        };
+      } catch (error) {
+        return errorResponse('Invalid updatedAfter parameter: must be ISO8601 timestamp', 400);
+      }
     }
 
     // Get stories with filtering and pagination

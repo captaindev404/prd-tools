@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma/client';
-import { getOrCreateUser } from '@/lib/auth/clerk';
+import { getOrCreateUser } from '@/lib/auth/session';
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api-response';
 import { deleteFromR2 } from '@/lib/storage/r2-client';
 
@@ -10,11 +10,11 @@ import { deleteFromR2 } from '@/lib/storage/r2-client';
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { storyId: string } }
+  { params }: { params: Promise<{ storyId: string }> }
 ) {
   try {
     const user = await getOrCreateUser();
-    const { storyId } = params;
+    const { storyId } = await params;
 
     // Check if we should include illustrations
     const { searchParams } = new URL(req.url);
@@ -66,11 +66,11 @@ export async function GET(
  */
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { storyId: string } }
+  { params }: { params: Promise<{ storyId: string }> }
 ) {
   try {
     const user = await getOrCreateUser();
-    const { storyId } = params;
+    const { storyId } = await params;
     const body = await req.json();
 
     // Get the story first to verify ownership
@@ -126,11 +126,11 @@ export async function PATCH(
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { storyId: string } }
+  { params }: { params: Promise<{ storyId: string }> }
 ) {
   try {
     const user = await getOrCreateUser();
-    const { storyId } = params;
+    const { storyId } = await params;
 
     // Get the story first to verify ownership and get file URLs
     const existingStory = await prisma.story.findUnique({

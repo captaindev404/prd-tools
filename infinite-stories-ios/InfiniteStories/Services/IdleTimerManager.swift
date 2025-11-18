@@ -7,7 +7,6 @@ final class IdleTimerManager {
     
     private var requestCount = 0
     private let queue = DispatchQueue(label: "com.infinitestories.idletimer", attributes: .concurrent)
-    private let logger = Logger(subsystem: "com.infinitestories", category: "IdleTimerManager")
     
     private init() {}
     
@@ -16,12 +15,12 @@ final class IdleTimerManager {
             guard let self = self else { return }
             
             self.requestCount += 1
-            self.logger.info("Disabling idle timer for context: \(context). Request count: \(self.requestCount)")
+            print("INFO: Disabling idle timer for context: \(context). Request count: \(self.requestCount)")
             
             if self.requestCount == 1 {
                 DispatchQueue.main.async {
                     UIApplication.shared.isIdleTimerDisabled = true
-                    self.logger.info("Idle timer disabled")
+                    print("INFO: Idle timer disabled")
                 }
             }
         }
@@ -32,12 +31,12 @@ final class IdleTimerManager {
             guard let self = self else { return }
             
             self.requestCount = max(0, self.requestCount - 1)
-            self.logger.info("Enabling idle timer for context: \(context). Request count: \(self.requestCount)")
+            print("INFO: Enabling idle timer for context: \(context). Request count: \(self.requestCount)")
             
             if self.requestCount == 0 {
                 DispatchQueue.main.async {
                     UIApplication.shared.isIdleTimerDisabled = false
-                    self.logger.info("Idle timer enabled")
+                    print("INFO: Idle timer enabled")
                 }
             }
         }
@@ -48,11 +47,11 @@ final class IdleTimerManager {
             guard let self = self else { return }
             
             self.requestCount = 0
-            self.logger.info("Resetting idle timer manager")
+            print("INFO: Resetting idle timer manager")
             
             DispatchQueue.main.async {
                 UIApplication.shared.isIdleTimerDisabled = false
-                self.logger.info("Idle timer reset to enabled state")
+                print("INFO: Idle timer reset to enabled state")
             }
         }
     }

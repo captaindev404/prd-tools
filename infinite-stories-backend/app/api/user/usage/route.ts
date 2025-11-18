@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma/client';
-import { getOrCreateUser } from '@/lib/auth/clerk';
+import { requireAuth } from '@/lib/auth/session';
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api-response';
 import { getRateLimitStatus } from '@/lib/rate-limit/db-rate-limiter';
 
@@ -10,7 +10,11 @@ import { getRateLimitStatus } from '@/lib/rate-limit/db-rate-limiter';
  */
 export async function GET(req: NextRequest) {
   try {
-    const user = await getOrCreateUser();
+    // Check authentication
+    const authUser = await requireAuth();
+    if (!authUser) {
+      return errorResponse('Unauthorized', 'Authentication required', 401);
+    }
 
     // Parse query parameters
     const { searchParams } = new URL(req.url);
@@ -24,7 +28,7 @@ export async function GET(req: NextRequest) {
     // Get API usage records
     const usageRecords = await prisma.apiUsage.findMany({
       where: {
-        userId: user.id,
+        userId: authUser.id,
         createdAt: {
           gte: startDate,
           lte: endDate,
@@ -84,11 +88,11 @@ export async function GET(req: NextRequest) {
     const totalTokens = usageRecords.reduce((sum, r) => sum + (r.tokensUsed || 0), 0);
 
     // Get rate limit status
-    const rateLimits = await getRateLimitStatus(user.id);
+    const rateLimits = await getRateLimitStatus(authUser.id);
 
     // Get user stats
     const userStats = await prisma.user.findUnique({
-      where: { id: user.id },
+      where: { id: authUser.id },
       select: {
         totalStoriesGenerated: true,
         totalAudioGenerated: true,

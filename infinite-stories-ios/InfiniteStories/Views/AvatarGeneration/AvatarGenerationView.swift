@@ -17,10 +17,12 @@ struct AvatarGenerationView: View {
     @State private var generatedImage: UIImage?
     @State private var generationError: String?
     @State private var showingSuggestions = false
-    @State private var aiService: OpenAIService?
     @StateObject private var appSettings = AppSettings()
     @State private var avatarSaved = false
     @State private var generatedGenerationId: String? // Store generation ID for chaining
+
+    // Use repository instead of direct AI service
+    private let heroRepository: HeroRepositoryProtocol = HeroRepository()
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
@@ -57,7 +59,6 @@ struct AvatarGenerationView: View {
             }
         }
         .onAppear {
-            setupAIService()
             generateDefaultPrompt()
         }
     }
@@ -281,11 +282,6 @@ struct AvatarGenerationView: View {
         }
     }
 
-    private func setupAIService() {
-        // No API key needed - all calls go through backend
-        aiService = OpenAIService()
-    }
-
     private func generateDefaultPrompt() {
         customPrompt = AvatarPromptAssistant.generatePrompt(for: hero, style: selectedStyle)
     }
@@ -299,8 +295,9 @@ struct AvatarGenerationView: View {
     }
 
     private func generateAvatar() {
-        guard let service = aiService else {
-            generationError = "AI service not available."
+        // Check network first
+        guard NetworkMonitor.shared.isConnected else {
+            generationError = "No internet connection. Please connect and try again."
             return
         }
 
@@ -310,40 +307,53 @@ struct AvatarGenerationView: View {
 
         let finalPrompt = AvatarPromptAssistant.enhanceUserPrompt(customPrompt, for: hero)
 
-        let request = AvatarGenerationRequest(
-            hero: hero,
-            prompt: finalPrompt,
-            size: "1024x1024",
-            quality: "standard",
-            previousGenerationId: nil // No previous generation for initial avatar
-        )
-
         Task {
             do {
-                let response = try await service.generateAvatar(request: request)
+                // Use HeroRepository to generate avatar via backend API
+                guard let heroId = hero.backendId else {
+                    throw APIError.unknown(NSError(
+                        domain: "AvatarGeneration",
+                        code: -1,
+                        userInfo: [NSLocalizedDescriptionKey: "Hero must be saved before generating avatar"]
+                    ))
+                }
+
+                let avatarUrl = try await heroRepository.generateAvatar(
+                    heroId: heroId,
+                    prompt: finalPrompt
+                )
+
+                // Download the avatar image from URL
+                let (data, _) = try await URLSession.shared.data(from: URL(string: avatarUrl)!)
 
                 await MainActor.run {
-                    generatedImage = UIImage(data: response.imageData)
+                    generatedImage = UIImage(data: data)
                     isGenerating = false
 
-                    // Store generation ID for future illustration chaining
-                    generatedGenerationId = response.generationId
-                    if let generationId = response.generationId {
-                        print("✅ Avatar generation ID received: \(generationId)")
-                        print("🔗 This ID will be used for illustration chaining")
-                    } else {
-                        print("⚠️ Warning: No generation ID received from GPT-Image-1 - illustration consistency may be reduced")
-                        print("🔍 Check GPT-Image-1 API response format for generation_id field")
-                    }
+                    print("✅ Avatar generated successfully: \(avatarUrl)")
+                    print("🔗 Avatar URL will be automatically associated with hero")
 
                     if generatedImage == nil {
-                        generationError = "Failed to create image from data"
+                        generationError = "Failed to load generated avatar image"
                     }
                 }
             } catch {
                 await MainActor.run {
                     isGenerating = false
-                    generationError = "Failed to generate avatar: \(error.localizedDescription)"
+                    if let apiError = error as? APIError {
+                        switch apiError {
+                        case .unauthorized:
+                            generationError = "Please sign in to generate avatars"
+                        case .networkUnavailable:
+                            generationError = "No internet connection"
+                        case .rateLimitExceeded:
+                            generationError = "Rate limit exceeded. Please try again later"
+                        default:
+                            generationError = "Failed to generate avatar: \(apiError.localizedDescription)"
+                        }
+                    } else {
+                        generationError = "Failed to generate avatar: \(error.localizedDescription)"
+                    }
                 }
             }
         }
@@ -405,7 +415,11 @@ struct AvatarGenerationView: View {
                         }
                     }
                 } else {
-                    throw AIServiceError.fileSystemError
+                    throw NSError(
+                        domain: "AvatarGeneration",
+                        code: -1,
+                        userInfo: [NSLocalizedDescriptionKey: "Failed to write avatar to file system"]
+                    )
                 }
             } catch {
                 await MainActor.run {

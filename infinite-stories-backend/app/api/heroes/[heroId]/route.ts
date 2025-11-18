@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma/client';
-import { getOrCreateUser } from '@/lib/auth/clerk';
+import { getOrCreateUser } from '@/lib/auth/session';
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api-response';
 
 /**
@@ -9,11 +9,11 @@ import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api-
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { heroId: string } }
+  { params }: { params: Promise<{ heroId: string }> }
 ) {
   try {
     const user = await getOrCreateUser();
-    const { heroId } = params;
+    const { heroId } = await params;
 
     // Check if we should include stories
     const { searchParams } = new URL(req.url);
@@ -54,11 +54,11 @@ export async function GET(
  */
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { heroId: string } }
+  { params }: { params: Promise<{ heroId: string }> }
 ) {
   try {
     const user = await getOrCreateUser();
-    const { heroId } = params;
+    const { heroId } = await params;
     const body = await req.json();
 
     // Get the hero first to verify ownership
@@ -107,11 +107,11 @@ export async function PATCH(
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { heroId: string } }
+  { params }: { params: Promise<{ heroId: string }> }
 ) {
   try {
     const user = await getOrCreateUser();
-    const { heroId } = params;
+    const { heroId } = await params;
 
     // Get the hero first to verify ownership
     const existingHero = await prisma.hero.findUnique({

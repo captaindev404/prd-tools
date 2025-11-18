@@ -16,13 +16,13 @@ export interface GeneratedAudio {
   format: 'mp3';
 }
 
-// Voice mapping for different languages and story types
+// Voice mapping for different languages and story types (includes new voices)
 const VOICE_RECOMMENDATIONS: Record<SupportedLanguage, VoiceOption[]> = {
-  en: ['nova', 'shimmer', 'alloy'],
-  es: ['nova', 'shimmer', 'alloy'],
-  fr: ['nova', 'shimmer', 'alloy'],
-  de: ['nova', 'shimmer', 'alloy'],
-  it: ['nova', 'shimmer', 'alloy'],
+  English: ['nova', 'shimmer', 'alloy', 'ash', 'ballad', 'coral', 'sage'],
+  Spanish: ['nova', 'shimmer', 'alloy', 'ash', 'ballad', 'coral', 'sage'],
+  French: ['nova', 'shimmer', 'alloy', 'ash', 'ballad', 'coral', 'sage'],
+  German: ['nova', 'shimmer', 'alloy', 'ash', 'ballad', 'coral', 'sage'],
+  Italian: ['nova', 'shimmer', 'alloy', 'ash', 'ballad', 'coral', 'sage'],
 };
 
 /**
@@ -37,13 +37,14 @@ export async function generateAudio(
   const selectedVoice = voice || VOICE_RECOMMENDATIONS[language][0];
 
   try {
-    // Generate audio using OpenAI TTS
+    // Generate audio using gpt-4o-mini-tts with enhanced voice control
     const response = await openai.audio.speech.create({
-      model: 'tts-1',
+      model: 'gpt-4o-mini-tts',
       voice: selectedVoice,
       input: text,
       response_format: 'mp3',
-      speed: 1.0,
+      speed: 0.9, // Slower pacing for bedtime stories
+      instructions: 'Speak in a warm, gentle, storytelling tone suitable for bedtime. Pace slowly and emphasize emotional moments. Use a soothing voice that helps children relax and feel comforted.',
     });
 
     // Get audio buffer
@@ -68,9 +69,9 @@ export async function generateAudio(
       },
     });
 
-    // Estimate duration (rough estimate: ~150 words per minute, ~5 chars per word)
+    // Estimate duration (slower pacing: ~130 words per minute due to speed 0.9, ~5 chars per word)
     const wordCount = text.length / 5;
-    const estimatedDuration = Math.ceil((wordCount / 150) * 60);
+    const estimatedDuration = Math.ceil((wordCount / 130) * 60);
 
     return {
       audioUrl,
@@ -86,23 +87,41 @@ export async function generateAudio(
 
 /**
  * Get recommended voice for a story based on hero traits and language
+ * Enhanced with new gpt-4o-mini-tts voices
  */
 export function getRecommendedVoice(
   language: SupportedLanguage,
   heroTraits: string[]
 ): VoiceOption {
-  // Simple logic - can be enhanced based on traits
   const recommendations = VOICE_RECOMMENDATIONS[language];
 
+  // More nuanced voice selection based on hero traits
   if (heroTraits.includes('energetic') || heroTraits.includes('adventurous')) {
-    return recommendations[1] || 'shimmer';
+    return 'shimmer'; // Bright, energetic voice
   }
 
-  if (heroTraits.includes('gentle') || heroTraits.includes('kind')) {
-    return recommendations[0] || 'nova';
+  if (heroTraits.includes('gentle') || heroTraits.includes('kind') || heroTraits.includes('caring')) {
+    return 'nova'; // Warm, gentle voice
   }
 
-  return recommendations[0] || 'alloy';
+  if (heroTraits.includes('brave') || heroTraits.includes('determined')) {
+    return 'ash'; // Confident, strong voice
+  }
+
+  if (heroTraits.includes('creative') || heroTraits.includes('imaginative')) {
+    return 'ballad'; // Expressive, artistic voice
+  }
+
+  if (heroTraits.includes('funny') || heroTraits.includes('playful')) {
+    return 'coral'; // Cheerful, playful voice
+  }
+
+  if (heroTraits.includes('wise') || heroTraits.includes('smart')) {
+    return 'sage'; // Thoughtful, calm voice
+  }
+
+  // Default to nova for bedtime stories
+  return 'nova';
 }
 
 /**

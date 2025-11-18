@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma/client';
-import { getOrCreateUser } from '@/lib/auth/clerk';
+import { getOrCreateUser } from '@/lib/auth/session';
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api-response';
 import { generateStoryIllustrations } from '@/lib/openai/illustration-generator';
 import { enforceRateLimit, recordApiUsage } from '@/lib/rate-limit/db-rate-limiter';
@@ -11,13 +11,13 @@ import { enforceRateLimit, recordApiUsage } from '@/lib/rate-limit/db-rate-limit
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: { storyId: string } }
+  { params }: { params: Promise<{ storyId: string }> }
 ) {
   const startTime = Date.now();
 
   try {
     const user = await getOrCreateUser();
-    const { storyId } = params;
+    const { storyId } = await params;
     const body = await req.json();
 
     // Get the story
@@ -97,7 +97,7 @@ export async function POST(
     );
   } catch (error) {
     // Update story with error status
-    const { storyId } = params;
+    const { storyId } = await params;
     await prisma.story.update({
       where: { id: storyId },
       data: {
@@ -130,11 +130,11 @@ export async function POST(
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { storyId: string } }
+  { params }: { params: Promise<{ storyId: string }> }
 ) {
   try {
     const user = await getOrCreateUser();
-    const { storyId } = params;
+    const { storyId } = await params;
 
     // Verify story ownership
     const story = await prisma.story.findUnique({

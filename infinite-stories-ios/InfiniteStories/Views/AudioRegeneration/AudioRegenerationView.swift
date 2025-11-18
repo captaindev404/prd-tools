@@ -252,7 +252,7 @@ struct AudioRegenerationView: View {
 
     private func startGeneration() {
         viewModel.setModelContext(modelContext)
-        viewModel.refreshAIService()
+        // Note: refreshAIService() removed - all AI operations now via backend API
 
         // Start animations
         withAnimation {

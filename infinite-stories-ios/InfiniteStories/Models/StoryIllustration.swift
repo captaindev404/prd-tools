@@ -73,6 +73,13 @@ final class StoryIllustration {
     /// Computed property to get the full URL for the image
     var imageURL: URL? {
         guard let imagePath = imagePath else { return nil }
+
+        // Check if imagePath is already a full URL (from backend API)
+        if imagePath.starts(with: "http://") || imagePath.starts(with: "https://") {
+            return URL(string: imagePath)
+        }
+
+        // Otherwise, it's a local file path
         return getDocumentsDirectory()
             .appendingPathComponent("StoryIllustrations")
             .appendingPathComponent(imagePath)
@@ -80,6 +87,14 @@ final class StoryIllustration {
 
     /// Check if the image exists on disk
     var imageExists: Bool {
+        guard let imagePath = imagePath else { return false }
+
+        // For remote URLs, assume they exist (will be handled by AsyncImage)
+        if imagePath.starts(with: "http://") || imagePath.starts(with: "https://") {
+            return true
+        }
+
+        // For local files, check if they exist
         guard let url = imageURL else { return false }
         return FileManager.default.fileExists(atPath: url.path)
     }

@@ -14,9 +14,12 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @StateObject private var settings = AppSettings()
     @EnvironmentObject private var themeSettings: ThemeSettings
-    
+    @EnvironmentObject private var authState: AuthStateManager
+
     @State private var showingEraseConfirmation = false
-    @State private var showingEraseComplete = false
+    @State private var showingAuthView = false
+    @State private var debugTestUserEmail = "test@example.com"
+    @State private var debugTestUserPassword = "password123"
     
     var body: some View {
         NavigationStack {
@@ -189,18 +192,77 @@ struct SettingsView: View {
                             .font(.caption)
                     }
 
+                #if DEBUG
+                Section {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Auth Status: \(authState.isAuthenticated ? "✓ Signed In" : "✗ Not Signed In")")
+                            .font(.caption)
+                            .foregroundColor(authState.isAuthenticated ? .green : .orange)
+
+                        if let userId = authState.userId {
+                            Text("User ID: \(userId)")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+
+                    Button(action: {
+                        // Debug sign-in would need to call backend API endpoint first
+                        // Then call authState.signIn(token:userId:) with the response
+                        print("Debug sign-in not implemented - use auth flow instead")
+                    }) {
+                        HStack {
+                            Image(systemName: "person.circle.fill")
+                            Text("Sign In as Test User")
+                        }
+                        .foregroundColor(.blue)
+                    }
+                    .disabled(authState.isAuthenticated)
+
+                    Button(action: {
+                        // Debug sign-up would need to call backend API endpoint first
+                        // Then call authState.signIn(token:userId:) with the response
+                        print("Debug sign-up not implemented - use auth flow instead")
+                    }) {
+                        HStack {
+                            Image(systemName: "person.badge.plus.fill")
+                            Text("Create Random Test User")
+                        }
+                        .foregroundColor(.purple)
+                    }
+
+                    if authState.isAuthenticated {
+                        Button(action: {
+                            authState.signOut()
+                        }) {
+                            HStack {
+                                Image(systemName: "rectangle.portrait.and.arrow.right")
+                                Text("Sign Out")
+                            }
+                            .foregroundColor(.orange)
+                        }
+                    }
+                } header: {
+                    Text("Debug Controls")
+                } footer: {
+                    Text("Debug-only controls for testing authentication. Test user: \(debugTestUserEmail)")
+                        .font(.caption)
+                }
+                #endif
+
                 Section {
                     Button(action: { showingEraseConfirmation = true }) {
                         HStack {
                             Image(systemName: "exclamationmark.triangle.fill")
-                            Text("Erase All Data")
+                            Text("Erase All Data & Sign Out")
                         }
                         .foregroundColor(.red)
                     }
                 } header: {
                     Text("Advanced")
                 } footer: {
-                    Text("Erasing all data will permanently delete all heroes and stories.")
+                    Text("Erasing all data will permanently delete all heroes, stories, files, and sign you out. You will be redirected to the sign-up screen.")
                         .font(.caption)
                 }
                 
@@ -236,57 +298,82 @@ struct SettingsView: View {
                 }
             }
             .confirmationDialog("Erase All Data?", isPresented: $showingEraseConfirmation, titleVisibility: .visible) {
-                Button("Erase Everything", role: .destructive) {
+                Button("Erase Everything & Sign Out", role: .destructive) {
                     eraseAllData()
                 }
                 Button("Cancel", role: .cancel) { }
             } message: {
-                Text("This will permanently delete all heroes, stories, and audio files. This action cannot be undone.")
-            }
-            .alert("Data Erased", isPresented: $showingEraseComplete) {
-                Button("OK") {
-                    dismiss()
-                }
-            } message: {
-                Text("All heroes, stories, and audio files have been permanently deleted.")
+                Text("This will permanently delete all heroes, stories, media files, clear your session, and redirect you to sign-up. This action cannot be undone.")
             }
         }
     }
 
     private func eraseAllData() {
         do {
-            // Delete all Hero objects
+            // 1. Delete all SwiftData models
             try modelContext.delete(model: Hero.self)
-            
-            // Delete all Story objects
             try modelContext.delete(model: Story.self)
-            
+            try modelContext.delete(model: StoryIllustration.self)
+            try modelContext.delete(model: CustomStoryEvent.self)
+
             // Save the deletion
             try modelContext.save()
-            
-            // Delete all audio files from Documents directory
+
+            // 2. Delete all file directories
             let fileManager = FileManager.default
             if let documentsPath = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first {
+                // Delete AudioStories directory
                 let audioPath = documentsPath.appendingPathComponent("AudioStories")
                 if fileManager.fileExists(atPath: audioPath.path) {
-                    try fileManager.removeItem(at: audioPath)
+                    try? fileManager.removeItem(at: audioPath)
                 }
-                
-                // Also check for any MP3 files in the root documents directory
+
+                // Delete Avatars directory
+                let avatarsPath = documentsPath.appendingPathComponent("Avatars")
+                if fileManager.fileExists(atPath: avatarsPath.path) {
+                    try? fileManager.removeItem(at: avatarsPath)
+                }
+
+                // Delete StoryIllustrations directory
+                let illustrationsPath = documentsPath.appendingPathComponent("StoryIllustrations")
+                if fileManager.fileExists(atPath: illustrationsPath.path) {
+                    try? fileManager.removeItem(at: illustrationsPath)
+                }
+
+                // Clean up any loose MP3 files in root documents
                 let contents = try fileManager.contentsOfDirectory(at: documentsPath, includingPropertiesForKeys: nil)
                 for file in contents {
                     if file.pathExtension == "mp3" {
-                        try fileManager.removeItem(at: file)
+                        try? fileManager.removeItem(at: file)
                     }
                 }
             }
 
-            // Reset theme to system default
+            // 3. Clear all Keychain data (auth tokens, session data)
+            let keychainHelper = KeychainHelper()
+            keychainHelper.clearAll()
+
+            // 4. Reset UserDefaults to default values
+            UserDefaults.standard.removeObject(forKey: "autoGenerateIllustrations")
+            UserDefaults.standard.removeObject(forKey: "allowIllustrationFailures")
+            UserDefaults.standard.removeObject(forKey: "showIllustrationErrors")
+            UserDefaults.standard.removeObject(forKey: "maxIllustrationRetries")
+            UserDefaults.standard.removeObject(forKey: "maxIllustrationsPerStory")
+
+            // 5. Reset theme to system default
             themeSettings.themePreferenceString = "system"
-            
-            // Show completion
-            showingEraseComplete = true
-            
+
+            // 6. Sign out user
+            authState.signOut()
+
+            // 7. Dismiss settings and show auth view
+            dismiss()
+
+            // Small delay to allow settings to dismiss before showing auth
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                showingAuthView = true
+            }
+
         } catch {
             print("Failed to erase all data: \(error)")
         }

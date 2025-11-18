@@ -7,8 +7,8 @@
   "regions": ["iad1"],
   "env": {
     "DATABASE_URL": "@database-url",
-    "CLERK_SECRET_KEY": "@clerk-secret-key",
-    "CLERK_WEBHOOK_SECRET": "@clerk-webhook-secret",
+    "BETTER_AUTH_SECRET": "@better-auth-secret",
+    "BETTER_AUTH_URL": "@better-auth-url",
     "OPENAI_API_KEY": "@openai-api-key",
     "R2_ACCOUNT_ID": "@r2-account-id",
     "R2_ACCESS_KEY_ID": "@r2-access-key-id",

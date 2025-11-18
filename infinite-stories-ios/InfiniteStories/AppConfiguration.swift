@@ -66,7 +66,7 @@ struct AppConfiguration {
     #if DEBUG
     static let backendBaseURL = "http://localhost:3000"
     #else
-    static let backendBaseURL = "https://your-production-backend-url.com"
+    static let backendBaseURL = "https://infinite-stories-backend.vercel.app"
     #endif
 
     // MARK: - Debug Settings

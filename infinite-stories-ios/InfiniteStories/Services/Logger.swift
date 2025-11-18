@@ -617,3 +617,40 @@ func logError(_ message: String, category: LogCategory? = nil, requestId: String
 func logSuccess(_ message: String, category: LogCategory? = nil, requestId: String? = nil) {
     AppLogger.shared.success(message, category: category, requestId: requestId)
 }
+
+// MARK: - Logger Convenience API
+
+enum Logger {
+    struct CategoryLogger {
+        let category: LogCategory
+
+        func debug(_ message: String) {
+            AppLogger.shared.debug(message, category: category)
+        }
+
+        func info(_ message: String) {
+            AppLogger.shared.info(message, category: category)
+        }
+
+        func warning(_ message: String) {
+            AppLogger.shared.warning(message, category: category)
+        }
+
+        func error(_ message: String) {
+            AppLogger.shared.error(message, category: category)
+        }
+
+        func success(_ message: String) {
+            AppLogger.shared.success(message, category: category)
+        }
+    }
+
+    static let story = CategoryLogger(category: .story)
+    static let audio = CategoryLogger(category: .audio)
+    static let avatar = CategoryLogger(category: .avatar)
+    static let illustration = CategoryLogger(category: .illustration)
+    static let api = CategoryLogger(category: .api)
+    static let cache = CategoryLogger(category: .cache)
+    static let ui = CategoryLogger(category: .ui)
+    static let network = CategoryLogger(category: .api) // Network logs to API category
+}

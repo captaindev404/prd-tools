@@ -19,25 +19,26 @@ export interface RateLimitResult {
 }
 
 // Rate limit configurations
+// TODO: move rate limits in config
 export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   story_generation: {
     operation: 'story_generation',
-    maxRequests: 5,
+    maxRequests: 1000,
     windowMs: 60 * 60 * 1000, // 1 hour
   },
   audio_generation: {
     operation: 'audio_generation',
-    maxRequests: 10,
+    maxRequests: 1000,
     windowMs: 60 * 60 * 1000, // 1 hour
   },
   avatar_generation: {
     operation: 'avatar_generation',
-    maxRequests: 3,
+    maxRequests: 1000,
     windowMs: 60 * 60 * 1000, // 1 hour
   },
   illustration_generation: {
     operation: 'illustration_generation',
-    maxRequests: 20,
+    maxRequests: 1000,
     windowMs: 60 * 60 * 1000, // 1 hour
   },
 };

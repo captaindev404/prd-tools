@@ -9,17 +9,15 @@ import Foundation
 import SwiftUI
 
 class CustomEventAIAssistant: ObservableObject {
-    private let aiService: AIServiceProtocol
     private let language: String
     private let appSettings = AppSettings()
-    
+
     @Published var isProcessing = false
     @Published var suggestions: [String] = []
     @Published var lastError: String?
-    
+
     init() {
-        // Initialize with the OpenAI service (no API key needed - uses backend)
-        self.aiService = OpenAIService()
+        // All AI operations now handled via backend API
         self.language = appSettings.preferredLanguage
     }
     
@@ -68,7 +66,7 @@ class CustomEventAIAssistant: ObservableObject {
                 throw CustomEventAIError.parsingError
             }
 
-            return title.trimmingCharacters(in: .whitespacesAndNewlines)
+            return title.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
         } catch {
             await MainActor.run {
                 lastError = "Failed to generate title: \(error.localizedDescription)"
@@ -129,7 +127,7 @@ class CustomEventAIAssistant: ObservableObject {
                 throw CustomEventAIError.parsingError
             }
 
-            return enhancedPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+            return enhancedPrompt.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
         } catch {
             await MainActor.run {
                 lastError = "Failed to enhance prompt: \(error.localizedDescription)"

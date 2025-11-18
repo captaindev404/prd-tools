@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma/client';
-import { getOrCreateUser } from '@/lib/auth/clerk';
+import { requireAuth } from '@/lib/auth/session';
 import {
   successResponse,
   errorResponse,
@@ -14,19 +14,48 @@ import {
  */
 export async function GET(req: NextRequest) {
   try {
-    const user = await getOrCreateUser();
+    // Check authentication
+    const authUser = await requireAuth();
+    if (!authUser) {
+      return errorResponse('Unauthorized', 'Authentication required', 401);
+    }
+
+    // Get full user from database
+    const user = await prisma.user.findUnique({
+      where: { id: authUser.id },
+    });
+
+    if (!user) {
+      return errorResponse('NotFound', 'User not found', 404);
+    }
 
     // Parse query parameters
     const { searchParams } = new URL(req.url);
     const includeStories = searchParams.get('includeStories') === 'true';
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
+    const updatedAfter = searchParams.get('updatedAfter'); // ISO8601 timestamp for incremental sync
 
-    // Get heroes with optional pagination
+    // Build where clause
+    const whereClause: any = {
+      userId: user.id,
+    };
+
+    // Add incremental sync filter if provided
+    if (updatedAfter) {
+      try {
+        const updatedAfterDate = new Date(updatedAfter);
+        whereClause.updatedAt = {
+          gt: updatedAfterDate,
+        };
+      } catch (error) {
+        return errorResponse('Invalid updatedAfter parameter: must be ISO8601 timestamp', 400);
+      }
+    }
+
+    // Get heroes with optional pagination and incremental sync
     const heroes = await prisma.hero.findMany({
-      where: {
-        userId: user.id,
-      },
+      where: whereClause,
       include: {
         visualProfile: true,
         stories: includeStories
@@ -46,11 +75,9 @@ export async function GET(req: NextRequest) {
       skip: offset,
     });
 
-    // Get total count for pagination
+    // Get total count for pagination (with same filters)
     const total = await prisma.hero.count({
-      where: {
-        userId: user.id,
-      },
+      where: whereClause,
     });
 
     return successResponse({
@@ -73,7 +100,21 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const user = await getOrCreateUser();
+    // Check authentication
+    const authUser = await requireAuth();
+    if (!authUser) {
+      return errorResponse('Unauthorized', 'Authentication required', 401);
+    }
+
+    // Get full user from database
+    const user = await prisma.user.findUnique({
+      where: { id: authUser.id },
+    });
+
+    if (!user) {
+      return errorResponse('NotFound', 'User not found', 404);
+    }
+
     const body = await req.json();
 
     // Validate required fields

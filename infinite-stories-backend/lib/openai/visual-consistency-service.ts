@@ -28,23 +28,14 @@ export async function extractVisualCharacteristics(
   heroAge: number
 ): Promise<VisualCharacteristics> {
   try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-2024-08-06',
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are an expert at extracting visual characteristics from image descriptions. Extract detailed visual features from the given avatar description for consistent character illustration.',
-        },
-        {
-          role: 'user',
-          content: `Extract visual characteristics from this avatar description for ${heroName} (age ${heroAge}):\n\n${avatarPrompt}\n\nProvide detailed visual features that can be used for consistent illustration across multiple scenes.`,
-        },
-      ],
-      temperature: 0.3,
-      response_format: {
-        type: 'json_schema',
-        json_schema: {
+    const response = await openai.responses.create({
+      model: 'gpt-5-mini',
+      instructions: 'You are an expert at extracting visual characteristics from image descriptions. Extract detailed visual features from the given avatar description for consistent character illustration.',  // ✅ System prompt
+      input: `Extract visual characteristics from this avatar description for ${heroName} (age ${heroAge}):\n\n${avatarPrompt}\n\nProvide detailed visual features that can be used for consistent illustration across multiple scenes.`,  // ✅ User input as string
+      temperature: 0.3,  // ✅ Restored
+      text: {
+        format: {
+          type: 'json_schema',
           name: 'visual_characteristics',
           strict: true,
           schema: {
@@ -79,12 +70,25 @@ export async function extractVisualCharacteristics(
       },
     });
 
-    const response = completion.choices[0]?.message?.content;
-    if (!response) {
-      throw new Error('No response from OpenAI');
+    // Check response status
+    if (response.status === 'failed') {
+      throw new Error(`OpenAI API error: ${response.error?.message || 'Unknown error'}`);
     }
 
-    const characteristics = JSON.parse(response) as VisualCharacteristics;
+    // Extract text content directly
+    const textContent = response.output_text;
+    if (!textContent) {
+      throw new Error('No text content in OpenAI response');
+    }
+
+    // Log token usage
+    console.log('Visual characteristics extraction token usage:', {
+      input: response.usage?.input_tokens || 0,
+      output: response.usage?.output_tokens || 0,
+      total: response.usage?.total_tokens || 0,
+    });
+
+    const characteristics = JSON.parse(textContent) as VisualCharacteristics;
     return characteristics;
   } catch (error) {
     console.error('Error extracting visual characteristics:', error);

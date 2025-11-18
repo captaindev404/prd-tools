@@ -15,7 +15,6 @@ enum AudioServiceError: Error {
     case fileCreationFailed
     case playbackFailed
     case audioGenerationFailed(String)
-    case noAIService
 }
 
 protocol AudioNavigationDelegate: AnyObject {
@@ -36,7 +35,6 @@ protocol AudioServiceProtocol {
     func pauseAudio()
     func resumeAudio()
     func seek(to time: TimeInterval)
-    func setAIService(_ service: AIServiceProtocol)
     func stopAudio()
     func setPlaybackSpeed(_ speed: Float)
     var isPlaying: Bool { get }
@@ -47,7 +45,6 @@ protocol AudioServiceProtocol {
 class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPlayerDelegate {
     private var audioPlayer: AVAudioPlayer?
     private var currentAudioURL: URL?
-    private var aiService: AIServiceProtocol?
     private var currentPlaybackSpeed: Float = 1.0
 
     @Published var isPlaying: Bool = false
@@ -84,10 +81,6 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPla
         // Clean up and ensure idle timer is re-enabled
         IdleTimerManager.shared.enableIdleTimer(for: "AudioService")
         NotificationCenter.default.removeObserver(self)
-    }
-    
-    func setAIService(_ service: AIServiceProtocol) {
-        self.aiService = service
     }
     
     private func setupAudioSession() {
@@ -347,37 +340,13 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPla
         nowPlayingInfo.nowPlayingInfo = info
     }
 
+    // Note: Audio generation is now handled by backend API via StoryRepository.generateAudio()
+    // This method is kept for backward compatibility but throws a deprecation error
+    @available(*, deprecated, message: "Use StoryRepository.generateAudio() instead - audio generation is now handled by backend API")
     func generateAudioFile(from text: String, fileName: String, voice: String = "nova", language: String = "English") async throws -> URL {
-        print("🎵 === Audio Generation Started ===")
-        print("🎵 Using voice: \(voice)")
-        print("🎵 Text length: \(text.count) characters")
-        
-        // Check if AI service is available
-        guard let aiService = aiService else {
-            print("🎵 ❌ No AI service configured")
-            throw AudioServiceError.noAIService
-        }
-        
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let audioFileName = "\(fileName).mp3"
-        let audioURL = documentsPath.appendingPathComponent(audioFileName)
-        
-        do {
-            print("🎵 Generating audio with OpenAI API...")
-            let audioData = try await aiService.generateSpeech(text: text, voice: voice, language: language)
-            
-            // Save the MP3 data to file
-            try audioData.write(to: audioURL)
-            print("🎵 ✅ Audio file saved: \(audioURL.path)")
-            print("🎵 File size: \(audioData.count) bytes")
-            return audioURL
-            
-        } catch {
-            print("🎵 ❌ Audio generation failed: \(error.localizedDescription)")
-            throw AudioServiceError.audioGenerationFailed(error.localizedDescription)
-        }
+        throw AudioServiceError.audioGenerationFailed("Audio generation is now handled by backend API via StoryRepository.generateAudio()")
     }
-    
+
     func playAudio(from url: URL, metadata: AudioMetadata? = nil) throws {
         stopAudio()
         

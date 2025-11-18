@@ -9,8 +9,9 @@ import Foundation
 import SwiftData
 
 @Model
-final class Story {
-    var id: UUID = UUID()
+final class Story: Identifiable {
+    var id: UUID = UUID() // Local ID for SwiftData (not persisted in API-only architecture)
+    var backendId: String? // Backend ID from API (cuid string)
     var title: String {
         didSet {
             // Only mark for regeneration if we already have an audio file
@@ -52,8 +53,9 @@ final class Story {
     @Relationship(deleteRule: .cascade) var illustrations: [StoryIllustration] = []
 
     // Initializer for built-in events
-    init(title: String, content: String, event: StoryEvent, hero: Hero) {
+    init(title: String, content: String, event: StoryEvent, hero: Hero, backendId: String? = nil) {
         self.id = UUID()
+        self.backendId = backendId
         self.title = title
         self.content = content
         self.builtInEvent = event
@@ -68,10 +70,11 @@ final class Story {
         self.audioNeedsRegeneration = false
         self.lastModified = Date()
     }
-    
+
     // Initializer for custom events
-    init(title: String, content: String, customEvent: CustomStoryEvent, hero: Hero) {
+    init(title: String, content: String, customEvent: CustomStoryEvent, hero: Hero, backendId: String? = nil) {
         self.id = UUID()
+        self.backendId = backendId
         self.title = title
         self.content = content
         self.builtInEvent = nil

@@ -9,11 +9,11 @@ import SwiftUI
 import SwiftData
 
 struct HeroCreationView: View {
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
 
     let heroToEdit: Hero?
+    var onSave: ((Hero) -> Void)?
 
     @State private var heroName: String = ""
     @State private var primaryTrait: CharacterTrait = .brave
@@ -276,42 +276,60 @@ struct HeroCreationView: View {
     }
 
     private func saveHero() {
-        let hero: Hero
+        Task {
+            await saveHeroAsync()
+        }
+    }
 
-        if let heroToEdit = heroToEdit {
-            // Update existing hero
-            heroToEdit.name = heroName.trimmingCharacters(in: .whitespacesAndNewlines)
-            heroToEdit.primaryTrait = primaryTrait
-            heroToEdit.secondaryTrait = secondaryTrait
-            heroToEdit.appearance = appearance.trimmingCharacters(in: .whitespacesAndNewlines)
-            heroToEdit.specialAbility = specialAbility.trimmingCharacters(in: .whitespacesAndNewlines)
-            hero = heroToEdit
-        } else {
-            // Create new hero
-            hero = Hero(
-                name: heroName.trimmingCharacters(in: .whitespacesAndNewlines),
-                primaryTrait: primaryTrait,
-                secondaryTrait: secondaryTrait,
-                appearance: appearance.trimmingCharacters(in: .whitespacesAndNewlines),
-                specialAbility: specialAbility.trimmingCharacters(in: .whitespacesAndNewlines)
-            )
-            modelContext.insert(hero)
+    private func saveHeroAsync() async {
+        let repository = HeroRepository()
+        let trimmedName = heroName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedAppearance = appearance.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedAbility = specialAbility.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard NetworkMonitor.shared.isConnected else {
+            // Show network error
+            print("No internet connection. Please connect and try again.")
+            return
         }
 
         do {
-            try modelContext.save()
-            print("Hero saved successfully: \(hero.name)")
+            if let heroToEdit = heroToEdit {
+                // Update existing hero via API
+                guard let backendId = heroToEdit.backendId else {
+                    throw APIError.unknown(NSError(domain: "HeroCreationView", code: -1,
+                        userInfo: [NSLocalizedDescriptionKey: "Hero has no backend ID"]))
+                }
 
-            // For new heroes, offer avatar generation
-            if heroToEdit == nil {
-                savedHero = hero
-                showAvatarPrompt = true
-            } else {
-                // For edited heroes, just dismiss
+                let updatedHero = try await repository.updateHero(
+                    id: backendId,
+                    name: trimmedName,
+                    traits: [primaryTrait, secondaryTrait],
+                    specialAbility: trimmedAbility.isEmpty ? nil : trimmedAbility
+                )
+                print("Hero updated successfully: \(updatedHero.name)")
+                onSave?(updatedHero)
                 dismiss()
+            } else {
+                // Create new hero via API
+                let newHero = try await repository.createHero(
+                    name: trimmedName,
+                    age: 7, // Default age
+                    traits: [primaryTrait, secondaryTrait],
+                    specialAbility: trimmedAbility.isEmpty ? nil : trimmedAbility,
+                    appearance: trimmedAppearance.isEmpty ? nil : trimmedAppearance
+                )
+                print("Hero created successfully: \(newHero.name)")
+
+                // For new heroes, offer avatar generation
+                savedHero = newHero
+                showAvatarPrompt = true
+
+                onSave?(newHero)
             }
         } catch {
-            print("Failed to save hero: \(error)")
+            print("Failed to save hero: \(error.localizedDescription)")
+            // TODO: Show error alert to user
         }
     }
 }

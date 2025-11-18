@@ -29,7 +29,8 @@ export interface GeneratedIllustration {
 }
 
 /**
- * Generate an illustration for a story scene using DALL-E 3 with multi-turn consistency
+ * Generate an illustration for a story scene using DALL-E 3
+ * Character consistency is achieved through detailed canonical prompts from HeroVisualProfile
  */
 export async function generateIllustration(
   params: IllustrationGenerationParams
@@ -62,26 +63,40 @@ export async function generateIllustration(
   }
 
   try {
-    // Generate illustration using DALL-E 3
-    // Note: Multi-turn consistency via previousGenerationId is a planned feature
-    // For now, we maintain consistency through detailed prompts
-    const response = await openai.images.generate({
-      model: 'dall-e-3',
-      prompt: filtered.filtered,
-      n: 1,
-      size,
-      quality: style === 'hd' ? 'hd' : 'standard',
-      response_format: 'url',
+    // Generate illustration using Response API with gpt-5-mini
+    const response = await openai.responses.create({
+      model: 'gpt-5-mini',
+      instructions: 'You are an expert at generating child-friendly story illustrations that maintain character consistency.',
+      input: filtered.filtered,
+      previous_response_id: previousGenerationId, // Multi-turn consistency
+      image: {
+        size,
+        quality: style === 'hd' ? 'hd' : 'standard',
+      },
     });
 
-    const imageData = response.data[0];
+    // Check response status
+    if (response.status === 'failed') {
+      throw new Error(`OpenAI API error: ${response.error?.message || 'Unknown error'}`);
+    }
 
-    if (!imageData?.url) {
-      throw new Error('No image URL returned from DALL-E');
+    // Extract image from response output
+    const imageUrl = response.output_image_url;
+    if (!imageUrl) {
+      throw new Error('No image URL in OpenAI response');
+    }
+
+    // Log token usage
+    if (response.usage) {
+      console.log('Illustration generation token usage:', {
+        input: response.usage.input_tokens || 0,
+        output: response.usage.output_tokens || 0,
+        total: response.usage.total_tokens || 0,
+      });
     }
 
     // Download the image from OpenAI's temporary URL
-    const imageResponse = await fetch(imageData.url);
+    const imageResponse = await fetch(imageUrl);
     const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
 
     // Generate unique file key
@@ -92,7 +107,7 @@ export async function generateIllustration(
     });
 
     // Upload to R2
-    const imageUrl = await uploadToR2({
+    const r2Url = await uploadToR2({
       key: fileKey,
       body: imageBuffer,
       contentType: 'image/png',
@@ -104,11 +119,11 @@ export async function generateIllustration(
     });
 
     return {
-      imageUrl,
+      imageUrl: r2Url,
       prompt: filtered.filtered,
-      revisedPrompt: imageData.revised_prompt,
-      // Store generation ID for future multi-turn consistency
-      generationId: previousGenerationId, // Would be extracted from response in future
+      revisedPrompt: undefined,
+      // Store generation ID for multi-turn consistency
+      generationId: response.id,
     };
   } catch (error) {
     console.error('Error generating illustration:', error);
