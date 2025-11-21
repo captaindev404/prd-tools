@@ -1,18 +1,32 @@
 # Multi-stage Dockerfile for Next.js production deployment with dokploy
-# Assumes .next and node_modules are pre-built locally
-# To build: npm run build && npm prune --production, then docker build
+# Build stage - use full Node image with build tools for native module support
 FROM node:22.21.1-bookworm AS builder
 
 WORKDIR /app
 
-# Install dependencies only
-COPY package*.json ./
-RUN npm ci
+# Install build dependencies for native modules (lightningcss, etc)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy pre-built Next.js output
-COPY .next ./.next
-COPY public ./public
-COPY prisma ./prisma
+# Install all dependencies with fresh binaries for Linux (not from macOS lock file)
+COPY package*.json ./
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Generate Prisma client (requires DATABASE_URL for schema parsing)
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost/dummy" npx prisma generate
+
+# Build Next.js application with required environment variables
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost/dummy" \
+    BETTER_AUTH_SECRET="dummy-secret-for-build" \
+    BETTER_AUTH_URL="http://localhost:3000" \
+    OPENAI_API_KEY="dummy-key" \
+    R2_BUCKET_NAME="dummy-bucket" \
+    npm run build
 
 # Prune dev dependencies
 RUN npm prune --production
