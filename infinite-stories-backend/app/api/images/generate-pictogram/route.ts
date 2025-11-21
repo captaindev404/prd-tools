@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { ImageGenerationRequest, ImageGenerationResponse } from '@/types/openai';
 import { requireAuth } from '@/lib/auth/session';
-import { errorResponse } from '@/lib/api/error-handler';
+import { errorResponse } from '@/lib/utils/api-response';
 
 export async function POST(request: NextRequest) {
   try {

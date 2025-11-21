@@ -57,42 +57,34 @@ export async function generateAvatar(
   }
 
   try {
-    // Generate avatar using Response API with gpt-5-mini
-    const response = await openai.responses.create({
-      model: 'gpt-5-mini',
-      instructions: 'You are an expert at generating child-friendly avatar images for bedtime story characters.',
-      input: filtered.filtered,
-      image: {
-        size,
-        quality: style === 'hd' ? 'hd' : 'standard',
-      },
+    // Generate avatar using DALL-E 3 images API
+    const response = await openai.images.generate({
+      model: 'dall-e-3',
+      prompt: filtered.filtered,
+      size: size,
+      quality: style === 'hd' ? 'hd' : 'standard',
+      n: 1,
+      response_format: 'url',
     });
 
-    // Check response status
-    if (response.status === 'failed') {
-      throw new Error(`OpenAI API error: ${response.error?.message || 'Unknown error'}`);
+    // Extract image from response
+    if (!response.data || response.data.length === 0) {
+      throw new Error('No images generated in OpenAI response');
     }
 
-    // Extract image from response output
-    const imageUrl = response.output_image_url;
-    if (!imageUrl) {
+    const image = response.data[0];
+    if (!image.url) {
       throw new Error('No image URL in OpenAI response');
     }
 
-    // Log token usage
-    if (response.usage) {
-      console.log('Avatar generation token usage:', {
-        input: response.usage.input_tokens || 0,
-        output: response.usage.output_tokens || 0,
-        total: response.usage.total_tokens || 0,
-      });
-    }
+    // Log usage info
+    console.log('Avatar generation completed');
 
     return {
-      imageUrl,
+      imageUrl: image.url,
       prompt: filtered.filtered,
-      revisedPrompt: undefined,
-      generationId: response.id,
+      revisedPrompt: image.revised_prompt,
+      generationId: image.url.split('/').pop(), // Use URL hash as generation ID
     };
   } catch (error) {
     console.error('Error generating avatar:', error);

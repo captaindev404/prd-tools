@@ -118,7 +118,7 @@ export async function generateStory(
  */
 export async function extractScenesFromStory(
     storyContent: string,
-    language: SupportedLanguage = 'en'
+    language: SupportedLanguage = 'English'
 ): Promise<StoryScene[]> {
     const systemPrompt = `You are a story analysis assistant. Analyze the provided story and break it down into 3-8 distinct visual scenes that would work well for illustrations. For each scene, provide:
 1. A detailed scene description suitable for image generation

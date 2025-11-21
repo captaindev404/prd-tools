@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
           const story = await tx.story.create({
             data: {
               heroId: storyData.heroId,
+              userId: session.user.id,
               title: storyData.title,
               content: storyData.content,
               eventType: storyData.eventType,
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
               language: storyData.language || 'en',
               isFavorite: storyData.isFavorite || false,
               audioUrl: storyData.audioUrl,
-              estimatedDuration: storyData.estimatedDuration || 0,
+              audioDuration: storyData.audioDuration,
             },
           });
 

@@ -56,6 +56,10 @@ export async function requireAuthOrThrow() {
 export async function getOrCreateUser() {
   const sessionUser = await requireAuth();
 
+  if (!sessionUser) {
+    throw new Error("Unauthorized: User not authenticated");
+  }
+
   // Get user from database
   const user = await prisma.user.findUnique({
     where: { id: sessionUser.id },
@@ -74,6 +78,10 @@ export async function getOrCreateUser() {
 export async function verifyResourceOwnership(resourceUserId: string) {
   const user = await requireAuth();
 
+  if (!user) {
+    throw new Error("Unauthorized: User not authenticated");
+  }
+
   if (user.id !== resourceUserId) {
     throw new Error("Forbidden: You do not have access to this resource");
   }
@@ -86,6 +94,11 @@ export async function verifyResourceOwnership(resourceUserId: string) {
  */
 export async function getUserId(): Promise<string> {
   const user = await requireAuth();
+
+  if (!user) {
+    throw new Error("Unauthorized: User not authenticated");
+  }
+
   return user.id;
 }
 

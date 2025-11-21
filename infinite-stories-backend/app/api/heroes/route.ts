@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
           gt: updatedAfterDate,
         };
       } catch (error) {
-        return errorResponse('Invalid updatedAfter parameter: must be ISO8601 timestamp', 400);
+        return errorResponse('ValidationError', 'Invalid updatedAfter parameter: must be ISO8601 timestamp', 400);
       }
     }
 

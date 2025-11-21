@@ -12,27 +12,27 @@ export const LANGUAGE_CONFIGS: Record<
     bedtimePhrase: string;
   }
 > = {
-  en: {
+  English: {
     name: 'English',
     systemPromptSuffix: 'Generate stories in English.',
     bedtimePhrase: 'Sweet dreams',
   },
-  es: {
+  Spanish: {
     name: 'Spanish',
     systemPromptSuffix: 'Generate stories in Spanish.',
     bedtimePhrase: 'Dulces sueños',
   },
-  fr: {
+  French: {
     name: 'French',
     systemPromptSuffix: 'Generate stories in French.',
     bedtimePhrase: 'Fais de beaux rêves',
   },
-  de: {
+  German: {
     name: 'German',
     systemPromptSuffix: 'Generate stories in German.',
     bedtimePhrase: 'Träum süß',
   },
-  it: {
+  Italian: {
     name: 'Italian',
     systemPromptSuffix: 'Generate stories in Italian.',
     bedtimePhrase: 'Sogni d\'oro',
