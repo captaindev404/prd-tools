@@ -10,7 +10,6 @@ yarn-error.log
 .pnp
 
 # Build outputs
-.next
 out
 dist
 build

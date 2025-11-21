@@ -1,30 +1,33 @@
 # Multi-stage Dockerfile for Next.js production deployment with dokploy
-# Build stage
-FROM node:22.21.1-alpine AS builder
+# Assumes .next and node_modules are pre-built locally
+# To build: npm run build && npm prune --production, then docker build
+FROM node:22.21.1-bookworm AS builder
 
 WORKDIR /app
 
-# Install dependencies
+# Install dependencies only
 COPY package*.json ./
 RUN npm ci
 
-# Copy source code
-COPY . .
+# Copy pre-built Next.js output
+COPY .next ./.next
+COPY public ./public
+COPY prisma ./prisma
 
-# Build Next.js application
-RUN npm run build
+# Prune dev dependencies
+RUN npm prune --production
 
 # Production stage
-FROM node:22.21.1-alpine
+FROM node:22.21.1-bookworm
 
 WORKDIR /app
 
 # Install dumb-init to handle signals properly
-RUN apk add --no-cache dumb-init
+RUN apt-get update && apt-get install -y --no-install-recommends dumb-init && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nextjs -u 1001
+RUN groupadd -g 1001 nodejs && \
+    useradd -m -u 1001 -g nodejs nextjs
 
 # Copy package files
 COPY package*.json ./

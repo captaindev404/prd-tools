@@ -54,10 +54,10 @@ export async function GET(
 
     // Calculate progress
     const total = illustrations.length;
-    const completed = illustrations.filter((i) => i.generationStatus === 'completed').length;
-    const processing = illustrations.filter((i) => i.generationStatus === 'processing').length;
-    const failed = illustrations.filter((i) => i.generationStatus === 'failed').length;
-    const pending = illustrations.filter((i) => i.generationStatus === 'pending').length;
+    const completed = illustrations.filter((i: any) => i.generationStatus === 'completed').length;
+    const processing = illustrations.filter((i: any) => i.generationStatus === 'processing').length;
+    const failed = illustrations.filter((i: any) => i.generationStatus === 'failed').length;
+    const pending = illustrations.filter((i: any) => i.generationStatus === 'pending').length;
 
     const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
 
@@ -69,7 +69,7 @@ export async function GET(
       processing,
       failed,
       pending,
-      illustrations: illustrations.map((i) => ({
+      illustrations: illustrations.map((i: any) => ({
         id: i.id,
         displayOrder: i.displayOrder,
         status: i.generationStatus,

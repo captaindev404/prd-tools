@@ -35,7 +35,7 @@ export async function getIllustrationTimeline(
     },
   });
 
-  return illustrations.map((ill) => ({
+  return illustrations.map((ill: any) => ({
     illustrationId: ill.id,
     imageUrl: ill.imageUrl,
     audioTimestamp: ill.audioTimestamp,

@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
       'R2_BUCKET_NAME',
     ];
 
-    const missingEnvVars = requiredEnvVars.filter((v) => !process.env[v]);
+    const missingEnvVars = requiredEnvVars.filter((v: string) => !process.env[v]);
 
     if (missingEnvVars.length > 0) {
       return errorResponse(

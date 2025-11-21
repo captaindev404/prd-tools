@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth/auth';
 import { headers } from 'next/headers';
 import { prisma } from '@/lib/prisma/client';
+import type { PrismaClient } from '@prisma/client';
 
 export async function POST(request: NextRequest) {
   try {
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
       total: stories.length,
     };
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       for (const storyData of stories) {
         try {
           // Verify hero exists and belongs to user

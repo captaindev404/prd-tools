@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth/auth';
 import { headers } from 'next/headers';
 import { prisma } from '@/lib/prisma/client';
+import type { PrismaClient } from '@prisma/client';
 
 /**
  * POST /api/batch/heroes
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Create heroes in transaction for data consistency
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       for (const heroData of heroes) {
         try {
           const hero = await tx.hero.create({

@@ -82,10 +82,10 @@ export async function GET(req: NextRequest) {
 
     // Calculate overall totals
     const totalRequests = usageRecords.length;
-    const successfulRequests = usageRecords.filter((r) => r.success).length;
-    const failedRequests = usageRecords.filter((r) => !r.success).length;
-    const totalCost = usageRecords.reduce((sum, r) => sum + (r.estimatedCost || 0), 0);
-    const totalTokens = usageRecords.reduce((sum, r) => sum + (r.tokensUsed || 0), 0);
+    const successfulRequests = usageRecords.filter((r: any) => r.success).length;
+    const failedRequests = usageRecords.filter((r: any) => !r.success).length;
+    const totalCost = usageRecords.reduce((sum: number, r: any) => sum + (r.estimatedCost || 0), 0);
+    const totalTokens = usageRecords.reduce((sum: number, r: any) => sum + (r.tokensUsed || 0), 0);
 
     // Get rate limit status
     const rateLimits = await getRateLimitStatus(authUser.id);
