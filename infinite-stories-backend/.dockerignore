@@ -1,0 +1,53 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+.pnp
+
+# Build outputs
+.next
+out
+dist
+build
+
+# Development
+.env
+.env.local
+.env.*.local
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Test coverage
+coverage
+.nyc_output
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+README.md
+CHANGELOG.md
+docs
+examples
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.travis.yml
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Development files
+prisma/migrations
