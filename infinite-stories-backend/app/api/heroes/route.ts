@@ -7,6 +7,7 @@ import {
   handleApiError,
   validateRequiredFields,
 } from '@/lib/utils/api-response';
+import { signHeroUrls, signStoryUrls } from '@/lib/storage/signed-url';
 
 /**
  * GET /api/heroes
@@ -80,8 +81,22 @@ export async function GET(req: NextRequest) {
       where: whereClause,
     });
 
+    // Sign all URLs for secure access
+    const signedHeroes = await Promise.all(
+      heroes.map(async (hero) => {
+        const signedHero = await signHeroUrls(hero);
+        // Sign story URLs if included
+        if (signedHero.stories && Array.isArray(signedHero.stories)) {
+          signedHero.stories = await Promise.all(
+            signedHero.stories.map((story: any) => signStoryUrls(story))
+          );
+        }
+        return signedHero;
+      })
+    );
+
     return successResponse({
-      heroes,
+      heroes: signedHeroes,
       pagination: {
         total,
         limit,
@@ -166,7 +181,10 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return successResponse(hero, 'Hero created successfully', 201);
+    // Sign avatar URL if present
+    const signedHero = await signHeroUrls(hero);
+
+    return successResponse(signedHero, 'Hero created successfully', 201);
   } catch (error) {
     return handleApiError(error);
   }

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma/client';
 import { getOrCreateUser } from '@/lib/auth/session';
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api-response';
 import { deleteFromR2 } from '@/lib/storage/r2-client';
+import { signStoryUrls, signHeroUrls } from '@/lib/storage/signed-url';
 
 /**
  * GET /api/stories/[storyId]
@@ -54,7 +55,15 @@ export async function GET(
       return errorResponse('Forbidden', 'You do not have access to this story', 403);
     }
 
-    return successResponse(story);
+    // Sign all file URLs for secure access
+    const signedStory = await signStoryUrls(story) as typeof story;
+
+    // Also sign hero avatar URL if present
+    if (signedStory.hero && 'avatarUrl' in signedStory.hero && signedStory.hero.avatarUrl) {
+      (signedStory as any).hero = await signHeroUrls(signedStory.hero as any);
+    }
+
+    return successResponse(signedStory);
   } catch (error) {
     return handleApiError(error);
   }
@@ -114,7 +123,13 @@ export async function PATCH(
       },
     });
 
-    return successResponse(updatedStory, 'Story updated successfully');
+    // Sign URLs for secure access
+    const signedStory = await signStoryUrls(updatedStory) as typeof updatedStory;
+    if (signedStory.hero && 'avatarUrl' in signedStory.hero && signedStory.hero.avatarUrl) {
+      (signedStory as any).hero = await signHeroUrls(signedStory.hero as any);
+    }
+
+    return successResponse(signedStory, 'Story updated successfully');
   } catch (error) {
     return handleApiError(error);
   }

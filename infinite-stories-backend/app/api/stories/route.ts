@@ -9,6 +9,7 @@ import {
 } from '@/lib/utils/api-response';
 import { generateStory, extractScenesFromStory } from '@/lib/openai/story-generator';
 import { enforceRateLimit, recordApiUsage } from '@/lib/rate-limit/db-rate-limiter';
+import { signStoryUrls, signHeroUrls } from '@/lib/storage/signed-url';
 import type { SupportedLanguage } from '@/lib/openai/client';
 
 /**
@@ -262,8 +263,20 @@ export async function GET(req: NextRequest) {
     // Get total count
     const total = await prisma.story.count({ where });
 
+    // Sign all URLs for secure access
+    const signedStories = await Promise.all(
+      stories.map(async (story) => {
+        const signedStory = await signStoryUrls(story) as typeof story;
+        // Sign hero avatar URL if present
+        if (signedStory.hero && 'avatarUrl' in signedStory.hero && signedStory.hero.avatarUrl) {
+          (signedStory as any).hero = await signHeroUrls(signedStory.hero as any);
+        }
+        return signedStory;
+      })
+    );
+
     return successResponse({
-      stories,
+      stories: signedStories,
       pagination: {
         total,
         limit,

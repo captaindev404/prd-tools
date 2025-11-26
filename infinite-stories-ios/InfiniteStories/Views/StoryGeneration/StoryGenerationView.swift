@@ -126,33 +126,79 @@ struct StoryGenerationView: View {
 
                 Spacer()
                 
-                // Generation status
-                if viewModel.isGeneratingStory || viewModel.isGeneratingIllustrations {
-                    VStack(spacing: 15) {
+                // Generation status with sequential progress
+                if viewModel.generationStage.isInProgress {
+                    VStack(spacing: 20) {
+                        // Spinning indicator
                         ProgressView()
                             .scaleEffect(1.2)
 
-                        Text(generationStatusText)
+                        // Stage indicator
+                        Text(viewModel.generationStage.displayText)
                             .font(.headline)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(.primary)
 
-                        if viewModel.isGeneratingIllustrations {
-                            Text(viewModel.illustrationGenerationStage)
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
+                        // Step progress indicator
+                        HStack(spacing: 8) {
+                            StepIndicator(
+                                step: 1,
+                                label: "Story",
+                                icon: "doc.text.fill",
+                                isActive: viewModel.generationStage == .generatingStory,
+                                isCompleted: stepCompleted(1)
+                            )
 
-                            if viewModel.illustrationGenerationProgress > 0 {
-                                ProgressView(value: viewModel.illustrationGenerationProgress)
-                                    .progressViewStyle(.linear)
-                                    .frame(width: 200)
+                            StepConnector(isCompleted: stepCompleted(1))
+
+                            StepIndicator(
+                                step: 2,
+                                label: "Audio",
+                                icon: "speaker.wave.2.fill",
+                                isActive: viewModel.generationStage == .generatingAudio,
+                                isCompleted: stepCompleted(2)
+                            )
+
+                            if viewModel.enableIllustrations && hero.hasAvatar {
+                                StepConnector(isCompleted: stepCompleted(2))
+
+                                StepIndicator(
+                                    step: 3,
+                                    label: "Images",
+                                    icon: "photo.fill",
+                                    isActive: viewModel.generationStage == .generatingIllustrations,
+                                    isCompleted: stepCompleted(3)
+                                )
                             }
-                        } else {
-                            Text("This may take a moment")
-                                .font(.subheadline)
+                        }
+                        .padding(.horizontal, 30)
+
+                        // Overall progress bar
+                        VStack(spacing: 6) {
+                            ProgressView(value: viewModel.overallProgress)
+                                .progressViewStyle(.linear)
+                                .frame(width: 220)
+                                .tint(.orange)
+
+                            Text("\(Int(viewModel.overallProgress * 100))% complete")
+                                .font(.caption)
                                 .foregroundColor(.secondary)
                         }
+
+                        // Substage text for illustrations
+                        if viewModel.isGeneratingIllustrations && !viewModel.illustrationGenerationStage.isEmpty {
+                            Text(viewModel.illustrationGenerationStage)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
+                        Text("Please wait while the magic happens...")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
                     .padding()
+                    .background(Color(.systemGray6).opacity(0.5))
+                    .cornerRadius(16)
+                    .padding(.horizontal)
                 } else {
                     // Generate button
                     VStack(spacing: 15) {
@@ -191,22 +237,119 @@ struct StoryGenerationView: View {
                     .padding(.horizontal)
                 }
 
-                // Error message
-                if let error = viewModel.generationError {
-                    VStack(spacing: 10) {
-                        Text("Oops! Something went wrong")
-                            .font(.headline)
-                            .foregroundColor(.red)
-                        
-                        Text(error)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                        
-                        Button("Try Again") {
-                            viewModel.clearError()
+                // Error message with step-specific retry
+                if viewModel.generationStage.isFailed,
+                   let failedStep = viewModel.generationStage.failedStep,
+                   let errorMessage = viewModel.generationStage.errorMessage {
+                    VStack(spacing: 15) {
+                        // Error header with step icon
+                        HStack(spacing: 10) {
+                            Image(systemName: failedStep.icon)
+                                .font(.title2)
+                                .foregroundColor(.red)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("\(failedStep.displayName) Failed")
+                                    .font(.headline)
+                                    .foregroundColor(.red)
+
+                                Text(errorMessage)
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(2)
+                            }
+
+                            Spacer()
                         }
-                        .buttonStyle(.bordered)
+
+                        // Progress summary - show what was completed
+                        if failedStep != .story {
+                            HStack(spacing: 8) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                                    .font(.caption)
+                                Text("Story created successfully")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                            }
+
+                            if failedStep == .illustrations {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.green)
+                                        .font(.caption)
+                                    Text("Audio generated successfully")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Spacer()
+                                }
+                            }
+                        }
+
+                        Divider()
+
+                        // Action buttons
+                        HStack(spacing: 12) {
+                            // Retry button
+                            Button(action: {
+                                Task {
+                                    await viewModel.continueFromFailedStep(hero: hero)
+
+                                    // Check for completion after retry
+                                    if viewModel.generationStage == .completed {
+                                        if let story = viewModel.currentStory {
+                                            generatedStory = story
+                                            try? await Task.sleep(nanoseconds: 500_000_000)
+                                            dismiss()
+                                        }
+                                    }
+                                }
+                            }) {
+                                Label(failedStep.retryButtonText, systemImage: "arrow.clockwise")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 10)
+                                    .background(Color.orange)
+                                    .cornerRadius(8)
+                            }
+
+                            // Skip button (only for audio/illustrations)
+                            if viewModel.canSkipFailedStep {
+                                Button(action: {
+                                    viewModel.skipFailedStep()
+
+                                    // If skipped to completed, dismiss
+                                    if viewModel.generationStage == .completed {
+                                        if let story = viewModel.currentStory {
+                                            generatedStory = story
+                                            dismiss()
+                                        }
+                                    }
+                                }) {
+                                    Label("Skip", systemImage: "forward.fill")
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 10)
+                                        .background(Color(.systemGray5))
+                                        .cornerRadius(8)
+                                }
+                            }
+
+                            // Cancel button
+                            Button(action: {
+                                viewModel.clearError()
+                                dismiss()
+                            }) {
+                                Text("Cancel")
+                                    .font(.subheadline)
+                                    .foregroundColor(.red)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 10)
+                            }
+                        }
                     }
                     .padding()
                     .background(Color.red.opacity(0.1))
@@ -241,29 +384,36 @@ struct StoryGenerationView: View {
     
     private func generateStory() {
         Task {
+            // Start the sequential generation
             if let builtInEvent = selectedBuiltInEvent {
                 await viewModel.generateStory(for: hero, event: builtInEvent)
             } else if let customEvent = selectedCustomEvent {
                 await viewModel.generateStory(for: hero, customEvent: customEvent)
             }
 
-            // If successful, handle post-generation
-            if viewModel.generationError == nil {
-                // Get the generated story
+            // Handle completion
+            switch viewModel.generationStage {
+            case .completed:
+                // All generation steps completed successfully
                 if let story = viewModel.currentStory {
                     generatedStory = story
 
-                    // Show illustration progress if generating
-                    if viewModel.enableIllustrations && hero.hasAvatar && viewModel.isGeneratingIllustrations {
-                        showIllustrationProgress = true
-                    } else {
-                        // No illustrations, just dismiss
-                        dismiss()
-                    }
+                    // Brief delay to show completion state
+                    try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+
+                    // Dismiss the view
+                    dismiss()
                 } else {
-                    // No story found, just dismiss
                     dismiss()
                 }
+
+            case .failed:
+                // Error state - don't dismiss, let user see the error
+                break
+
+            default:
+                // Still in progress or idle - should not reach here normally
+                break
             }
         }
     }
@@ -294,6 +444,89 @@ struct StoryGenerationView: View {
         } else {
             return "Writing your story..."
         }
+    }
+
+    /// Helper to determine if a step has been completed
+    private func stepCompleted(_ step: Int) -> Bool {
+        switch viewModel.generationStage {
+        case .idle:
+            return false
+        case .generatingStory:
+            return false
+        case .generatingAudio:
+            return step < 2
+        case .generatingIllustrations:
+            return step < 3
+        case .completed:
+            return true
+        case .failed:
+            return false
+        }
+    }
+}
+
+// MARK: - Step Progress Indicator Views
+
+/// Individual step indicator circle with label
+struct StepIndicator: View {
+    let step: Int
+    let label: String
+    let icon: String
+    let isActive: Bool
+    let isCompleted: Bool
+
+    var body: some View {
+        VStack(spacing: 6) {
+            ZStack {
+                Circle()
+                    .fill(backgroundColor)
+                    .frame(width: 40, height: 40)
+
+                if isCompleted {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.white)
+                } else {
+                    Image(systemName: icon)
+                        .font(.system(size: 16))
+                        .foregroundColor(isActive ? .white : .secondary)
+                }
+            }
+            .overlay(
+                Circle()
+                    .stroke(isActive ? Color.orange : Color.clear, lineWidth: 3)
+                    .frame(width: 46, height: 46)
+            )
+            .animation(.easeInOut(duration: 0.3), value: isActive)
+            .animation(.easeInOut(duration: 0.3), value: isCompleted)
+
+            Text(label)
+                .font(.caption2)
+                .fontWeight(isActive ? .semibold : .regular)
+                .foregroundColor(isActive || isCompleted ? .primary : .secondary)
+        }
+    }
+
+    private var backgroundColor: Color {
+        if isCompleted {
+            return .green
+        } else if isActive {
+            return .orange
+        } else {
+            return Color(.systemGray4)
+        }
+    }
+}
+
+/// Connector line between step indicators
+struct StepConnector: View {
+    let isCompleted: Bool
+
+    var body: some View {
+        Rectangle()
+            .fill(isCompleted ? Color.green : Color(.systemGray4))
+            .frame(width: 30, height: 3)
+            .animation(.easeInOut(duration: 0.3), value: isCompleted)
     }
 }
 

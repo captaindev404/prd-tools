@@ -4,6 +4,7 @@ import { getOrCreateUser } from '@/lib/auth/session';
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api-response';
 import { generateAudio, getRecommendedVoice, validateAudioText } from '@/lib/openai/audio-generator';
 import { enforceRateLimit, recordApiUsage } from '@/lib/rate-limit/db-rate-limiter';
+import { generateSignedUrl } from '@/lib/storage/signed-url';
 import type { SupportedLanguage } from '@/lib/openai/client';
 
 /**
@@ -39,9 +40,11 @@ export async function POST(
 
     // Check if audio already exists and not regenerating
     if (story.audioUrl && story.audioGenerationStatus === 'completed' && !body.regenerate) {
+      // Sign the URL for secure access
+      const signedAudioUrl = await generateSignedUrl(story.audioUrl);
       return successResponse(
         {
-          audioUrl: story.audioUrl,
+          audioUrl: signedAudioUrl,
           audioDuration: story.audioDuration,
           status: 'completed',
         },
@@ -111,9 +114,12 @@ export async function POST(
       },
     });
 
+    // Sign the URL for secure access
+    const signedAudioUrl = await generateSignedUrl(audio.audioUrl);
+
     return successResponse(
       {
-        audioUrl: audio.audioUrl,
+        audioUrl: signedAudioUrl,
         audioDuration: audio.duration,
         voice: audio.voice,
         status: 'completed',
@@ -183,8 +189,13 @@ export async function GET(
       return errorResponse('Forbidden', 'You do not have access to this story', 403);
     }
 
+    // Sign the URL for secure access if it exists
+    const signedAudioUrl = story.audioUrl
+      ? await generateSignedUrl(story.audioUrl)
+      : null;
+
     return successResponse({
-      audioUrl: story.audioUrl,
+      audioUrl: signedAudioUrl,
       audioDuration: story.audioDuration,
       status: story.audioGenerationStatus,
       error: story.audioGenerationError,

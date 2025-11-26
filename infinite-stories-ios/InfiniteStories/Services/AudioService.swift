@@ -42,8 +42,10 @@ protocol AudioServiceProtocol {
     var duration: TimeInterval { get }
 }
 
-class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPlayerDelegate {
-    private var audioPlayer: AVAudioPlayer?
+class AudioService: NSObject, ObservableObject, AudioServiceProtocol {
+    // Use AVPlayer instead of AVAudioPlayer for remote URL support
+    private var audioPlayer: AVPlayer?
+    private var playerItem: AVPlayerItem?
     private var currentAudioURL: URL?
     private var currentPlaybackSpeed: Float = 1.0
 
@@ -52,6 +54,8 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPla
     @Published var duration: TimeInterval = 0
 
     private var playbackTimer: Timer?
+    private var playerItemObserver: NSKeyValueObservation?
+    private var playerRateObserver: NSKeyValueObservation?
 
     // Lock screen controls
     private let commandCenter = MPRemoteCommandCenter.shared()
@@ -78,9 +82,19 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPla
 
         UIApplication.shared.endReceivingRemoteControlEvents()
 
+        // Clean up observers
+        playerItemObserver = nil
+        playerRateObserver = nil
+        NotificationCenter.default.removeObserver(self)
+
+        // Stop playback and clean up player
+        stopPlaybackTimer()
+        audioPlayer?.pause()
+        audioPlayer = nil
+        playerItem = nil
+
         // Clean up and ensure idle timer is re-enabled
         IdleTimerManager.shared.enableIdleTimer(for: "AudioService")
-        NotificationCenter.default.removeObserver(self)
     }
     
     private func setupAudioSession() {
@@ -313,9 +327,17 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPla
         info[MPMediaItemPropertyArtist] = artist ?? "InfiniteStories"
         info[MPMediaItemPropertyAlbumTitle] = "Bedtime Stories"
 
-        // Playback info
-        if let duration = duration ?? self.audioPlayer?.duration {
+        // Playback info - use provided duration or current duration
+        if let duration = duration {
             info[MPMediaItemPropertyPlaybackDuration] = duration
+        } else if self.duration > 0 {
+            info[MPMediaItemPropertyPlaybackDuration] = self.duration
+        } else if let player = audioPlayer,
+                  let item = player.currentItem {
+            let itemDuration = CMTimeGetSeconds(item.duration)
+            if itemDuration.isFinite && itemDuration > 0 {
+                info[MPMediaItemPropertyPlaybackDuration] = itemDuration
+            }
         }
 
         info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = self.currentTime
@@ -349,57 +371,109 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPla
 
     func playAudio(from url: URL, metadata: AudioMetadata? = nil) throws {
         stopAudio()
-        
-        print("🎵 Playing audio file from: \(url.path)")
+
+        print("🎵 Playing audio file from: \(url.absoluteString)")
+        print("🎵 Is remote URL: \(url.scheme == "http" || url.scheme == "https")")
         print("🎵 File extension: \(url.pathExtension)")
-        
+
         // Only play MP3 files - no TTS fallback
         guard url.pathExtension == "mp3" else {
             print("🎵 ❌ Invalid audio file format. Only MP3 files are supported.")
             throw AudioServiceError.playbackFailed
         }
-        
+
         do {
-            audioPlayer = try AVAudioPlayer(contentsOf: url)
-            audioPlayer?.delegate = self
-            audioPlayer?.prepareToPlay()
-            
+            // Create AVPlayerItem from URL (supports both local and remote URLs)
+            playerItem = AVPlayerItem(url: url)
+
+            guard let item = playerItem else {
+                throw AudioServiceError.playbackFailed
+            }
+
+            // Create or reuse AVPlayer
+            if let existingPlayer = audioPlayer {
+                existingPlayer.replaceCurrentItem(with: item)
+            } else {
+                audioPlayer = AVPlayer(playerItem: item)
+            }
+
             guard let player = audioPlayer else {
                 throw AudioServiceError.playbackFailed
             }
-            
-            // Enable rate adjustment for playback speed control
-            player.enableRate = true
-            player.rate = currentPlaybackSpeed
-            
-            duration = player.duration
-            currentAudioURL = url
-            
-            print("🎵 MP3 duration: \(duration) seconds")
-            print("🎵 Playback rate: \(currentPlaybackSpeed)x")
-            
-            if player.play() {
-                isPlaying = true
-                startPlaybackTimer()
-                disableIdleTimer()  // Prevent phone from sleeping during playback
-                print("🎵 ✅ Audio playback started successfully")
 
-                // Update Now Playing info when starting playback
-                if let metadata = metadata {
-                    updateNowPlayingInfo(
-                        title: metadata.title,
-                        artist: metadata.artist,
-                        duration: player.duration,
-                        artwork: metadata.artwork
-                    )
+            currentAudioURL = url
+
+            // Observe player item status to know when it's ready
+            playerItemObserver = item.observe(\.status, options: [.new]) { [weak self] item, _ in
+                guard let self = self else { return }
+
+                switch item.status {
+                case .readyToPlay:
+                    // Get duration from player item
+                    let itemDuration = CMTimeGetSeconds(item.duration)
+                    if itemDuration.isFinite && itemDuration > 0 {
+                        DispatchQueue.main.async {
+                            self.duration = itemDuration
+                            print("🎵 MP3 duration: \(self.duration) seconds")
+                        }
+                    }
+
+                case .failed:
+                    print("🎵 ❌ Player item failed: \(item.error?.localizedDescription ?? "Unknown error")")
+                    DispatchQueue.main.async {
+                        self.isPlaying = false
+                        self.enableIdleTimer()
+                    }
+
+                case .unknown:
+                    print("🎵 Player item status unknown")
+
+                @unknown default:
+                    break
                 }
-            } else {
-                throw AudioServiceError.playbackFailed
             }
+
+            // Observe when playback finishes
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(playerDidFinishPlaying),
+                name: .AVPlayerItemDidPlayToEndTime,
+                object: item
+            )
+
+            // Set playback speed
+            player.rate = currentPlaybackSpeed
+            print("🎵 Playback rate: \(currentPlaybackSpeed)x")
+
+            // Start playback
+            player.play()
+            isPlaying = true
+            startPlaybackTimer()
+            disableIdleTimer()  // Prevent phone from sleeping during playback
+            print("🎵 ✅ Audio playback started successfully")
+
+            // Update Now Playing info when starting playback
+            if let metadata = metadata {
+                updateNowPlayingInfo(
+                    title: metadata.title,
+                    artist: metadata.artist,
+                    duration: nil, // Will be set when duration is available
+                    artwork: metadata.artwork
+                )
+            }
+
         } catch {
             print("🎵 ❌ Failed to play audio file: \(error)")
             throw AudioServiceError.playbackFailed
         }
+    }
+
+    @objc private func playerDidFinishPlaying() {
+        print("🎵 Audio playback finished")
+        isPlaying = false
+        currentTime = 0
+        stopPlaybackTimer()
+        enableIdleTimer()
     }
 
     // Convenience method for backward compatibility
@@ -408,84 +482,92 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol, AVAudioPla
     }
     
     func stopAudio() {
-        audioPlayer?.stop()
+        audioPlayer?.pause()
+        audioPlayer?.replaceCurrentItem(with: nil)
         stopPlaybackTimer()
         isPlaying = false
         currentTime = 0
+        duration = 0
+        playerItemObserver = nil
         enableIdleTimer()  // Re-enable idle timer when stopping
     }
-    
+
     func pauseAudio() {
         audioPlayer?.pause()
         stopPlaybackTimer()
         isPlaying = false
         enableIdleTimer()  // Re-enable idle timer when pausing
     }
-    
+
     func resumeAudio() {
-        guard let player = audioPlayer else { return }
-        if player.play() {
-            isPlaying = true
-            startPlaybackTimer()
-            disableIdleTimer()  // Disable idle timer when resuming
-        }
+        guard let player = audioPlayer, player.currentItem != nil else { return }
+        player.play()
+        isPlaying = true
+        startPlaybackTimer()
+        disableIdleTimer()  // Disable idle timer when resuming
     }
-    
+
     func setPlaybackSpeed(_ speed: Float) {
         currentPlaybackSpeed = speed
-        
-        if let player = audioPlayer {
+
+        if let player = audioPlayer, isPlaying {
             player.rate = speed
             print("🎵 Set playback rate to: \(speed)x")
         }
     }
-    
+
     func seek(to time: TimeInterval) {
         print("🎵 Seeking to: \(time) seconds")
 
-        if let player = audioPlayer, player.duration > 0 {
-            let seekTime = min(max(time, 0), player.duration)
-            print("🎵 Seeking to time: \(seekTime)")
-            player.currentTime = seekTime
-            currentTime = seekTime
-            print("🎵 Seek completed - new time: \(currentTime)")
-
-            // Update Now Playing elapsed time
-            if var info = nowPlayingInfo.nowPlayingInfo {
-                info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = seekTime
-                nowPlayingInfo.nowPlayingInfo = info
-            }
-        } else {
+        guard let player = audioPlayer,
+              let item = player.currentItem,
+              item.duration.isNumeric else {
             print("🎵 No valid audio player or duration available for seeking")
+            return
+        }
+
+        let itemDuration = CMTimeGetSeconds(item.duration)
+        let seekTime = min(max(time, 0), itemDuration)
+        print("🎵 Seeking to time: \(seekTime)")
+
+        let cmSeekTime = CMTime(seconds: seekTime, preferredTimescale: 600)
+        player.seek(to: cmSeekTime, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] completed in
+            guard let self = self, completed else { return }
+
+            DispatchQueue.main.async {
+                self.currentTime = seekTime
+                print("🎵 Seek completed - new time: \(self.currentTime)")
+
+                // Update Now Playing elapsed time
+                if var info = self.nowPlayingInfo.nowPlayingInfo {
+                    info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = seekTime
+                    self.nowPlayingInfo.nowPlayingInfo = info
+                }
+            }
         }
     }
-    
+
     private func startPlaybackTimer() {
         playbackTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-            guard let self = self, let player = self.audioPlayer else { return }
-            self.currentTime = player.currentTime
+            guard let self = self,
+                  let player = self.audioPlayer,
+                  let item = player.currentItem else { return }
+
+            let time = CMTimeGetSeconds(player.currentTime())
+            if time.isFinite {
+                self.currentTime = time
+            }
+
+            // Update duration if it wasn't available initially
+            let itemDuration = CMTimeGetSeconds(item.duration)
+            if itemDuration.isFinite && itemDuration > 0 && self.duration == 0 {
+                self.duration = itemDuration
+            }
         }
     }
-    
+
     private func stopPlaybackTimer() {
         playbackTimer?.invalidate()
         playbackTimer = nil
-    }
-    
-    // MARK: - AVAudioPlayerDelegate
-    
-    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        isPlaying = false
-        currentTime = 0
-        stopPlaybackTimer()
-        enableIdleTimer()  // Re-enable idle timer when playback finishes
-        print("🎵 Audio playback finished")
-    }
-    
-    func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
-        isPlaying = false
-        stopPlaybackTimer()
-        enableIdleTimer()  // Re-enable idle timer on error
-        print("Audio decode error: \(error?.localizedDescription ?? "Unknown error")")
     }
 }

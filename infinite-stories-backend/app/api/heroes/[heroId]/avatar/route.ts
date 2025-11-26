@@ -4,6 +4,7 @@ import { getOrCreateUser } from '@/lib/auth/session';
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api-response';
 import { generateAvatar } from '@/lib/openai/avatar-generator';
 import { enforceRateLimit, recordApiUsage } from '@/lib/rate-limit/db-rate-limiter';
+import { signHeroUrls, generateSignedUrl } from '@/lib/storage/signed-url';
 
 /**
  * POST /api/heroes/[heroId]/avatar
@@ -76,11 +77,15 @@ export async function POST(
       success: true,
     });
 
+    // Sign URLs for secure access
+    const signedHero = await signHeroUrls(updatedHero);
+    const signedAvatarUrl = await generateSignedUrl(avatar.imageUrl);
+
     return successResponse(
       {
-        hero: updatedHero,
+        hero: signedHero,
         avatar: {
-          imageUrl: avatar.imageUrl,
+          imageUrl: signedAvatarUrl,
           prompt: avatar.prompt,
           revisedPrompt: avatar.revisedPrompt,
         },

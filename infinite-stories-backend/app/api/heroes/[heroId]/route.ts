@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma/client';
 import { getOrCreateUser } from '@/lib/auth/session';
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api-response';
+import { signHeroUrls, signStoryUrls } from '@/lib/storage/signed-url';
 
 /**
  * GET /api/heroes/[heroId]
@@ -42,7 +43,17 @@ export async function GET(
       return errorResponse('Forbidden', 'You do not have access to this hero', 403);
     }
 
-    return successResponse(hero);
+    // Sign avatar URL for secure access
+    const signedHero = await signHeroUrls(hero);
+
+    // Sign story URLs if included
+    if (signedHero.stories && Array.isArray(signedHero.stories)) {
+      signedHero.stories = await Promise.all(
+        signedHero.stories.map((story: any) => signStoryUrls(story))
+      );
+    }
+
+    return successResponse(signedHero);
   } catch (error) {
     return handleApiError(error);
   }
@@ -95,7 +106,10 @@ export async function PATCH(
       },
     });
 
-    return successResponse(updatedHero, 'Hero updated successfully');
+    // Sign avatar URL for secure access
+    const signedHero = await signHeroUrls(updatedHero);
+
+    return successResponse(signedHero, 'Hero updated successfully');
   } catch (error) {
     return handleApiError(error);
   }

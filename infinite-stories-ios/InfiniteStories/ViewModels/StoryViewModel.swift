@@ -11,12 +11,100 @@ import Combine
 import BackgroundTasks
 import UIKit
 
+// MARK: - Generation Stage Enum
+
+/// Represents which step in the pipeline failed
+enum FailedGenerationStep: Equatable {
+    case story
+    case audio
+    case illustrations
+
+    var displayName: String {
+        switch self {
+        case .story: return "Story Generation"
+        case .audio: return "Audio Generation"
+        case .illustrations: return "Illustration Generation"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .story: return "doc.text.fill"
+        case .audio: return "speaker.wave.2.fill"
+        case .illustrations: return "photo.fill"
+        }
+    }
+
+    var retryButtonText: String {
+        switch self {
+        case .story: return "Retry Story"
+        case .audio: return "Retry Audio"
+        case .illustrations: return "Retry Illustrations"
+        }
+    }
+}
+
+/// Represents the current stage of the story generation pipeline
+enum StoryGenerationStage: Equatable {
+    case idle
+    case generatingStory
+    case generatingAudio
+    case generatingIllustrations
+    case completed
+    case failed(step: FailedGenerationStep, error: String)
+
+    var displayText: String {
+        switch self {
+        case .idle:
+            return ""
+        case .generatingStory:
+            return "Writing your story..."
+        case .generatingAudio:
+            return "Creating audio narration..."
+        case .generatingIllustrations:
+            return "Generating illustrations..."
+        case .completed:
+            return "Complete!"
+        case .failed(let step, _):
+            return "\(step.displayName) failed"
+        }
+    }
+
+    var isInProgress: Bool {
+        switch self {
+        case .idle, .completed, .failed:
+            return false
+        case .generatingStory, .generatingAudio, .generatingIllustrations:
+            return true
+        }
+    }
+
+    var isFailed: Bool {
+        if case .failed = self { return true }
+        return false
+    }
+
+    var failedStep: FailedGenerationStep? {
+        if case .failed(let step, _) = self { return step }
+        return nil
+    }
+
+    var errorMessage: String? {
+        if case .failed(_, let error) = self { return error }
+        return nil
+    }
+}
+
 @MainActor
 class StoryViewModel: ObservableObject {
     @Published var isGeneratingStory = false
     @Published var isGeneratingAudio = false
     @Published var generationError: String?
     @Published var selectedEvent: StoryEvent = .bedtime
+
+    // Sequential generation stage tracking
+    @Published var generationStage: StoryGenerationStage = .idle
+    @Published var overallProgress: Double = 0.0
 
     // Audio generation progress tracking
     @Published var audioGenerationProgress: Double = 0.0
@@ -106,12 +194,15 @@ class StoryViewModel: ObservableObject {
     }
     
     func generateStory(for hero: Hero, event: StoryEvent) async {
-        print("📱 === Story Generation Flow Started ===")
+        print("📱 === Sequential Story Generation Flow Started ===")
         print("📱 Hero: \(hero.name) (\(hero.traitsDescription))")
         print("📱 Event: \(event.rawValue)")
+        print("📱 Illustrations enabled: \(enableIllustrations), Hero has avatar: \(hero.hasAvatar)")
 
         isGeneratingStory = true
         generationError = nil
+        generationStage = .generatingStory
+        overallProgress = 0.0
 
         // Disable idle timer during story generation
         IdleTimerManager.shared.disableIdleTimer(for: "StoryGeneration")
@@ -124,50 +215,105 @@ class StoryViewModel: ObservableObject {
             }
         )
 
-        do {
-            print("📱 🚀 Calling repository for story generation...")
+        // Track which step we're on for error reporting
+        var currentFailedStep: FailedGenerationStep = .story
+        var storyBackendId: String?
 
-            // Use repository to generate story (includes AI generation + saving)
+        do {
+            // STEP 1: Generate Story Content
+            print("📱 🚀 Step 1/3: Generating story content...")
+            currentFailedStep = .story
+            generationStage = .generatingStory
+            overallProgress = 0.1
+
             guard let heroBackendId = hero.backendId else {
                 throw NSError(domain: "StoryViewModel", code: -1,
                               userInfo: [NSLocalizedDescriptionKey: "Hero has no backend ID"])
             }
 
+            // Generate story only (audio and illustrations will be generated separately)
             let story = try await storyRepository.generateStory(
                 heroId: heroBackendId,
                 eventType: event.rawValue,
                 customEventId: nil,
                 language: appSettings.preferredLanguage,
-                generateAudio: true,
-                generateIllustrations: enableIllustrations && hero.hasAvatar
+                generateAudio: false,  // Will generate separately
+                generateIllustrations: false  // Will generate separately if enabled
             )
 
-            print("📱 ✅ Story generated successfully")
+            print("📱 ✅ Story content generated successfully")
             print("📱 📊 Story - Title: \(story.title)")
             print("📱 📊 Story - Content length: \(story.content.count) characters")
-            print("📱 📊 Story - Duration: \(story.estimatedDuration) seconds")
 
-            // Update current story reference
             currentStory = story
+            storyBackendId = story.backendId
+            overallProgress = 0.33
 
-            // Audio and illustrations are generated by backend as part of generateStory call
-            // Backend handles generation based on generateAudio and generateIllustrations flags
+            // STEP 2: Generate Audio
+            print("📱 🎵 Step 2/3: Generating audio narration...")
+            currentFailedStep = .audio
+            generationStage = .generatingAudio
+            isGeneratingAudio = true
 
-            // For backward compatibility with illustration tracking
+            guard let backendId = story.backendId else {
+                throw NSError(domain: "StoryViewModel", code: -1,
+                              userInfo: [NSLocalizedDescriptionKey: "Story has no backend ID for audio generation"])
+            }
+
+            let audioUrl = try await storyRepository.generateAudio(
+                storyId: backendId,
+                language: appSettings.preferredLanguage,
+                voice: appSettings.preferredVoice
+            )
+
+            print("📱 ✅ Audio generated successfully: \(audioUrl)")
+            story.audioFileName = audioUrl
+            story.clearAudioRegenerationFlag()
+            currentStory = story
+            isGeneratingAudio = false
+            overallProgress = 0.66
+
+            // STEP 3: Generate Illustrations (if enabled and hero has avatar)
             if enableIllustrations && hero.hasAvatar {
-                AppLogger.shared.info("Illustrations included in story generation", category: .illustration)
+                print("📱 🎨 Step 3/3: Generating illustrations...")
+                currentFailedStep = .illustrations
+                generationStage = .generatingIllustrations
+                isGeneratingIllustrations = true
+                illustrationGenerationProgress = 0.0
+                illustrationGenerationStage = "Preparing illustrations..."
+
+                let updatedStory = try await storyRepository.generateIllustrations(storyId: backendId)
+
+                currentStory = updatedStory
+                isGeneratingIllustrations = false
+                illustrationGenerationProgress = 1.0
+                illustrationGenerationStage = "Complete!"
+
+                let generatedCount = updatedStory.illustrations.filter { $0.isGenerated }.count
+                print("📱 ✅ Illustrations generated: \(generatedCount)/\(updatedStory.illustrations.count)")
+                AppLogger.shared.success("Generated \(generatedCount) illustrations", category: .illustration)
             } else {
                 if !enableIllustrations {
+                    print("📱 ⏭️ Skipping illustrations - disabled by user preference")
                     AppLogger.shared.info("Illustration generation disabled by user preference", category: .illustration)
                 }
                 if !hero.hasAvatar {
+                    print("📱 ⏭️ Skipping illustrations - hero needs avatar first")
                     AppLogger.shared.info("Skipping illustrations - hero needs avatar first", category: .illustration)
                 }
             }
 
+            // All steps completed
+            overallProgress = 1.0
+            generationStage = .completed
+
         } catch {
-            print("📱 ❌ Story generation failed: \(error)")
-            generationError = handleAIError(error)
+            print("📱 ❌ Story generation failed at step \(currentFailedStep.displayName): \(error)")
+            let errorMessage = handleAIError(error)
+            generationError = errorMessage
+            generationStage = .failed(step: currentFailedStep, error: errorMessage)
+            isGeneratingAudio = false
+            isGeneratingIllustrations = false
         }
 
         isGeneratingStory = false
@@ -181,17 +327,21 @@ class StoryViewModel: ObservableObject {
             backgroundTaskId = .invalid
         }
 
-        print("📱 === Story Generation Flow Completed ===")
+        print("📱 === Sequential Story Generation Flow Completed ===")
+        print("📱 Final stage: \(generationStage)")
         print("📱 Final state - Error: \(generationError ?? "None")")
     }
     
     func generateStory(for hero: Hero, customEvent: CustomStoryEvent) async {
-        print("📱 === Custom Story Generation Flow Started ===")
+        print("📱 === Sequential Custom Story Generation Flow Started ===")
         print("📱 Hero: \(hero.name) (\(hero.traitsDescription))")
         print("📱 Custom Event: \(customEvent.title)")
+        print("📱 Illustrations enabled: \(enableIllustrations), Hero has avatar: \(hero.hasAvatar)")
 
         isGeneratingStory = true
         generationError = nil
+        generationStage = .generatingStory
+        overallProgress = 0.0
 
         // Disable idle timer during story generation
         IdleTimerManager.shared.disableIdleTimer(for: "StoryGeneration")
@@ -204,16 +354,22 @@ class StoryViewModel: ObservableObject {
             }
         )
 
-        do {
-            print("📱 🚀 Creating story with custom event via repository...")
+        // Track which step we're on for error reporting
+        var currentFailedStep: FailedGenerationStep = .story
 
+        do {
             // First enhance the custom event if needed
             if !customEvent.isAIEnhanced {
                 print("📱 ✨ Enhancing custom event...")
                 _ = try await customEventRepository.enhanceEvent(customEvent)
             }
 
-            // Generate custom story via API
+            // STEP 1: Generate Story Content
+            print("📱 🚀 Step 1/3: Generating custom story content...")
+            currentFailedStep = .story
+            generationStage = .generatingStory
+            overallProgress = 0.1
+
             guard let heroBackendId = hero.backendId else {
                 throw NSError(domain: "StoryViewModel", code: -1,
                               userInfo: [NSLocalizedDescriptionKey: "Hero has no backend ID"])
@@ -226,24 +382,85 @@ class StoryViewModel: ObservableObject {
                 eventType: nil,
                 customEventId: nil, // Custom events are local only
                 language: appSettings.preferredLanguage,
-                generateAudio: true,
-                generateIllustrations: enableIllustrations && hero.hasAvatar
+                generateAudio: false,  // Will generate separately
+                generateIllustrations: false  // Will generate separately if enabled
             )
 
-            print("📱 ✅ Custom story created successfully")
+            print("📱 ✅ Custom story content generated successfully")
             print("📱 📊 Story - Title: \(story.title)")
+            print("📱 📊 Story - Content length: \(story.content.count) characters")
 
-            // Update current story reference
             currentStory = story
+            overallProgress = 0.33
 
-            // Audio and illustrations are generated by backend as part of generateStory call
+            // STEP 2: Generate Audio
+            print("📱 🎵 Step 2/3: Generating audio narration...")
+            currentFailedStep = .audio
+            generationStage = .generatingAudio
+            isGeneratingAudio = true
+
+            guard let storyBackendId = story.backendId else {
+                throw NSError(domain: "StoryViewModel", code: -1,
+                              userInfo: [NSLocalizedDescriptionKey: "Story has no backend ID for audio generation"])
+            }
+
+            let audioUrl = try await storyRepository.generateAudio(
+                storyId: storyBackendId,
+                language: appSettings.preferredLanguage,
+                voice: appSettings.preferredVoice
+            )
+
+            print("📱 ✅ Audio generated successfully: \(audioUrl)")
+            story.audioFileName = audioUrl
+            story.clearAudioRegenerationFlag()
+            currentStory = story
+            isGeneratingAudio = false
+            overallProgress = 0.66
+
+            // STEP 3: Generate Illustrations (if enabled and hero has avatar)
+            if enableIllustrations && hero.hasAvatar {
+                print("📱 🎨 Step 3/3: Generating illustrations...")
+                currentFailedStep = .illustrations
+                generationStage = .generatingIllustrations
+                isGeneratingIllustrations = true
+                illustrationGenerationProgress = 0.0
+                illustrationGenerationStage = "Preparing illustrations..."
+
+                let updatedStory = try await storyRepository.generateIllustrations(storyId: storyBackendId)
+
+                currentStory = updatedStory
+                isGeneratingIllustrations = false
+                illustrationGenerationProgress = 1.0
+                illustrationGenerationStage = "Complete!"
+
+                let generatedCount = updatedStory.illustrations.filter { $0.isGenerated }.count
+                print("📱 ✅ Illustrations generated: \(generatedCount)/\(updatedStory.illustrations.count)")
+                AppLogger.shared.success("Generated \(generatedCount) illustrations", category: .illustration)
+            } else {
+                if !enableIllustrations {
+                    print("📱 ⏭️ Skipping illustrations - disabled by user preference")
+                    AppLogger.shared.info("Illustration generation disabled by user preference", category: .illustration)
+                }
+                if !hero.hasAvatar {
+                    print("📱 ⏭️ Skipping illustrations - hero needs avatar first")
+                    AppLogger.shared.info("Skipping illustrations - hero needs avatar first", category: .illustration)
+                }
+            }
+
+            // All steps completed
+            overallProgress = 1.0
+            generationStage = .completed
 
             // Note: Custom event usage count increment would need backend API support
             // For now, custom events are local-only in SwiftData
 
         } catch {
-            print("📱 ❌ Custom story generation failed: \(error)")
-            generationError = handleAIError(error)
+            print("📱 ❌ Custom story generation failed at step \(currentFailedStep.displayName): \(error)")
+            let errorMessage = handleAIError(error)
+            generationError = errorMessage
+            generationStage = .failed(step: currentFailedStep, error: errorMessage)
+            isGeneratingAudio = false
+            isGeneratingIllustrations = false
         }
 
         isGeneratingStory = false
@@ -257,7 +474,8 @@ class StoryViewModel: ObservableObject {
             backgroundTaskId = .invalid
         }
 
-        print("📱 === Custom Story Generation Flow Completed ===")
+        print("📱 === Sequential Custom Story Generation Flow Completed ===")
+        print("📱 Final stage: \(generationStage)")
         print("📱 Final state - Error: \(generationError ?? "None")")
     }
     
@@ -526,8 +744,151 @@ class StoryViewModel: ObservableObject {
     func clearError() {
         generationError = nil
         illustrationErrors.removeAll()
+        generationStage = .idle
+        overallProgress = 0.0
     }
-    
+
+    // MARK: - Retry Failed Generation Steps
+
+    /// Retry audio generation for the current story
+    func retryAudioGeneration() async {
+        guard let story = currentStory, let storyBackendId = story.backendId else {
+            generationError = "No story available to generate audio for"
+            return
+        }
+
+        print("📱 🔄 Retrying audio generation...")
+        generationError = nil
+        generationStage = .generatingAudio
+        isGeneratingAudio = true
+        overallProgress = 0.5
+
+        do {
+            let audioUrl = try await storyRepository.generateAudio(
+                storyId: storyBackendId,
+                language: appSettings.preferredLanguage,
+                voice: appSettings.preferredVoice
+            )
+
+            print("📱 ✅ Audio retry successful: \(audioUrl)")
+            story.audioFileName = audioUrl
+            story.clearAudioRegenerationFlag()
+            currentStory = story
+            isGeneratingAudio = false
+            overallProgress = 1.0
+            generationStage = .completed
+
+        } catch {
+            print("📱 ❌ Audio retry failed: \(error)")
+            let errorMessage = handleAIError(error)
+            generationError = errorMessage
+            generationStage = .failed(step: .audio, error: errorMessage)
+            isGeneratingAudio = false
+        }
+    }
+
+    /// Retry illustration generation for the current story
+    func retryIllustrationGeneration() async {
+        guard let story = currentStory, let storyBackendId = story.backendId else {
+            generationError = "No story available to generate illustrations for"
+            return
+        }
+
+        print("📱 🔄 Retrying illustration generation...")
+        generationError = nil
+        generationStage = .generatingIllustrations
+        isGeneratingIllustrations = true
+        illustrationGenerationProgress = 0.0
+        illustrationGenerationStage = "Preparing illustrations..."
+        overallProgress = 0.7
+
+        do {
+            let updatedStory = try await storyRepository.generateIllustrations(storyId: storyBackendId)
+
+            currentStory = updatedStory
+            isGeneratingIllustrations = false
+            illustrationGenerationProgress = 1.0
+            illustrationGenerationStage = "Complete!"
+            overallProgress = 1.0
+            generationStage = .completed
+
+            let generatedCount = updatedStory.illustrations.filter { $0.isGenerated }.count
+            print("📱 ✅ Illustration retry successful: \(generatedCount) illustrations")
+            AppLogger.shared.success("Retry generated \(generatedCount) illustrations", category: .illustration)
+
+        } catch {
+            print("📱 ❌ Illustration retry failed: \(error)")
+            let errorMessage = handleAIError(error)
+            generationError = errorMessage
+            generationStage = .failed(step: .illustrations, error: errorMessage)
+            isGeneratingIllustrations = false
+        }
+    }
+
+    /// Continue from failed step - useful when story was created but audio/illustrations failed
+    func continueFromFailedStep(hero: Hero) async {
+        guard let failedStep = generationStage.failedStep else {
+            print("📱 ⚠️ No failed step to retry from")
+            return
+        }
+
+        print("📱 🔄 Continuing from failed step: \(failedStep.displayName)")
+
+        switch failedStep {
+        case .story:
+            // Can't retry story from here - need to start fresh
+            clearError()
+
+        case .audio:
+            await retryAudioGeneration()
+
+            // If audio succeeded and illustrations were requested, continue
+            if generationStage == .completed && enableIllustrations && hero.hasAvatar {
+                if let story = currentStory, let backendId = story.backendId {
+                    // Continue to illustrations
+                    generationStage = .generatingIllustrations
+                    isGeneratingIllustrations = true
+                    overallProgress = 0.7
+
+                    do {
+                        let updatedStory = try await storyRepository.generateIllustrations(storyId: backendId)
+                        currentStory = updatedStory
+                        isGeneratingIllustrations = false
+                        overallProgress = 1.0
+                        generationStage = .completed
+                    } catch {
+                        let errorMessage = handleAIError(error)
+                        generationError = errorMessage
+                        generationStage = .failed(step: .illustrations, error: errorMessage)
+                        isGeneratingIllustrations = false
+                    }
+                }
+            }
+
+        case .illustrations:
+            await retryIllustrationGeneration()
+        }
+    }
+
+    /// Check if we can skip the failed step (e.g., skip illustrations and use the story as-is)
+    var canSkipFailedStep: Bool {
+        guard let failedStep = generationStage.failedStep else { return false }
+        // Can skip illustrations (story will work without them)
+        // Cannot skip story or audio (they're required)
+        return failedStep == .illustrations
+    }
+
+    /// Skip the failed step and mark as complete
+    func skipFailedStep() {
+        guard canSkipFailedStep else { return }
+
+        print("📱 ⏭️ Skipping failed illustrations, marking as complete")
+        generationError = nil
+        generationStage = .completed
+        overallProgress = 1.0
+        isGeneratingIllustrations = false
+    }
+
     // MARK: - Story Management
 
     func deleteStoryWithCleanup(_ story: Story) async {

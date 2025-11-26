@@ -330,7 +330,10 @@ struct StoriesListResponse: Decodable {
 }
 
 struct AudioGenerationResponse: Decodable {
-    let storyId: String  // Backend uses cuid strings, not UUIDs
     let audioUrl: String
-    let duration: Double
+    let audioDuration: Double
+    let status: String
+
+    // Computed property for backward compatibility
+    var duration: Double { audioDuration }
 }

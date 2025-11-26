@@ -4,6 +4,7 @@ import { getOrCreateUser } from '@/lib/auth/session';
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api-response';
 import { generateStoryIllustrations } from '@/lib/openai/illustration-generator';
 import { enforceRateLimit, recordApiUsage } from '@/lib/rate-limit/db-rate-limiter';
+import { generateSignedUrl } from '@/lib/storage/signed-url';
 
 /**
  * POST /api/stories/[storyId]/illustrations
@@ -163,9 +164,17 @@ export async function GET(
       },
     });
 
+    // Sign all image URLs for secure access
+    const signedIllustrations = await Promise.all(
+      illustrations.map(async (ill) => ({
+        ...ill,
+        imageUrl: ill.imageUrl ? await generateSignedUrl(ill.imageUrl) : null,
+      }))
+    );
+
     return successResponse({
-      illustrations,
-      total: illustrations.length,
+      illustrations: signedIllustrations,
+      total: signedIllustrations.length,
     });
   } catch (error) {
     return handleApiError(error);
