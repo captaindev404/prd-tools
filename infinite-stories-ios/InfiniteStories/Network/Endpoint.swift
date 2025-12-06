@@ -253,6 +253,10 @@ enum Endpoint {
         case .generateAudio(_, let language, let voice):
             return try? encoder.encode(["language": language, "voice": voice])
 
+        case .generateIllustrations:
+            // Backend expects JSON body with optional style/maxIllustrations
+            return try? encoder.encode(["style": "standard"])
+
         case .updateUserProfile(let data):
             return try? encoder.encode(data)
 
