@@ -97,6 +97,7 @@ export async function PATCH(
         ...(body.height && { height: body.height }),
         ...(body.traits && { traits: body.traits }),
         ...(body.specialAbilities && { specialAbilities: body.specialAbilities }),
+        ...(body.appearance !== undefined && { appearance: body.appearance }),
         ...(body.avatarUrl && { avatarUrl: body.avatarUrl }),
         ...(body.avatarPrompt && { avatarPrompt: body.avatarPrompt }),
         ...(body.avatarGenerationId && { avatarGenerationId: body.avatarGenerationId }),

@@ -105,6 +105,9 @@ model Hero {
   // Special abilities
   specialAbilities Json? // Array of abilities
 
+  // Free-form appearance description
+  appearance String? @db.Text
+
   // Avatar
   avatarUrl String?
   avatarPrompt String?

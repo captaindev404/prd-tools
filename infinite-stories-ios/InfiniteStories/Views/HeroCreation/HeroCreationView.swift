@@ -305,7 +305,8 @@ struct HeroCreationView: View {
                     id: backendId,
                     name: trimmedName,
                     traits: [primaryTrait, secondaryTrait],
-                    specialAbility: trimmedAbility.isEmpty ? nil : trimmedAbility
+                    specialAbility: trimmedAbility.isEmpty ? nil : trimmedAbility,
+                    appearance: trimmedAppearance.isEmpty ? nil : trimmedAppearance
                 )
                 print("Hero updated successfully: \(updatedHero.name)")
                 onSave?(updatedHero)

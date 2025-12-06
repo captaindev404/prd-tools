@@ -85,6 +85,7 @@ struct HeroResponse: Decodable {
     let age: Int
     let traits: [String]
     let specialAbilities: [String]?
+    let appearance: String?  // Free-form appearance description
     let hairColor: String?
     let eyeColor: String?
     let skinTone: String?
@@ -105,7 +106,7 @@ struct HeroResponse: Decodable {
 
     // Custom decoder to handle null arrays
     enum CodingKeys: String, CodingKey {
-        case id, name, age, traits, specialAbilities
+        case id, name, age, traits, specialAbilities, appearance
         case hairColor, eyeColor, skinTone, height
         case avatarUrl, avatarGenerationId, visualProfile
         case createdAt, updatedAt
@@ -131,6 +132,7 @@ struct HeroResponse: Decodable {
             specialAbilities = nil
         }
 
+        appearance = try container.decodeIfPresent(String.self, forKey: .appearance)
         hairColor = try container.decodeIfPresent(String.self, forKey: .hairColor)
         eyeColor = try container.decodeIfPresent(String.self, forKey: .eyeColor)
         skinTone = try container.decodeIfPresent(String.self, forKey: .skinTone)

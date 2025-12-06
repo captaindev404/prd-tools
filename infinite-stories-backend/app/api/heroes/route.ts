@@ -172,6 +172,7 @@ export async function POST(req: NextRequest) {
         skinTone: body.skinTone || null,
         height: body.height || null,
         specialAbilities: body.specialAbilities || null,
+        appearance: body.appearance || null,
         avatarUrl: body.avatarUrl || null,
         avatarPrompt: body.avatarPrompt || null,
         avatarGenerationId: body.avatarGenerationId || null,

@@ -268,7 +268,8 @@ struct HeroCreateRequest: Codable {
     let name: String
     let age: Int
     let traits: [String]
-    let specialAbility: String?
+    let specialAbilities: [String]?  // Backend expects array
+    let appearance: String?  // Free-form appearance description
     let hairColor: String?
     let eyeColor: String?
     let skinTone: String?
@@ -279,7 +280,12 @@ struct HeroUpdateRequest: Codable {
     let name: String?
     let age: Int?
     let traits: [String]?
-    let specialAbility: String?
+    let specialAbilities: [String]?  // Backend expects array
+    let appearance: String?  // Free-form appearance description
+    let hairColor: String?
+    let eyeColor: String?
+    let skinTone: String?
+    let height: String?
     let avatarUrl: String?
 }
 

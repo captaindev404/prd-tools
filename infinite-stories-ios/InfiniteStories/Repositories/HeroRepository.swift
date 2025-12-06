@@ -13,7 +13,7 @@ protocol HeroRepositoryProtocol {
     func fetchHeroes() async throws -> [Hero]
     func fetchHero(id: String) async throws -> Hero
     func createHero(name: String, age: Int, traits: [CharacterTrait], specialAbility: String?, appearance: String?) async throws -> Hero
-    func updateHero(id: String, name: String?, traits: [CharacterTrait]?, specialAbility: String?) async throws -> Hero
+    func updateHero(id: String, name: String?, traits: [CharacterTrait]?, specialAbility: String?, appearance: String?) async throws -> Hero
     func deleteHero(id: String) async throws
     func generateAvatar(heroId: String, prompt: String) async throws -> String // Returns avatar URL
 }
@@ -86,13 +86,18 @@ class HeroRepository: HeroRepositoryProtocol {
 
         Logger.api.info("Creating hero: \(name)")
 
-        // Build request
+        // Build request with specialAbilities as array (backend expects array)
+        let specialAbilitiesArray: [String]? = specialAbility.flatMap { ability in
+            ability.isEmpty ? nil : [ability]
+        }
+
         let request = HeroCreateRequest(
             name: name,
             age: age,
             traits: traits.map { $0.rawValue },
-            specialAbility: specialAbility,
-            hairColor: nil, // TODO: Extract from appearance
+            specialAbilities: specialAbilitiesArray,
+            appearance: appearance,
+            hairColor: nil,
             eyeColor: nil,
             skinTone: nil,
             height: nil
@@ -123,7 +128,8 @@ class HeroRepository: HeroRepositoryProtocol {
         id: String,
         name: String?,
         traits: [CharacterTrait]?,
-        specialAbility: String?
+        specialAbility: String?,
+        appearance: String?
     ) async throws -> Hero {
         guard NetworkMonitor.shared.isConnected else {
             throw APIError.networkUnavailable
@@ -131,12 +137,21 @@ class HeroRepository: HeroRepositoryProtocol {
 
         Logger.api.info("Updating hero \(id)")
 
-        // Build request
+        // Build request with specialAbilities as array (backend expects array)
+        let specialAbilitiesArray: [String]? = specialAbility.flatMap { ability in
+            ability.isEmpty ? nil : [ability]
+        }
+
         let request = HeroUpdateRequest(
             name: name,
             age: nil,
             traits: traits?.map { $0.rawValue },
-            specialAbility: specialAbility,
+            specialAbilities: specialAbilitiesArray,
+            appearance: appearance,
+            hairColor: nil,
+            eyeColor: nil,
+            skinTone: nil,
+            height: nil,
             avatarUrl: nil
         )
 
@@ -209,12 +224,15 @@ class HeroRepository: HeroRepositoryProtocol {
         let primaryTrait = CharacterTrait(rawValue: response.traits.first ?? "curious") ?? .curious
         let secondaryTrait = CharacterTrait(rawValue: response.traits.count > 1 ? response.traits[1] : response.traits.first ?? "kind") ?? .kind
 
+        // Use appearance from response if available, otherwise build from individual fields
+        let appearance = response.appearance ?? buildAppearance(response)
+
         // Create Hero model (transient, not persisted)
         let hero = Hero(
             name: response.name,
             primaryTrait: primaryTrait,
             secondaryTrait: secondaryTrait,
-            appearance: buildAppearance(response),
+            appearance: appearance,
             specialAbility: response.specialAbilities?.first ?? "",
             backendId: response.id // Store the backend ID
         )
