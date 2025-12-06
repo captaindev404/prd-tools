@@ -13,6 +13,7 @@ struct IllustrationCarouselView: View {
     @Binding var currentTime: TimeInterval
     let onRetryIllustration: ((StoryIllustration) -> Void)?
     let onSeekToIllustration: ((TimeInterval) -> Void)?
+    let storyDuration: TimeInterval? // Optional actual story duration
 
     @State private var selectedIndex: Int = 0
     @State private var isFullScreen: Bool = false
@@ -42,12 +43,32 @@ struct IllustrationCarouselView: View {
         illustrations: [StoryIllustration],
         currentTime: Binding<TimeInterval>,
         onRetryIllustration: ((StoryIllustration) -> Void)? = nil,
-        onSeekToIllustration: ((TimeInterval) -> Void)? = nil
+        onSeekToIllustration: ((TimeInterval) -> Void)? = nil,
+        storyDuration: TimeInterval? = nil
     ) {
         self.illustrations = illustrations
         self._currentTime = currentTime
         self.onRetryIllustration = onRetryIllustration
         self.onSeekToIllustration = onSeekToIllustration
+        self.storyDuration = storyDuration
+    }
+
+    /// Calculate the effective duration for timeline display
+    /// Uses actual story duration if provided, otherwise estimates from illustrations
+    private var effectiveDuration: TimeInterval {
+        // Use provided story duration if available
+        if let duration = storyDuration, duration > 0 {
+            return duration
+        }
+
+        // Fallback: estimate based on last illustration timestamp + buffer
+        if let lastIllustration = illustrations.max(by: { $0.timestamp < $1.timestamp }) {
+            // Add 30 seconds buffer after last illustration
+            return lastIllustration.timestamp + 30
+        }
+
+        // Default fallback (5 minutes)
+        return 300
     }
 
     private var currentIllustration: StoryIllustration? {
@@ -375,7 +396,7 @@ struct IllustrationCarouselView: View {
                                     .opacity(index == selectedIndex ? 1 : 0)
                             )
                             .position(
-                                x: CGFloat(illustration.timestamp / 300.0) * geometry.size.width, // Assuming 5 min max duration
+                                x: CGFloat(illustration.timestamp / effectiveDuration) * geometry.size.width,
                                 y: geometry.size.height / 2
                             )
                             .onTapGesture {
@@ -393,7 +414,7 @@ struct IllustrationCarouselView: View {
                         .fill(Color.purple)
                         .frame(width: 12, height: 12)
                         .position(
-                            x: CGFloat(currentTime / 300.0) * geometry.size.width,
+                            x: CGFloat(min(currentTime, effectiveDuration) / effectiveDuration) * geometry.size.width,
                             y: geometry.size.height / 2
                         )
                         .shadow(color: .purple.opacity(0.5), radius: 4)
@@ -509,7 +530,20 @@ struct IllustrationCarouselView: View {
     }
 
     private func startKenBurnsAnimation() {
-        kenBurnsTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+        // Don't start animation if there are no valid illustrations
+        guard hasValidIllustrations else { return }
+
+        // Stop any existing timer first
+        stopKenBurnsAnimation()
+
+        kenBurnsTimer = Timer.scheduledTimer(withTimeInterval: 20.0, repeats: true) { [self] _ in
+            // Only animate if current illustration is valid and loaded
+            guard selectedIndex < illustrations.count,
+                  illustrations[selectedIndex].isGenerated,
+                  !failedIllustrations.contains(illustrations[selectedIndex].id) else {
+                return
+            }
+
             withAnimation(.linear(duration: 20)) {
                 kenBurnsScale = kenBurnsScale == 1.0 ? 1.1 : 1.0
                 kenBurnsOffset = CGSize(
@@ -518,6 +552,11 @@ struct IllustrationCarouselView: View {
                 )
             }
         }
+    }
+
+    /// Check if there are any valid (generated and not failed) illustrations
+    private var hasValidIllustrations: Bool {
+        illustrations.contains { $0.isGenerated && !failedIllustrations.contains($0.id) }
     }
 
     private func stopKenBurnsAnimation() {
@@ -591,6 +630,8 @@ struct IllustrationCarouselView: View {
     IllustrationCarouselView(
         illustrations: [],
         currentTime: .constant(30),
-        onRetryIllustration: nil
+        onRetryIllustration: nil,
+        onSeekToIllustration: nil,
+        storyDuration: 300
     )
 }

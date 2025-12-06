@@ -41,10 +41,22 @@ class IllustrationSyncManager: ObservableObject {
     private var manualModeTimer: Timer?
     private let preloadRadius = 2 // Number of images to preload in each direction
 
+    // MARK: - Constants
+
+    /// Maximum number of images to keep in memory cache
+    private let maxCacheSize = 10
+
     // MARK: - Initialization
 
     init() {
         setupBindings()
+    }
+
+    deinit {
+        // Clean up timer to prevent memory leaks
+        manualModeTimer?.invalidate()
+        manualModeTimer = nil
+        cancellables.removeAll()
     }
 
     private func setupBindings() {
@@ -213,29 +225,61 @@ class IllustrationSyncManager: ObservableObject {
         cleanupDistantImages(currentIndex: index)
     }
 
-    /// Preload a single image
+    /// Preload a single image with timeout to prevent blocking
     private func preloadImage(for illustration: StoryIllustration) {
-        // Skip if already loaded
+        // Skip if already loaded or at cache limit
         guard preloadedImages[illustration.id] == nil,
+              preloadedImages.count < maxCacheSize,
               let url = illustration.imageURL else { return }
 
-        DispatchQueue.global(qos: .background).async { [weak self] in
-            if let imageData = try? Data(contentsOf: url),
-               let image = UIImage(data: imageData) {
-                DispatchQueue.main.async {
-                    self?.preloadedImages[illustration.id] = image
+        // Use URLSession for proper timeout handling instead of blocking Data(contentsOf:)
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 10 // 10 second timeout
+        config.timeoutIntervalForResource = 30 // 30 second total timeout
+
+        let session = URLSession(configuration: config)
+
+        session.dataTask(with: url) { [weak self] data, response, error in
+            guard let self = self,
+                  error == nil,
+                  let data = data,
+                  let image = UIImage(data: data) else {
+                return
+            }
+
+            DispatchQueue.main.async {
+                // Double-check we're still under the limit
+                if self.preloadedImages.count < self.maxCacheSize {
+                    self.preloadedImages[illustration.id] = image
                 }
             }
-        }
+        }.resume()
     }
 
     /// Remove distant images from cache to manage memory
     private func cleanupDistantImages(currentIndex: Int) {
+        // Calculate range of images to keep based on current position
         let keepRange = max(0, currentIndex - preloadRadius * 2)...min(illustrations.count - 1, currentIndex + preloadRadius * 2)
 
+        // Remove images outside the keep range
         for (index, illustration) in illustrations.enumerated() {
             if !keepRange.contains(index) {
                 preloadedImages.removeValue(forKey: illustration.id)
+            }
+        }
+
+        // Additional safety: enforce max cache size to prevent memory bloat
+        if preloadedImages.count > maxCacheSize {
+            // Keep only the images closest to current index
+            let illustrationIdsInRange = illustrations
+                .enumerated()
+                .filter { keepRange.contains($0.offset) }
+                .map { $0.element.id }
+
+            // Remove any cached images not in the current range
+            let keysToRemove = preloadedImages.keys.filter { !illustrationIdsInRange.contains($0) }
+            for key in keysToRemove {
+                preloadedImages.removeValue(forKey: key)
             }
         }
     }

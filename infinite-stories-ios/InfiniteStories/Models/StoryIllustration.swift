@@ -75,8 +75,10 @@ final class StoryIllustration {
         guard let imagePath = imagePath else { return nil }
 
         // Check if imagePath is already a full URL (from backend API)
-        if imagePath.starts(with: "http://") || imagePath.starts(with: "https://") {
-            return URL(string: imagePath)
+        // Use proper URL parsing to detect remote URLs
+        if let url = URL(string: imagePath), let scheme = url.scheme?.lowercased(),
+           (scheme == "http" || scheme == "https"), url.host != nil {
+            return url
         }
 
         // Otherwise, it's a local file path
@@ -85,12 +87,22 @@ final class StoryIllustration {
             .appendingPathComponent(imagePath)
     }
 
+    /// Check if the image path is a remote URL
+    var isRemoteURL: Bool {
+        guard let imagePath = imagePath,
+              let url = URL(string: imagePath),
+              let scheme = url.scheme?.lowercased() else {
+            return false
+        }
+        return (scheme == "http" || scheme == "https") && url.host != nil
+    }
+
     /// Check if the image exists on disk
     var imageExists: Bool {
-        guard let imagePath = imagePath else { return false }
+        guard imagePath != nil else { return false }
 
         // For remote URLs, assume they exist (will be handled by AsyncImage)
-        if imagePath.starts(with: "http://") || imagePath.starts(with: "https://") {
+        if isRemoteURL {
             return true
         }
 
