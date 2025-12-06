@@ -1,21 +1,10 @@
-# iOS Backend Integration Capability
+# Spec: iOS Backend Integration
 
-**Capability**: iOS Backend Integration
-**Status**: In Progress
-**Owner**: iOS Engineering
+## Purpose
 
-## Overview
-
-This capability ensures the iOS app fully integrates with the backend API for all operations, replacing direct OpenAI API calls with backend-proxied requests. The app must authenticate users, make authorized API calls, and handle all responses appropriately.
-
----
-
-## ADDED Requirements
-
+Define how the iOS app integrates with the backend API for all operations, replacing direct OpenAI API calls with backend-proxied requests including authentication, authorized API calls, and response handling.
+## Requirements
 ### Requirement: APIClient Must Inject Auth Headers
-
-**Priority**: Critical
-**Status**: Partially Implemented (Needs Auth Header Injection)
 
 The APIClient SHALL automatically inject authentication headers for all API requests when the user is signed in.
 
@@ -44,9 +33,6 @@ The APIClient SHALL automatically inject authentication headers for all API requ
 **And** a user-friendly alert is shown: "Session expired, please sign in again"
 
 ### Requirement: Repositories Must Use Backend API Only
-
-**Priority**: Critical
-**Status**: Partially Implemented (Mixed with AIService)
 
 All repository operations SHALL use the backend API exclusively, with no direct OpenAI API calls.
 
@@ -79,9 +65,6 @@ All repository operations SHALL use the backend API exclusively, with no direct 
 
 ### Requirement: ViewModels Must Use Repositories Exclusively
 
-**Priority**: High
-**Status**: Not Implemented (Still References AIService)
-
 ViewModels SHALL NOT directly reference AIService or OpenAI code. All AI operations MUST go through repositories.
 
 #### Scenario: StoryViewModel generates story without AIService
@@ -103,9 +86,6 @@ ViewModels SHALL NOT directly reference AIService or OpenAI code. All AI operati
 **And** the audio is downloaded and cached via URLCache
 
 ### Requirement: Auth Flow Must Be Complete
-
-**Priority**: Critical
-**Status**: Partially Implemented (UI Exists, Not Wired)
 
 The iOS app SHALL provide a complete sign-up and sign-in flow with proper error handling.
 
@@ -148,9 +128,6 @@ The iOS app SHALL provide a complete sign-up and sign-in flow with proper error 
 
 ### Requirement: App Entry Must Check Auth State
 
-**Priority**: High
-**Status**: Implemented
-
 The app SHALL show AuthenticationView for unauthenticated users and ImprovedContentView for authenticated users.
 
 #### Scenario: First launch shows auth view
@@ -180,90 +157,3 @@ The app SHALL show AuthenticationView for unauthenticated users and ImprovedCont
 **And** the app navigates back to AuthenticationView
 **And** the user must sign in again
 
----
-
-## MODIFIED Requirements
-
-*None*
-
----
-
-## REMOVED Requirements
-
-### Requirement: Direct OpenAI API Calls
-
-**Reason**: All AI operations now proxied through backend
-**Date**: 2025-11-13
-
-The iOS app no longer makes direct calls to OpenAI APIs. All AI operations (story generation, audio synthesis, image generation) are handled by the backend.
-
-**Migration Notes**:
-- AIService marked for deprecation
-- OpenAI SDK to be removed from iOS dependencies
-- API keys no longer stored in iOS Keychain
-- All AI operations use repositories → backend API → OpenAI
-
-### Requirement: OpenAI API Key Configuration
-
-**Reason**: Backend handles API keys
-**Date**: 2025-11-13
-
-Users no longer provide or manage OpenAI API keys in the iOS app.
-
-**Migration Notes**:
-- Settings view no longer shows API key input
-- Keychain storage for OpenAI API key removed
-- Backend manages API keys centrally
-
----
-
-## Dependencies
-
-- Backend API must be deployed and accessible
-- Better Auth endpoints functional
-- HeroRepository, StoryRepository, CustomEventRepository implemented
-- APIClient with retry logic implemented
-- AuthStateManager for session token storage
-
-## Related Capabilities
-
-- `backend-auth`: iOS app depends on auth endpoints
-- `deprecation`: AIService removal required
-- `testing`: Integration tests for repository + backend
-
-## Non-Functional Requirements
-
-### Performance
-- API calls must complete within 5 seconds (P95)
-- Retry logic must handle transient failures
-- URLCache must reduce redundant media downloads
-
-### User Experience
-- Loading states must show during API calls
-- Error messages must be user-friendly and actionable
-- Network offline must be clearly indicated
-- Retry buttons must be available for failed operations
-
-### Security
-- Session tokens must be stored in iOS Keychain (not UserDefaults)
-- Tokens must be transmitted over HTTPS only
-- No sensitive data in logs or analytics
-
-## Open Questions
-
-- ✅ Should we cache API responses locally? → No, API-only architecture per CLAUDE.md
-- ✅ What's the offline experience? → Show network error, block operations
-- ✅ How to handle token refresh? → Automatic refresh before expiry
-
-## Acceptance Criteria
-
-- [ ] All API requests include Authorization header when authenticated
-- [ ] 401 responses trigger automatic sign-out
-- [ ] Sign-up flow creates account and signs user in
-- [ ] Sign-in flow stores token and navigates to main app
-- [ ] All repositories use backend API exclusively
-- [ ] No AIService references in ViewModels
-- [ ] No direct OpenAI API calls
-- [ ] Network errors show user-friendly messages
-- [ ] App shows auth view for unauthenticated users
-- [ ] App shows main interface for authenticated users
