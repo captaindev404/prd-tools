@@ -1,5 +1,6 @@
 import { openai } from './client';
 import { filterPrompt, logFilterResults } from './content-filter';
+import { uploadToR2, generateFileKey } from '@/lib/storage/r2-client';
 
 export interface AvatarGenerationParams {
   heroName: string;
@@ -14,6 +15,8 @@ export interface AvatarGenerationParams {
   specialAbilities?: string[];
   style?: 'standard' | 'hd';
   size?: '1024x1024' | '1024x1536' | '1536x1024';
+  userId: string;
+  heroId: string;
 }
 
 export interface GeneratedAvatar {
@@ -24,7 +27,7 @@ export interface GeneratedAvatar {
 }
 
 /**
- * Generate an avatar image using DALL-E 3
+ * Generate an avatar image using gpt-image-1
  */
 export async function generateAvatar(
   params: AvatarGenerationParams
@@ -37,6 +40,8 @@ export async function generateAvatar(
     specialAbilities,
     style = 'standard',
     size = '1024x1024',
+    userId,
+    heroId,
   } = params;
 
   // Build the avatar prompt
@@ -56,15 +61,20 @@ export async function generateAvatar(
     throw new Error('Avatar generation failed: Content safety check failed');
   }
 
+  // Map quality for gpt-image-1 (low/medium/high instead of standard/hd)
+  const qualityMap: Record<string, 'low' | 'medium' | 'high'> = {
+    standard: 'medium',
+    hd: 'high',
+  };
+
   try {
-    // Generate avatar using DALL-E 3 images API
+    // Generate avatar using gpt-image-1 Images API
     const response = await openai.images.generate({
-      model: 'dall-e-3',
+      model: 'gpt-image-1',
       prompt: filtered.filtered,
       size: size,
-      quality: style === 'hd' ? 'hd' : 'standard',
+      quality: qualityMap[style] || 'medium',
       n: 1,
-      response_format: 'url',
     });
 
     // Extract image from response
@@ -73,18 +83,49 @@ export async function generateAvatar(
     }
 
     const image = response.data[0];
-    if (!image.url) {
-      throw new Error('No image URL in OpenAI response');
+
+    // gpt-image-1 returns b64_json by default
+    let imageBuffer: Buffer;
+    if (image.b64_json) {
+      imageBuffer = Buffer.from(image.b64_json, 'base64');
+    } else if (image.url) {
+      // Fallback to URL if provided
+      const imageResponse = await fetch(image.url);
+      if (!imageResponse.ok) {
+        throw new Error(`Failed to download image: ${imageResponse.status}`);
+      }
+      imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+    } else {
+      throw new Error('No image data in OpenAI response');
     }
 
+    // Generate unique file key for R2
+    const fileKey = generateFileKey({
+      userId,
+      type: 'avatar',
+      filename: `${heroId}.png`,
+    });
+
+    // Upload to R2
+    const r2Url = await uploadToR2({
+      key: fileKey,
+      body: imageBuffer,
+      contentType: 'image/png',
+      metadata: {
+        heroId,
+        heroName,
+        generatedAt: new Date().toISOString(),
+      },
+    });
+
     // Log usage info
-    console.log('Avatar generation completed');
+    console.log('Avatar generation completed, uploaded to R2:', r2Url);
 
     return {
-      imageUrl: image.url,
+      imageUrl: r2Url,
       prompt: filtered.filtered,
       revisedPrompt: image.revised_prompt,
-      generationId: image.url.split('/').pop(), // Use URL hash as generation ID
+      generationId: fileKey,
     };
   } catch (error) {
     console.error('Error generating avatar:', error);

@@ -4,7 +4,7 @@ import { getOrCreateUser } from '@/lib/auth/session';
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api-response';
 import { generateAvatar } from '@/lib/openai/avatar-generator';
 import { enforceRateLimit, recordApiUsage } from '@/lib/rate-limit/db-rate-limiter';
-import { signHeroUrls, generateSignedUrl } from '@/lib/storage/signed-url';
+import { generateSignedUrl } from '@/lib/storage/signed-url';
 
 /**
  * POST /api/heroes/[heroId]/avatar
@@ -54,6 +54,8 @@ export async function POST(
       specialAbilities: hero.specialAbilities as string[] | undefined,
       style,
       size,
+      userId: user.id,
+      heroId: heroId,
     });
 
     // Update hero with avatar URL and prompt
@@ -71,24 +73,21 @@ export async function POST(
     await recordApiUsage({
       userId: user.id,
       operation: 'avatar_generation',
-      model: 'dall-e-3',
-      estimatedCost: style === 'hd' ? 0.08 : 0.04, // DALL-E 3 pricing
+      model: 'gpt-image-1',
+      estimatedCost: style === 'hd' ? 0.167 : 0.011, // gpt-image-1 pricing (high/medium quality)
       requestDuration: duration,
       success: true,
     });
 
     // Sign URLs for secure access
-    const signedHero = await signHeroUrls(updatedHero);
     const signedAvatarUrl = await generateSignedUrl(avatar.imageUrl);
 
+    // Return flat structure matching iOS AvatarGenerationResponse
     return successResponse(
       {
-        hero: signedHero,
-        avatar: {
-          imageUrl: signedAvatarUrl,
-          prompt: avatar.prompt,
-          revisedPrompt: avatar.revisedPrompt,
-        },
+        heroId: heroId,
+        avatarUrl: signedAvatarUrl,
+        generationId: avatar.generationId || null,
       },
       'Avatar generated successfully'
     );
@@ -101,7 +100,7 @@ export async function POST(
       await recordApiUsage({
         userId: user.id,
         operation: 'avatar_generation',
-        model: 'dall-e-3',
+        model: 'gpt-image-1',
         requestDuration: duration,
         success: false,
         errorMessage: (error as Error).message,

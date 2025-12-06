@@ -340,6 +340,8 @@ struct AvatarPromptView: View {
     @Binding var showingAvatarGeneration: Bool
     let onDismiss: () -> Void
 
+    @State private var showAvatarSheet = false
+
     var body: some View {
         NavigationView {
             VStack(spacing: 30) {
@@ -366,7 +368,7 @@ struct AvatarPromptView: View {
 
                 VStack(spacing: 16) {
                     Button {
-                        showingAvatarGeneration = true
+                        showAvatarSheet = true
                     } label: {
                         HStack {
                             Image(systemName: "wand.and.stars")
@@ -397,6 +399,14 @@ struct AvatarPromptView: View {
             .padding()
             .navigationTitle("Your Hero is Ready!")
             .navigationBarTitleDisplayMode(.inline)
+            .fullScreenCover(isPresented: $showAvatarSheet) {
+                if let hero = hero {
+                    AvatarGenerationView(hero: hero, isPresented: $showAvatarSheet)
+                        .onDisappear {
+                            onDismiss()
+                        }
+                }
+            }
         }
     }
 }

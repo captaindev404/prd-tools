@@ -68,12 +68,12 @@ export async function POST(
 
     // Record API usage (per illustration)
     const duration = Date.now() - startTime;
-    const costPerImage = style === 'hd' ? 0.08 : 0.04;
+    const costPerImage = style === 'hd' ? 0.167 : 0.011; // gpt-image-1 pricing (high/medium quality)
 
     await recordApiUsage({
       userId: user.id,
       operation: 'illustration_generation',
-      model: 'dall-e-3',
+      model: 'gpt-image-1',
       estimatedCost: costPerImage * result.generated,
       requestDuration: duration,
       success: result.generated > 0,
@@ -114,7 +114,7 @@ export async function POST(
       await recordApiUsage({
         userId: user.id,
         operation: 'illustration_generation',
-        model: 'dall-e-3',
+        model: 'gpt-image-1',
         requestDuration: duration,
         success: false,
         errorMessage: (error as Error).message,

@@ -234,13 +234,6 @@
 - Cost analysis completed
 - Decision on production model made (gpt-5-mini vs dall-e-3)
 
-### 3.5 Implement model fallback if needed
-**Dependencies:** 3.4
-
-- [ ] If gpt-5-mini quality is insufficient, implement fallback to dall-e-3
-- [ ] Add environment variable `OPENAI_IMAGE_MODEL` for easy switching
-- [ ] Add quality metrics logging for monitoring
-- [ ] Create alert for quality degradation
 
 **Validation:**
 - Model selection works via environment variable
