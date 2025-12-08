@@ -139,15 +139,7 @@ struct IllustrationSyncView: View {
                         .aspectRatio(contentMode: .fill)
                         .overlay(
                             // Subtle vignette
-                            RadialGradient(
-                                gradient: Gradient(colors: [
-                                    Color.clear,
-                                    Color.black.opacity(0.2)
-                                ]),
-                                center: .center,
-                                startRadius: 200,
-                                endRadius: 400
-                            )
+                            Color.black.opacity(0.1)
                         )
                 case .failure:
                     // Show placeholder for loading failure
@@ -335,13 +327,7 @@ struct TransitionProgressBar: View {
 
                     // Progress
                     Capsule()
-                        .fill(
-                            LinearGradient(
-                                gradient: Gradient(colors: [Color.orange, Color.purple]),
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
+                        .fill(Color.accentColor)
                         .frame(width: geometry.size.width * progress, height: 4)
                         .animation(.linear(duration: 0.1), value: progress)
                 }

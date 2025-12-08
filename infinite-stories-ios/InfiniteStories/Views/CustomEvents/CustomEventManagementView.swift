@@ -81,13 +81,9 @@ struct CustomEventManagementView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Background gradient
-                LinearGradient(
-                    colors: [Color.purple.opacity(0.05), Color.blue.opacity(0.05)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                // System background
+                Color(.systemBackground)
+                    .ignoresSafeArea()
 
                 if customEvents.isEmpty {
                     emptyStateView
@@ -347,16 +343,10 @@ struct CustomEventManagementView: View {
                     .foregroundColor(.white)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
-                    .background(
-                        LinearGradient(
-                            colors: [.purple, .blue],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
+                    .background(Color.accentColor)
                     .clipShape(Capsule())
             }
-            .shadow(color: .purple.opacity(0.3), radius: 8, y: 4)
+            .shadow(color: Color.accentColor.opacity(0.3), radius: 8, y: 4)
         }
         .padding()
     }
@@ -560,16 +550,7 @@ struct CustomEventGridCard: View {
                             .clipShape(RoundedRectangle(cornerRadius: 16))
                     } else {
                         RoundedRectangle(cornerRadius: 16)
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color(hex: event.colorHex).opacity(0.3),
-                                        Color(hex: event.colorHex).opacity(0.1)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
+                            .fill(Color(hex: event.colorHex).opacity(0.2))
                             .frame(width: 80, height: 80)
                             .overlay(
                                 Image(systemName: event.iconName)

@@ -10,78 +10,50 @@ import SwiftUI
 struct IllustrationLoadingView: View {
     let sceneNumber: Int
     let progress: Double?
-    @State private var animationPhase: CGFloat = 0
 
     var body: some View {
         ZStack {
-            // Animated gradient background
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color.purple.opacity(0.3),
-                    Color.orange.opacity(0.2),
-                    Color.pink.opacity(0.2)
-                ]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .hueRotation(.degrees(animationPhase))
-            .animation(.linear(duration: 3).repeatForever(autoreverses: true), value: animationPhase)
+            // System background
+            Color(.secondarySystemBackground)
 
             VStack(spacing: 20) {
-                // Animated sparkles
-                ZStack {
-                    ForEach(0..<3, id: \.self) { index in
-                        Image(systemName: "sparkle")
-                            .font(.system(size: 30))
-                            .foregroundColor(.white.opacity(0.8))
-                            .offset(
-                                x: cos(animationPhase + Double(index) * 120) * 30,
-                                y: sin(animationPhase + Double(index) * 120) * 30
-                            )
-                            .scaleEffect(1.0 + sin(animationPhase + Double(index) * 60) * 0.2)
-                    }
-
-                    Image(systemName: "wand.and.stars")
-                        .font(.system(size: 50))
-                        .foregroundColor(.white)
-                        .rotationEffect(.degrees(animationPhase * 2))
-                }
-                .frame(height: 80)
+                // Static icon
+                Image(systemName: "wand.and.stars")
+                    .font(.system(size: 50))
+                    .foregroundColor(.accentColor)
+                    .frame(height: 80)
 
                 Text("Generating Scene \(sceneNumber)")
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
 
                 if let progress = progress {
                     // Progress indicator
                     VStack(spacing: 8) {
                         ProgressView(value: progress)
                             .progressViewStyle(LinearProgressViewStyle())
-                            .tint(.white)
+                            .tint(.accentColor)
                             .scaleEffect(y: 2)
 
                         Text("\(Int(progress * 100))%")
                             .font(.caption)
-                            .foregroundColor(.white.opacity(0.8))
+                            .foregroundColor(.secondary)
                             .monospacedDigit()
                     }
                     .frame(width: 200)
                 } else {
                     // Indeterminate progress
                     ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .progressViewStyle(CircularProgressViewStyle(tint: .accentColor))
                         .scaleEffect(1.5)
                 }
 
                 Text("Creating magical illustration...")
                     .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(.secondary)
                     .italic()
             }
             .padding(30)
-        }
-        .onAppear {
-            animationPhase = 360
         }
     }
 }
@@ -157,15 +129,8 @@ struct IllustrationErrorView: View {
 
     var body: some View {
         ZStack {
-            // Error background
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color.red.opacity(0.1),
-                    Color.orange.opacity(0.1)
-                ]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            // System background
+            Color(.secondarySystemBackground)
 
             VStack(spacing: 20) {
                 Image(systemName: "exclamationmark.triangle.fill")
@@ -204,31 +169,21 @@ struct IllustrationErrorView: View {
 struct EmptyIllustrationsView: View {
     let onGenerateAction: () -> Void
 
-    @State private var animationScale: CGFloat = 1.0
-
     var body: some View {
         ZStack {
-            // Magical background
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color.purple.opacity(0.05),
-                    Color.orange.opacity(0.05)
-                ]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            // System background
+            Color(.systemBackground)
 
             VStack(spacing: 24) {
-                // Animated icon
+                // Static icon
                 ZStack {
                     Circle()
-                        .fill(Color.orange.opacity(0.1))
+                        .fill(Color.accentColor.opacity(0.1))
                         .frame(width: 120, height: 120)
-                        .scaleEffect(animationScale)
 
                     Image(systemName: "photo.stack.fill")
                         .font(.system(size: 60))
-                        .foregroundColor(.orange)
+                        .foregroundColor(.accentColor)
                 }
 
                 VStack(spacing: 8) {
@@ -252,21 +207,10 @@ struct EmptyIllustrationsView: View {
                     .foregroundColor(.white)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
-                    .background(
-                        LinearGradient(
-                            gradient: Gradient(colors: [Color.purple, Color.orange]),
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
+                    .background(Color.accentColor)
                     .cornerRadius(12)
-                    .shadow(color: .orange.opacity(0.3), radius: 8, x: 0, y: 4)
+                    .shadow(color: Color.accentColor.opacity(0.3), radius: 8, x: 0, y: 4)
                 }
-            }
-        }
-        .onAppear {
-            withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
-                animationScale = 1.1
             }
         }
     }

@@ -100,9 +100,6 @@ struct IllustrationPlaceholderView: View {
     let errorType: IllustrationErrorType
     let onRetry: (() -> Void)?
 
-    @State private var isAnimating = false
-    @State private var pulseAnimation = false
-    @State private var shimmerAnimation = false
     @AppStorage("showIllustrationErrors") private var showDetailedErrors = false
 
     init(
@@ -151,22 +148,8 @@ struct IllustrationPlaceholderView: View {
             .clipShape(RoundedRectangle(cornerRadius: 20))
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
-                    .strokeBorder(
-                        LinearGradient(
-                            gradient: Gradient(colors: [
-                                errorType.color.opacity(0.3),
-                                errorType.color.opacity(0.1)
-                            ]),
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
+                    .stroke(errorType.color.opacity(0.2), lineWidth: 1)
             )
-            .shadow(color: errorType.color.opacity(0.1), radius: 10, x: 0, y: 5)
-        }
-        .onAppear {
-            startAnimations()
         }
     }
 
@@ -174,89 +157,26 @@ struct IllustrationPlaceholderView: View {
 
     @ViewBuilder
     private var backgroundGradient: some View {
-        LinearGradient(
-            gradient: Gradient(colors: [
-                Color(red: 0.95, green: 0.95, blue: 0.98),
-                Color(red: 0.92, green: 0.92, blue: 0.96),
-                errorType.color.opacity(0.05)
-            ]),
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        .overlay(
-            // Shimmer effect
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color.white.opacity(0),
-                    Color.white.opacity(shimmerAnimation ? 0.3 : 0),
-                    Color.white.opacity(0)
-                ]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .animation(
-                Animation.easeInOut(duration: 2.5)
-                    .repeatForever(autoreverses: false),
-                value: shimmerAnimation
-            )
-        )
+        Color(.secondarySystemBackground)
     }
 
     @ViewBuilder
     private var animatedIcon: some View {
         ZStack {
-            // Pulsing background circle
+            // Static background circle
             Circle()
                 .fill(errorType.color.opacity(0.1))
                 .frame(width: 100, height: 100)
-                .scaleEffect(pulseAnimation ? 1.2 : 1.0)
-                .opacity(pulseAnimation ? 0.3 : 0.5)
-                .animation(
-                    Animation.easeInOut(duration: 2)
-                        .repeatForever(autoreverses: true),
-                    value: pulseAnimation
-                )
 
-            // Secondary circle
+            // Inner circle
             Circle()
                 .fill(errorType.color.opacity(0.15))
                 .frame(width: 80, height: 80)
-                .scaleEffect(pulseAnimation ? 1.1 : 1.0)
-                .animation(
-                    Animation.easeInOut(duration: 2)
-                        .delay(0.2)
-                        .repeatForever(autoreverses: true),
-                    value: pulseAnimation
-                )
 
             // Main icon
             Image(systemName: errorType.icon)
                 .font(.system(size: 40, weight: .medium, design: .rounded))
                 .foregroundColor(errorType.color)
-                .rotationEffect(.degrees(isAnimating ? 5 : -5))
-                .animation(
-                    Animation.easeInOut(duration: 2)
-                        .repeatForever(autoreverses: true),
-                    value: isAnimating
-                )
-
-            // Decorative sparkles
-            ForEach(0..<3) { index in
-                Image(systemName: "sparkle")
-                    .font(.system(size: 12))
-                    .foregroundColor(errorType.color.opacity(0.6))
-                    .offset(
-                        x: cos(Double(index) * 2 * .pi / 3) * 45,
-                        y: sin(Double(index) * 2 * .pi / 3) * 45
-                    )
-                    .scaleEffect(pulseAnimation ? 1.2 : 0.8)
-                    .animation(
-                        Animation.easeInOut(duration: 2)
-                            .delay(Double(index) * 0.3)
-                            .repeatForever(autoreverses: true),
-                        value: pulseAnimation
-                    )
-            }
         }
     }
 
@@ -310,16 +230,7 @@ struct IllustrationPlaceholderView: View {
             .padding(.vertical, 10)
             .background(
                 Capsule()
-                    .fill(
-                        LinearGradient(
-                            gradient: Gradient(colors: [
-                                errorType.color,
-                                errorType.color.opacity(0.8)
-                            ]),
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
+                    .fill(errorType.color)
             )
             .shadow(color: errorType.color.opacity(0.3), radius: 5, x: 0, y: 3)
         }
@@ -349,14 +260,6 @@ struct IllustrationPlaceholderView: View {
 
     // MARK: - Helper Methods
 
-    private func startAnimations() {
-        withAnimation {
-            isAnimating = true
-            pulseAnimation = true
-            shimmerAnimation = true
-        }
-    }
-
     private func hapticFeedback() {
         let impact = UIImpactFeedbackGenerator(style: .light)
         impact.impactOccurred()
@@ -369,40 +272,20 @@ struct CompactIllustrationPlaceholder: View {
     let sceneNumber: Int
     let errorType: IllustrationErrorType
 
-    @State private var isAnimating = false
-
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 12)
-                .fill(
-                    LinearGradient(
-                        gradient: Gradient(colors: [
-                            Color.gray.opacity(0.1),
-                            errorType.color.opacity(0.05)
-                        ]),
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+                .fill(Color(.secondarySystemBackground))
 
             VStack(spacing: 4) {
                 Image(systemName: errorType.icon)
                     .font(.system(size: 20))
                     .foregroundColor(errorType.color.opacity(0.6))
-                    .scaleEffect(isAnimating ? 1.1 : 1.0)
-                    .animation(
-                        Animation.easeInOut(duration: 2)
-                            .repeatForever(autoreverses: true),
-                        value: isAnimating
-                    )
 
                 Text("Scene \(sceneNumber)")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
-        }
-        .onAppear {
-            isAnimating = true
         }
     }
 }

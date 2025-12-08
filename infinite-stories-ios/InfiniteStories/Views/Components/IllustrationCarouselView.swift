@@ -79,16 +79,9 @@ struct IllustrationCarouselView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                // Background gradient for elegance
-                LinearGradient(
-                    gradient: Gradient(colors: [
-                        Color.purple.opacity(0.1),
-                        Color.orange.opacity(0.05)
-                    ]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                // System background
+                Color(.systemBackground)
+                    .ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     // Main carousel
@@ -226,15 +219,9 @@ struct IllustrationCarouselView: View {
                             .offset(selectedIndex == index ? kenBurnsOffset : .zero)
                             .animation(selectedIndex == index ? .linear(duration: 20).repeatForever(autoreverses: true) : .default, value: kenBurnsScale)
                             .overlay(
-                                // Gradient overlay for text readability
-                                LinearGradient(
-                                    gradient: Gradient(colors: [
-                                        Color.black.opacity(0),
-                                        Color.black.opacity(showingDescription ? 0.6 : 0.2)
-                                    ]),
-                                    startPoint: .center,
-                                    endPoint: .bottom
-                                )
+                                // Semi-transparent overlay for text readability
+                                Color.black.opacity(showingDescription ? 0.4 : 0.15)
+                                    .allowsHitTesting(false)
                             )
                             .overlay(
                                 // Scene description
@@ -362,16 +349,7 @@ struct IllustrationCarouselView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color.black.opacity(0.8),
-                    Color.black.opacity(0.6)
-                ]),
-                startPoint: .bottom,
-                endPoint: .top
-            )
-        )
+        .background(Color.black.opacity(0.7))
     }
 
     @ViewBuilder
@@ -460,15 +438,8 @@ struct IllustrationCarouselView: View {
     @ViewBuilder
     private func placeholderView(for illustration: StoryIllustration, geometry: GeometryProxy) -> some View {
         ZStack {
-            // Gradient background
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color.purple.opacity(0.3),
-                    Color.orange.opacity(0.2)
-                ]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            // System secondary background
+            Color(.secondarySystemBackground)
 
             VStack(spacing: 16) {
                 Image(systemName: "sparkles")

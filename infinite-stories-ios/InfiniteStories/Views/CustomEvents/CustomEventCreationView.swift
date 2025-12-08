@@ -335,13 +335,7 @@ struct BasicInfoStepView: View {
                 VStack(spacing: 12) {
                     Image(systemName: "wand.and.stars")
                         .font(.system(size: 60))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.orange, .pink],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .foregroundColor(.accentColor)
                     
                     Text("Let's create a special story event!")
                         .font(.title2)
@@ -438,13 +432,7 @@ struct CategorizationStepView: View {
                 VStack(spacing: 12) {
                     Image(systemName: "tag.circle.fill")
                         .font(.system(size: 60))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.blue, .purple],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .foregroundColor(.accentColor)
                     
                     Text("Let's categorize your event")
                         .font(.title2)
@@ -526,13 +514,7 @@ struct AIEnhancementStepView: View {
                 VStack(spacing: 12) {
                     Image(systemName: "sparkles.rectangle.stack")
                         .font(.system(size: 60))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.purple, .pink],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .foregroundColor(.accentColor)
                     
                     Text("Enhance with AI")
                         .font(.title2)
@@ -668,13 +650,7 @@ struct PictogramStepView: View {
                 VStack(spacing: 12) {
                     Image(systemName: "photo.badge.plus")
                         .font(.system(size: 60))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.purple, .blue],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .foregroundColor(.accentColor)
 
                     Text("Create a Pictogram")
                         .font(.title)
@@ -774,13 +750,7 @@ struct PictogramStepView: View {
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(
-                                LinearGradient(
-                                    colors: [.purple, .blue],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
+                            .background(Color.accentColor)
                             .cornerRadius(12)
                         }
                         .disabled(isGenerating)
@@ -866,13 +836,7 @@ struct PreviewStepView: View {
                     } else {
                         Image(systemName: "checkmark.seal.fill")
                             .font(.system(size: 60))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [.green, .blue],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
+                            .foregroundColor(.green)
                     }
 
                     Text("Review Your Event")

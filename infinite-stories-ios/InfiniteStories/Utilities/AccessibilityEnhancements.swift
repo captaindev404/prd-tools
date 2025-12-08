@@ -8,31 +8,20 @@
 import SwiftUI
 
 // MARK: - Accessible Colors with WCAG AA Compliance
+/// Uses system semantic colors for automatic accessibility compliance
 struct AccessibleColors {
-    // Primary text: minimum 7:1 contrast ratio
-    static let primaryText = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark 
-            ? UIColor(white: 0.95, alpha: 1.0)  // #F2F2F2
-            : UIColor(white: 0.15, alpha: 1.0)  // #262626
-    })
-    
-    // Secondary text: minimum 4.5:1 contrast ratio
-    static let secondaryText = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(white: 0.75, alpha: 1.0)  // #BFBFBF
-            : UIColor(white: 0.35, alpha: 1.0)  // #595959
-    })
-    
-    // Card shadows for better separation
-    static let cardShadow = Color.black.opacity(0.15) // Increased from 0.08
-    static let cardBorder = Color.primary.opacity(0.12) // Add subtle border
-    
-    // Accent colors with proper contrast
-    static let accessibleAccent = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 0.7, green: 0.5, blue: 1.0, alpha: 1.0)  // Lighter purple
-            : UIColor(red: 0.5, green: 0.3, blue: 0.9, alpha: 1.0)  // Darker purple
-    })
+    // Primary text: Uses system semantic color (automatically handles contrast)
+    static let primaryText = Color.primary
+
+    // Secondary text: Uses system semantic color
+    static let secondaryText = Color.secondary
+
+    // Card styling
+    static let cardShadow = Color.black.opacity(0.12)
+    static let cardBorder = Color.primary.opacity(0.1)
+
+    // Accent color: Uses app's accent color from asset catalog
+    static let accessibleAccent = Color.accentColor
 }
 
 // MARK: - Accessible Sizes
@@ -56,26 +45,13 @@ struct AccessibleSizes {
 struct AccessibleCardStyle {
     @Environment(\.colorScheme) var colorScheme
     @Environment(\.accessibilityReduceTransparency) var reduceTransparency
-    
+
     static func cardBackground(for colorScheme: ColorScheme, reduceTransparency: Bool = false) -> some View {
         RoundedRectangle(cornerRadius: 16)
-            .fill(reduceTransparency ? Color(.systemBackground) : Color(.systemBackground).opacity(0.98))
+            .fill(Color(.secondarySystemBackground))
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(
-                        colorScheme == .dark 
-                            ? Color.white.opacity(0.1)
-                            : Color.black.opacity(0.08),
-                        lineWidth: 1
-                    )
-            )
-            .shadow(
-                color: colorScheme == .dark
-                    ? Color.black.opacity(0.3)
-                    : Color.black.opacity(0.12),
-                radius: 8,
-                x: 0,
-                y: 4
+                    .stroke(Color.primary.opacity(0.1), lineWidth: 1)
             )
     }
 }

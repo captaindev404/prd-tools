@@ -87,15 +87,8 @@ struct AudioPlayerView: View {
                     HStack(spacing: 0) {
                         // Left side: Illustrations
                         ZStack {
-                            // Background gradient
-                            LinearGradient(
-                                gradient: Gradient(colors: [
-                                    Color.purple.opacity(0.05),
-                                    Color.orange.opacity(0.03)
-                                ]),
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
+                            // System background
+                            Color(.systemBackground)
 
                             // Illustration Carousel with sync support
                             IllustrationCarouselView(
@@ -141,15 +134,8 @@ struct AudioPlayerView: View {
                     // Illustration Section (if enabled and available)
                     if showIllustrations && currentStory.hasIllustrations {
                         ZStack {
-                            // Background gradient
-                            LinearGradient(
-                                gradient: Gradient(colors: [
-                                    Color.purple.opacity(0.05),
-                                    Color.orange.opacity(0.03)
-                                ]),
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
+                            // System background
+                            Color(.systemBackground)
 
                             // Illustration Carousel with sync support
                             IllustrationCarouselView(
@@ -182,20 +168,6 @@ struct AudioPlayerView: View {
                         }
                         .frame(height: illustrationHeight)
                         .clipped()
-                        .overlay(
-                            // Top gradient fade
-                            LinearGradient(
-                                gradient: Gradient(stops: [
-                                    .init(color: Color(.systemBackground).opacity(0.8), location: 0),
-                                    .init(color: Color(.systemBackground).opacity(0), location: 0.15)
-                                ]),
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                            .frame(height: 30)
-                            .allowsHitTesting(false),
-                            alignment: .top
-                        )
                         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: showIllustrations)
                     } else if showIllustrations && !currentStory.hasIllustrations {
                         // Placeholder when no illustrations available

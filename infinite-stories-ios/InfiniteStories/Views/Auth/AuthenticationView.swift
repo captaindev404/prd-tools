@@ -17,7 +17,6 @@ struct AuthenticationView: View {
     @State private var confirmPassword = ""
     @State private var showError = false
     @State private var errorMessage = ""
-    @State private var animateGradient = false
     @FocusState private var focusedField: Field?
 
     enum Field: Hashable {
@@ -26,22 +25,9 @@ struct AuthenticationView: View {
 
     var body: some View {
         ZStack {
-            // Animated gradient background
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color.purple.opacity(0.15),
-                    Color.orange.opacity(0.1),
-                    Color.blue.opacity(0.05)
-                ]),
-                startPoint: animateGradient ? .topLeading : .bottomTrailing,
-                endPoint: animateGradient ? .bottomTrailing : .topLeading
-            )
-            .ignoresSafeArea()
-            .animation(
-                Animation.linear(duration: 10)
-                    .repeatForever(autoreverses: true),
-                value: animateGradient
-            )
+            // System background
+            Color(.systemBackground)
+                .ignoresSafeArea()
 
             ScrollView {
                 VStack(spacing: 30) {
@@ -49,25 +35,12 @@ struct AuthenticationView: View {
                     VStack(spacing: 15) {
                         Image(systemName: "sparkles.rectangle.stack.fill")
                             .font(.system(size: 70))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [Color.purple, Color.orange],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .symbolEffect(.pulse.wholeSymbol, options: .repeating)
+                            .foregroundColor(.accentColor)
 
                         Text("Infinite Stories")
                             .font(.largeTitle)
                             .fontWeight(.bold)
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [Color.purple, Color.orange],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
+                            .foregroundColor(.accentColor)
 
                         Text(isSignUp ? "Create your magical account" : "Welcome back")
                             .font(.body)
@@ -88,17 +61,7 @@ struct AuthenticationView: View {
                                 .foregroundColor(isSignUp ? .secondary : .white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
-                                .background {
-                                    if isSignUp {
-                                        Color.clear
-                                    } else {
-                                        LinearGradient(
-                                            colors: [Color.purple, Color.orange],
-                                            startPoint: .leading,
-                                            endPoint: .trailing
-                                        )
-                                    }
-                                }
+                                .background(isSignUp ? Color.clear : Color.accentColor)
                                 .cornerRadius(15)
                         }
 
@@ -113,17 +76,7 @@ struct AuthenticationView: View {
                                 .foregroundColor(isSignUp ? .white : .secondary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
-                                .background {
-                                    if isSignUp {
-                                        LinearGradient(
-                                            colors: [Color.purple, Color.orange],
-                                            startPoint: .leading,
-                                            endPoint: .trailing
-                                        )
-                                    } else {
-                                        Color.clear
-                                    }
-                                }
+                                .background(isSignUp ? Color.accentColor : Color.clear)
                                 .cornerRadius(15)
                         }
                     }
@@ -218,15 +171,9 @@ struct AuthenticationView: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(
-                            LinearGradient(
-                                colors: [Color.purple, Color.orange],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
+                        .background(Color.accentColor)
                         .cornerRadius(25)
-                        .shadow(color: Color.purple.opacity(0.3), radius: 10, x: 0, y: 5)
+                        .shadow(color: Color.accentColor.opacity(0.3), radius: 10, x: 0, y: 5)
                         .disabled(viewModel.isLoading || !isFormValid)
                         .opacity(isFormValid ? 1.0 : 0.6)
                         .padding(.horizontal, 30)
@@ -291,7 +238,6 @@ struct AuthenticationView: View {
             .scrollDismissesKeyboard(.interactively)
         }
         .onAppear {
-            animateGradient = true
             // Default to sign-up for new users, sign-in for returning users
             isSignUp = !authState.hasEverAuthenticated
         }

@@ -20,7 +20,7 @@ struct MagicalTextField: View {
         HStack(spacing: 15) {
             Image(systemName: icon)
                 .font(.system(size: 18))
-                .foregroundColor(isEditing ? .orange : .secondary)
+                .foregroundColor(isEditing ? .accentColor : .secondary)
                 .frame(width: 25)
 
             if isSecure {
@@ -41,23 +41,10 @@ struct MagicalTextField: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 15)
-                .fill(Color.gray.opacity(0.1))
+                .fill(Color(.secondarySystemBackground))
                 .overlay(
                     RoundedRectangle(cornerRadius: 15)
-                        .stroke(
-                            isEditing ?
-                            LinearGradient(
-                                colors: [Color.purple, Color.orange],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            ) :
-                            LinearGradient(
-                                colors: [Color.clear],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            ),
-                            lineWidth: 2
-                        )
+                        .stroke(isEditing ? Color.accentColor : Color.clear, lineWidth: 2)
                 )
         )
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isEditing)

@@ -122,7 +122,7 @@ struct ReadingJourneyView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { showingShareSheet = true }) {
                         Image(systemName: "square.and.arrow.up")
-                            .foregroundColor(MagicalColors.primary)
+                            .foregroundColor(.accentColor)
                     }
                 }
 
@@ -130,7 +130,7 @@ struct ReadingJourneyView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .foregroundColor(MagicalColors.primary)
+                    .foregroundColor(.accentColor)
                 }
             }
         }
@@ -140,14 +140,8 @@ struct ReadingJourneyView: View {
     }
 
     private var backgroundGradient: some View {
-        LinearGradient(
-            colors: colorScheme == .dark ?
-                [Color.black.opacity(0.95), Color.purple.opacity(0.1)] :
-                [Color.purple.opacity(0.05), Color.white],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        .ignoresSafeArea()
+        Color(.systemBackground)
+            .ignoresSafeArea()
     }
 
     private func calculateReadingStreak() -> Int {
@@ -369,13 +363,7 @@ struct ListeningActivityChart: View {
                         x: .value("Date", point.date, unit: .day),
                         y: .value("Minutes", point.minutes)
                     )
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [MagicalColors.primary, MagicalColors.accent],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
+                    .foregroundStyle(Color.accentColor)
                     .cornerRadius(4)
                 }
                 .frame(height: 200)
@@ -434,7 +422,7 @@ struct HeroPerformanceSection: View {
                             .foregroundColor(.secondary)
                         Text(topHero.name)
                             .font(.headline)
-                            .foregroundColor(MagicalColors.primary)
+                            .foregroundColor(.accentColor)
                     }
 
                     Spacer()
@@ -451,7 +439,7 @@ struct HeroPerformanceSection: View {
                 .padding()
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(MagicalColors.primary.opacity(0.1))
+                        .fill(Color.accentColor.opacity(0.1))
                 )
             }
 
@@ -493,13 +481,7 @@ struct HeroStoryBar: View {
                         .frame(height: 30)
 
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(
-                            LinearGradient(
-                                colors: [MagicalColors.primary, MagicalColors.accent],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
+                        .fill(Color.accentColor)
                         .frame(width: geometry.size.width * barWidth, height: 30)
                 }
             }
@@ -616,7 +598,7 @@ struct ActivityRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Circle()
-                .fill(MagicalColors.primary.opacity(0.2))
+                .fill(Color.accentColor.opacity(0.2))
                 .frame(width: 8, height: 8)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -628,7 +610,7 @@ struct ActivityRow: View {
                     if let hero = story.hero {
                         Text(hero.name)
                             .font(.caption)
-                            .foregroundColor(MagicalColors.primary)
+                            .foregroundColor(.accentColor)
                     }
 
                     Text("•")
@@ -721,11 +703,11 @@ struct FavoriteStoryCard: View {
                 HeroAvatarImageView(hero: hero, size: 60)
             } else {
                 Circle()
-                    .fill(MagicalColors.primary.opacity(0.3))
+                    .fill(Color.accentColor.opacity(0.3))
                     .frame(width: 60, height: 60)
                     .overlay(
                         Image(systemName: "book.fill")
-                            .foregroundColor(MagicalColors.primary)
+                            .foregroundColor(.accentColor)
                     )
             }
 
@@ -845,7 +827,7 @@ struct InsightRow: View {
         HStack {
             Image(systemName: icon)
                 .font(.body)
-                .foregroundColor(MagicalColors.primary)
+                .foregroundColor(.accentColor)
                 .frame(width: 25)
 
             Text(label)
