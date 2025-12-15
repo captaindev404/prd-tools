@@ -23,7 +23,7 @@ RUN DATABASE_URL="postgresql://dummy:dummy@localhost/dummy" npx prisma generate
 # Build Next.js application with required environment variables
 RUN DATABASE_URL="postgresql://dummy:dummy@localhost/dummy" \
     BETTER_AUTH_SECRET="dummy-secret-for-build" \
-    BETTER_AUTH_URL="http://localhost:3000" \
+    BETTER_AUTH_URL="http://localhost:3500" \
     OPENAI_API_KEY="dummy-key" \
     R2_BUCKET_NAME="dummy-bucket" \
     npm run build
@@ -67,13 +67,14 @@ USER nextjs
 # Set environment variables
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3500
 
 # Expose port
-EXPOSE 3000
+EXPOSE 3500
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+    CMD node -e "require('http').get('http://localhost:3500/api/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
 
 # Use dumb-init to handle signals
 ENTRYPOINT ["dumb-init", "--"]
