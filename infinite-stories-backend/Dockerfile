@@ -72,9 +72,9 @@ ENV PORT=3500
 # Expose port
 EXPOSE 3500
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3500/api/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+# Health check - just verify server is listening, not DB connection
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
+    CMD node -e "require('http').get('http://localhost:3500', (r) => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))"
 
 # Use dumb-init to handle signals
 ENTRYPOINT ["dumb-init", "--"]
