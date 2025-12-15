@@ -72,9 +72,10 @@ ENV PORT=3500
 # Expose port
 EXPOSE 3500
 
-# Health check - just verify server is listening, not DB connection
+# Health check - use /api/ping which doesn't require database
+# Use /api/health for comprehensive checks including DB connectivity
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
-    CMD node -e "require('http').get('http://localhost:3500', (r) => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))"
+    CMD node -e "require('http').get('http://localhost:3500/api/ping', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
 
 # Use dumb-init to handle signals
 ENTRYPOINT ["dumb-init", "--"]
