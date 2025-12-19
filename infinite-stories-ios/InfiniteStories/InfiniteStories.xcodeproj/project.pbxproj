@@ -33,7 +33,12 @@
 		CE3AA1BB2E71C97D00236399 /* Exceptions for "InfiniteStories" folder in "InfiniteStories" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Info.plist,
+				"InfiniteStories/Info.plist",
+				"ContentView_Enhanced.txt",
+				"DesignGuide_HomeScreen.txt",
+				"ImprovedContentView_README.txt",
+				".claude/settings.local.json",
+				"Views/HeroDisplay/README_HeroDisplay.md",
 			);
 			target = CE3AA1B82E71C97D00236398 /* InfiniteStories */;
 		};
@@ -45,8 +50,11 @@
 			exceptions = (
 				CE3AA1BB2E71C97D00236399 /* Exceptions for "InfiniteStories" folder in "InfiniteStories" target */,
 			);
-			path = InfiniteStories;
-			sourceTree = "<group>";
+			explicitFileTypes = {};
+			explicitFolders = (
+			);
+			path = .;
+			sourceTree = SOURCE_ROOT;
 		};
 		CE3AA1CB2E71C97E00236398 /* InfiniteStoriesTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;

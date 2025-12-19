@@ -49,27 +49,26 @@ struct ErrorView: View {
                 }) {
                     Label("Sign In Again", systemImage: "arrow.right.circle.fill")
                         .font(.headline)
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                         .frame(maxWidth: 200)
                         .padding()
-                        .background(Color.orange)
-                        .cornerRadius(12)
                 }
+                .liquidGlassCard(cornerRadius: 12, variant: .tintedInteractive(.orange))
                 .padding(.top, 8)
             } else {
                 Button(action: retryAction) {
                     Label("Try Again", systemImage: "arrow.clockwise")
                         .font(.headline)
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                         .frame(maxWidth: 200)
                         .padding()
-                        .background(Color.blue)
-                        .cornerRadius(12)
                 }
+                .liquidGlassCard(cornerRadius: 12, variant: .tintedInteractive(.blue))
                 .padding(.top, 8)
             }
         }
         .padding()
+        .liquidGlassCard(cornerRadius: 20)
     }
 
     private var isAuthError: Bool {

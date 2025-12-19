@@ -535,6 +535,7 @@ struct AudioPlayerView: View {
             .background(Color(.systemBackground))
             .navigationBarTitleDisplayMode(.inline)
             .navigationTitle("Audio Player")
+            .glassNavigation()
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
@@ -600,6 +601,7 @@ struct AudioPlayerView: View {
                     }
                     .navigationTitle("Full Story")
                     .navigationBarTitleDisplayMode(.inline)
+                    .glassNavigation()
                     .toolbar {
                         ToolbarItem(placement: .navigationBarTrailing) {
                             Button("Done") {

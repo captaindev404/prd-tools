@@ -73,6 +73,7 @@ struct ImprovedContentView: View {
             }
             .navigationTitle("InfiniteStories")
             .navigationBarTitleDisplayMode(.large)
+            .glassNavigation()
             .task {
                 await loadData()
             }
@@ -266,14 +267,7 @@ struct ImprovedContentView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, minHeight: 90)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color(.secondarySystemBackground))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(Color.primary.opacity(0.1), lineWidth: 1)
-        )
+        .liquidGlassCard(cornerRadius: 14)
     }
 
     private func eventColor(for story: Story) -> Color {
@@ -408,21 +402,26 @@ struct ImprovedContentView: View {
                 }
             }) {
                 HeroCreationView(heroToEdit: nil)
+                    .glassSheet()
             }
             .sheet(isPresented: $showingStoryGeneration, onDismiss: {
                 Task {
                     await loadData()
                 }
             }) {
-                if heroes.count > 1 {
-                    HeroSelectionForStoryView(selectedHero: $selectedHeroForStory, showingStoryGeneration: $showingStoryGeneration)
-                } else if let hero = selectedHeroForStory ?? heroes.first {
-                    StoryGenerationView(hero: hero)
+                Group {
+                    if heroes.count > 1 {
+                        HeroSelectionForStoryView(selectedHero: $selectedHeroForStory, showingStoryGeneration: $showingStoryGeneration)
+                    } else if let hero = selectedHeroForStory ?? heroes.first {
+                        StoryGenerationView(hero: hero)
+                    }
                 }
+                .glassSheet()
             }
             .sheet(isPresented: $showingSettings) {
                 SettingsView()
                     .environmentObject(themeSettings)
+                    .glassSheet()
             }
             .sheet(item: $selectedStory) { story in
                 NavigationStack {
@@ -436,6 +435,7 @@ struct ImprovedContentView: View {
                             handleStoryPlayed(story)
                         }
                 }
+                .glassSheet()
             }
             .alert("Error", isPresented: $showingError) {
                 Button("OK") {
@@ -446,9 +446,11 @@ struct ImprovedContentView: View {
             }
             .fullScreenCover(isPresented: $showingFullJourney) {
                 ReadingJourneyView()
+                    .glassSheet()
             }
             .sheet(isPresented: $showingCustomEventManagement) {
                 CustomEventManagementView()
+                    .glassSheet()
             }
     }
 
@@ -630,13 +632,9 @@ struct FloatingCreateStoryButton: View {
         }) {
             Image(systemName: "plus")
                 .font(.system(size: 24, weight: .bold))
-                .foregroundColor(.white)
-                .frame(width: 56, height: 56)
-                .background(Color.orange)
-                .clipShape(Circle())
-                .shadow(color: .orange.opacity(0.3), radius: 8, y: 4)
+                .foregroundStyle(.white)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.glassFloating(size: 56, tintColor: .orange))
         .accessibilityLabel("Create new story")
         .accessibilityHint("Generate a new magical story")
         .alert("Create a Hero First", isPresented: $showNoHeroAlert) {
@@ -663,13 +661,9 @@ struct FloatingCustomEventButton: View {
         }) {
             Image(systemName: "square.grid.2x2.fill")
                 .font(.system(size: 20, weight: .semibold))
-                .foregroundColor(.white)
-                .frame(width: 48, height: 48)
-                .background(Color.accentColor)
-                .clipShape(Circle())
-                .shadow(color: Color.accentColor.opacity(0.3), radius: 6, y: 3)
+                .foregroundStyle(.white)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.glassFloating(size: 48, tintColor: .accentColor))
         .accessibilityLabel("Manage custom events")
         .accessibilityHint("Open custom event management screen")
     }
@@ -711,14 +705,7 @@ struct ReadingJourneyTopButton: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background(
-            Capsule()
-                .fill(Color(.secondarySystemBackground))
-                .overlay(
-                    Capsule()
-                        .stroke(Color.primary.opacity(0.1), lineWidth: 1)
-                )
-        )
+        .liquidGlassCapsule()
     }
 }
 
