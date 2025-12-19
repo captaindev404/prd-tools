@@ -39,6 +39,23 @@ struct GlassTabBarModifier: ViewModifier {
     }
 }
 
+// MARK: - Glass Tab Morphing Modifier
+
+/// Adds smooth morphing transitions between tab selections on iOS 26+
+struct GlassTabMorphingModifier<Tab: Hashable>: ViewModifier {
+    let namespace: Namespace.ID
+    let selectedTab: Tab
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26, *) {
+            content
+                .animation(.smooth(duration: 0.3), value: selectedTab)
+        } else {
+            content
+        }
+    }
+}
+
 // MARK: - Glass Toolbar Modifier
 
 /// Ensures navigation bar uses glass styling on iOS 26+
@@ -125,6 +142,11 @@ extension View {
     /// Ensures tab bar uses glass styling on iOS 26+
     func glassTabBar() -> some View {
         modifier(GlassTabBarModifier())
+    }
+
+    /// Adds smooth morphing transitions between tab selections on iOS 26+
+    func glassTabMorphing<Tab: Hashable>(namespace: Namespace.ID, selectedTab: Tab) -> some View {
+        modifier(GlassTabMorphingModifier(namespace: namespace, selectedTab: selectedTab))
     }
 
     /// Ensures navigation bar uses glass styling on iOS 26+

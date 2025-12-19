@@ -292,15 +292,10 @@ struct TimingBadge: View {
                 .font(.caption2)
                 .monospacedDigit()
         }
-        .foregroundColor(isActive ? .white : .white.opacity(0.8))
+        .foregroundColor(isActive ? .orange : .secondary)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(
-            Capsule()
-                .fill(isActive ? Color.orange : Color.gray)
-                .opacity(0.9)
-        )
-        .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+        .liquidGlassCapsule(variant: isActive ? .tinted(.orange) : .regular)
     }
 }
 
@@ -338,21 +333,18 @@ struct TransitionProgressBar: View {
             HStack {
                 Text("Next scene in:")
                     .font(.caption2)
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(.secondary)
 
                 Text(formatTimeRemaining(nextTimestamp - currentTime))
                     .font(.caption2)
                     .fontWeight(.semibold)
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                     .monospacedDigit()
             }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 8)
-        .background(
-            Capsule()
-                .fill(Color.black.opacity(0.5))
-        )
+        .liquidGlassCapsule()
     }
 
     private func formatTimeRemaining(_ time: TimeInterval) -> String {

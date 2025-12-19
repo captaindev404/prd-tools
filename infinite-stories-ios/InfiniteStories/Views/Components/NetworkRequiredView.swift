@@ -15,11 +15,18 @@ struct NetworkRequiredView: View {
         VStack(spacing: 24) {
             Spacer()
 
-            // Icon
-            Image(systemName: "wifi.slash")
-                .font(.system(size: 72))
-                .foregroundColor(.red)
-                .padding(.bottom, 8)
+            // Icon with glass background
+            ZStack {
+                Circle()
+                    .fill(Color.red.opacity(0.1))
+                    .frame(width: 120, height: 120)
+
+                Image(systemName: "wifi.slash")
+                    .font(.system(size: 56))
+                    .foregroundColor(.red)
+            }
+            .liquidGlassCard(cornerRadius: 60, variant: .tinted(.red))
+            .padding(.bottom, 8)
 
             // Title
             Text("Internet Required")
@@ -33,36 +40,33 @@ struct NetworkRequiredView: View {
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 32)
 
-            // Network status
+            // Network status with glass styling
             if !networkMonitor.isConnected {
                 Label("No Connection", systemImage: "exclamationmark.triangle.fill")
                     .font(.subheadline)
                     .foregroundColor(.red)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .background(Color.red.opacity(0.1))
-                    .cornerRadius(8)
+                    .liquidGlassCapsule(variant: .tinted(.red))
             } else {
                 Label("Connected", systemImage: "checkmark.circle.fill")
                     .font(.subheadline)
                     .foregroundColor(.green)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .background(Color.green.opacity(0.1))
-                    .cornerRadius(8)
+                    .liquidGlassCapsule(variant: .tinted(.green))
             }
 
-            // Retry button
+            // Retry button with glass styling
             if let retryAction = retryAction {
                 Button(action: retryAction) {
                     Label("Try Again", systemImage: "arrow.clockwise")
                         .font(.headline)
-                        .foregroundColor(.white)
+                        .foregroundColor(networkMonitor.isConnected ? .white : .secondary)
                         .frame(maxWidth: 200)
                         .padding()
-                        .background(networkMonitor.isConnected ? Color.blue : Color.gray)
-                        .cornerRadius(12)
                 }
+                .liquidGlassButton(tintColor: networkMonitor.isConnected ? .blue : .gray, isProminent: true)
                 .disabled(!networkMonitor.isConnected)
             }
 
@@ -70,7 +74,7 @@ struct NetworkRequiredView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(UIColor.systemBackground))
+        .background(Color(.systemBackground))
     }
 }
 

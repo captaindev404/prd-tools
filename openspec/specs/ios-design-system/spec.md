@@ -30,7 +30,7 @@ The app SHALL use SwiftUI semantic colors exclusively for all UI elements, avoid
 
 ### Requirement: Support iOS 17 Through iOS 26
 
-The app SHALL maintain a minimum deployment target of iOS 17 while supporting iOS 26 Liquid Glass features.
+The app SHALL maintain a minimum deployment target of iOS 17 while supporting iOS 26 Liquid Glass features using real iOS 26 APIs.
 
 #### Scenario: iOS 17-25 uses standard styling
 
@@ -40,20 +40,21 @@ The app SHALL maintain a minimum deployment target of iOS 17 while supporting iO
 - **AND** cards use solid backgrounds with subtle shadows
 - **AND** buttons use `.buttonStyle(.borderedProminent)` or `.bordered`
 
-#### Scenario: iOS 26 uses Liquid Glass styling
+#### Scenario: iOS 26 uses real Liquid Glass APIs
 
 - **GIVEN** the app is compiled with Xcode 26 SDK
 - **AND** runs on iOS 26+
 - **WHEN** system controls are rendered
-- **THEN** Liquid Glass material is automatically applied
-- **AND** custom views use `#available(iOS 26, *)` for glass effects
+- **THEN** `.glassEffect()` modifier is applied to glass elements
+- **AND** multiple glass elements are wrapped in `GlassEffectContainer`
+- **AND** buttons use `.glassEffect(.regular.interactive())` for haptic feedback
 - **AND** the UI matches Apple's unified design vision
 
 #### Scenario: Graceful fallback for unavailable APIs
 
 - **GIVEN** code uses iOS 26+ APIs
 - **WHEN** running on iOS 17-25
-- **THEN** `#available` checks prevent crashes
+- **THEN** `#available(iOS 26, *)` checks prevent crashes
 - **AND** fallback styling is visually appropriate
 - **AND** no functionality is lost
 
@@ -164,4 +165,172 @@ Users SHALL be able to override system appearance with app-specific light/dark p
 - **THEN** the app appearance updates immediately
 - **AND** no restart is required
 - **AND** all views reflect the new scheme
+
+### Requirement: Use GlassEffectContainer for Grouped Glass Elements
+
+The app SHALL wrap multiple glass elements within a `GlassEffectContainer` to prevent visual artifacts from glass sampling glass.
+
+#### Scenario: Navigation bar with multiple glass buttons
+
+- **GIVEN** a navigation bar contains multiple glass-styled buttons
+- **WHEN** the view is rendered on iOS 26+
+- **THEN** all buttons are wrapped in a single `GlassEffectContainer`
+- **AND** each button renders correctly without sampling artifacts
+- **AND** the container has no visual impact on iOS 17-25
+
+#### Scenario: Card grid with glass elements
+
+- **GIVEN** a grid displays multiple glass-styled cards
+- **WHEN** cards may visually overlap or be adjacent
+- **THEN** the grid content is wrapped in `GlassEffectContainer`
+- **AND** glass effects render correctly on iOS 26+
+
+### Requirement: Apply Interactive Glass to Buttons
+
+Interactive buttons SHALL use `.glassEffect(.regular.interactive())` on iOS 26+ to provide native haptic feedback and visual response.
+
+#### Scenario: Primary action button with interactive glass
+
+- **WHEN** the user taps a primary action button on iOS 26+
+- **THEN** the button uses `.glassEffect(.regular.tint(.accentColor).interactive())`
+- **AND** the button provides bounce and shimmer feedback
+- **AND** haptic feedback is generated automatically
+
+#### Scenario: Secondary action button with interactive glass
+
+- **WHEN** the user taps a secondary action button on iOS 26+
+- **THEN** the button uses `.glassEffect(.regular.interactive())`
+- **AND** the button provides visual feedback without tint
+
+#### Scenario: Buttons respect accessibility settings
+
+- **WHEN** the user has Reduce Motion enabled
+- **THEN** interactive glass effects are minimized
+- **AND** button state changes use cross-fade transitions
+
+### Requirement: Apply Glass to Navigation Layer
+
+Tab bars, toolbars, and navigation bars SHALL use glass effects on iOS 26+ following Apple's "glass floats on content" philosophy.
+
+#### Scenario: Tab bar uses glass styling (MODIFIED)
+
+- **GIVEN** the app displays a TabView as the root container on iOS 26+
+- **WHEN** the tab bar is visible
+- **THEN** the tab bar has a glass background via `.glassTabBar()` modifier
+- **AND** tab items use SF Symbols with `.regular` weight
+- **AND** the selected tab uses accent color tint
+- **AND** unselected tabs use `.secondary` color
+- **AND** tab bar content remains legible against any background
+
+#### Scenario: Tab bar provides haptic feedback (ADDED)
+
+- **GIVEN** the user taps a tab bar item on iOS 26+
+- **WHEN** switching between tabs
+- **THEN** light haptic feedback is provided via `UIImpactFeedbackGenerator(.light)`
+- **AND** the feedback respects system haptic settings
+
+#### Scenario: Tab bar falls back on older iOS (ADDED)
+
+- **GIVEN** the app runs on iOS 17-25
+- **WHEN** the tab bar is rendered
+- **THEN** standard system tab bar styling is used
+- **AND** no glass-specific modifiers cause errors
+- **AND** all tabs remain functional
+
+### Requirement: Apply Glass to Content Cards
+
+Card components SHALL use `.glassEffect()` with appropriate shapes on iOS 26+ for visual consistency.
+
+#### Scenario: Story cards use glass styling
+
+- **GIVEN** the story library displays story cards on iOS 26+
+- **WHEN** cards are rendered
+- **THEN** each card uses `.glassEffect()` with `RoundedRectangle(cornerRadius: 16, style: .continuous)`
+- **AND** card content remains legible against the glass
+
+#### Scenario: Hero cards use glass styling
+
+- **GIVEN** the hero grid displays hero cards on iOS 26+
+- **WHEN** cards are rendered
+- **THEN** each card uses `.glassEffect()` with consistent corner radius
+- **AND** the hero avatar is visible through the glass
+
+#### Scenario: Cards in grid use container
+
+- **GIVEN** multiple glass cards are displayed in a grid
+- **WHEN** the grid is rendered on iOS 26+
+- **THEN** the grid is wrapped in `GlassEffectContainer`
+- **AND** adjacent cards render without visual artifacts
+
+### Requirement: Support Glass Morphing Transitions
+
+Related glass elements SHALL use `.glassEffectID()` to enable smooth morphing transitions on iOS 26+.
+
+#### Scenario: Navigation transitions morph glass
+
+- **GIVEN** the user navigates from a list item to a detail view on iOS 26+
+- **WHEN** both views have glass elements with matching `.glassEffectID()`
+- **THEN** the glass effect morphs smoothly between views
+- **AND** the transition feels fluid and connected
+
+#### Scenario: Morphing respects Reduce Motion
+
+- **WHEN** the user has Reduce Motion enabled
+- **THEN** glass morphing transitions are disabled
+- **AND** standard cross-fade transitions are used instead
+
+### Requirement: Use Tab Bar for Primary Navigation
+
+The app SHALL use a TabView as the root container for primary section navigation.
+
+#### Scenario: App displays four primary tabs
+
+- **WHEN** the app launches successfully
+- **THEN** a tab bar is visible at the bottom of the screen
+- **AND** the tab bar contains exactly four tabs:
+  - Home (house icon) - heroes and recent stories
+  - Library (books icon) - story collection
+  - Journey (chart icon) - reading statistics
+  - Settings (gear icon) - app preferences
+- **AND** the Home tab is selected by default
+
+#### Scenario: Each tab maintains independent navigation
+
+- **GIVEN** the user has navigated to a detail view within a tab
+- **WHEN** the user switches to a different tab and back
+- **THEN** the original tab's navigation state is preserved
+- **AND** the user returns to the same detail view
+
+#### Scenario: Tab selection respects accessibility
+
+- **WHEN** VoiceOver is enabled
+- **THEN** each tab bar item has an accessibility label describing its purpose
+- **AND** the selected state is announced (e.g., "Home tab, selected")
+- **AND** tab switching is announced
+
+### Requirement: Floating Actions Remain on Home Tab
+
+The Home tab SHALL retain floating action buttons for primary creation actions.
+
+#### Scenario: Story creation FAB on Home tab
+
+- **GIVEN** the user is viewing the Home tab
+- **WHEN** at least one hero exists
+- **THEN** a floating action button for story creation is visible in the bottom-right corner
+- **AND** tapping the button opens the story generation flow
+- **AND** the button uses `.glassFloating` style on iOS 26+
+
+#### Scenario: Custom event button on Home tab
+
+- **GIVEN** the user is viewing the Home tab
+- **WHEN** the view is rendered
+- **THEN** a secondary floating button for custom events is visible in the bottom-left corner
+- **AND** tapping the button opens custom event management
+
+#### Scenario: FABs hidden on other tabs
+
+- **GIVEN** the user is viewing Library, Journey, or Settings tab
+- **WHEN** the view is rendered
+- **THEN** floating action buttons are NOT visible
+- **AND** tab-specific actions use toolbar or inline buttons instead
 

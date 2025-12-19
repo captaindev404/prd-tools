@@ -339,39 +339,38 @@ struct CompactHeroCard: View {
     let hero: Hero
     let onTap: () -> Void
     let onEdit: () -> Void
-    
+
     @Query private var stories: [Story]
     @State private var isPressed = false
     @State private var showingMenu = false
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    
+
     private var heroStoryCount: Int {
         stories.filter { $0.hero == hero }.count
     }
-    
+
     var body: some View {
         Button(action: onTap) {
             VStack(spacing: 12) {
                 // Avatar
                 HeroAvatarImageView.medium(hero)
-                
+
                 // Name
                 Text(hero.name)
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .foregroundColor(.primary)
                     .lineLimit(1)
-                
-                // Primary Trait
+
+                // Primary Trait with glass styling
                 Text(hero.primaryTrait.rawValue)
                     .font(.caption2)
-                    .foregroundColor(.white)
+                    .foregroundColor(.purple)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
-                    .background(Color.purple.opacity(0.8))
-                    .cornerRadius(6)
-                
+                    .liquidGlassCapsule(variant: .tinted(.purple))
+
                 // Story Count
                 HStack(spacing: 4) {
                     Image(systemName: "book.closed.fill")
@@ -380,8 +379,8 @@ struct CompactHeroCard: View {
                         .font(.caption)
                 }
                 .foregroundColor(.secondary)
-                
-                // Quick Actions
+
+                // Quick Actions with glass styling
                 HStack(spacing: 8) {
                     Button(action: {
                         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
@@ -392,7 +391,7 @@ struct CompactHeroCard: View {
                             .font(.title3)
                             .foregroundColor(.orange)
                     }
-                    
+
                     Button(action: {
                         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
                         impactFeedback.impactOccurred()
@@ -406,15 +405,7 @@ struct CompactHeroCard: View {
             }
             .frame(maxWidth: .infinity)
             .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(.systemBackground))
-                    .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.purple.opacity(0.2), lineWidth: 1)
-            )
+            .liquidGlassCard(cornerRadius: 16)
         }
         .buttonStyle(PlainButtonStyle())
         .scaleEffect(isPressed ? 0.95 : 1.0)
@@ -435,7 +426,7 @@ struct AddHeroCard: View {
     @Binding var showingHeroCreation: Bool
     @State private var isPressed = false
     @Environment(\.colorScheme) private var colorScheme
-    
+
     var body: some View {
         Button(action: {
             let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
@@ -447,32 +438,24 @@ struct AddHeroCard: View {
                     Circle()
                         .fill(Color.purple.opacity(0.1))
                         .frame(width: 60, height: 60)
-                    
+
                     Image(systemName: "plus.circle.fill")
                         .font(.title)
                         .foregroundColor(.purple)
                 }
-                
+
                 Text("Add Hero")
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .foregroundColor(.purple)
-                
+
                 Text("Create new")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 180)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.purple.opacity(0.05))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(style: StrokeStyle(lineWidth: 2, dash: [8, 4]))
-                            .foregroundColor(.purple.opacity(0.3))
-                    )
-            )
+            .liquidGlassCard(cornerRadius: 16, variant: .tinted(.purple))
         }
         .buttonStyle(PlainButtonStyle())
         .scaleEffect(isPressed ? 0.95 : 1.0)

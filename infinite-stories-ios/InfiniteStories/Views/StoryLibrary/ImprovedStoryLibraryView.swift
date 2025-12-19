@@ -1051,7 +1051,7 @@ struct StatCard: View {
     let value: String
     let label: String
     let color: Color
-    
+
     var body: some View {
         VStack(spacing: 4) {
             HStack(spacing: 4) {
@@ -1061,16 +1061,14 @@ struct StatCard: View {
                     .font(.system(size: 18, weight: .bold, design: .rounded))
             }
             .foregroundColor(color)
-            
+
             Text(label)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(StoryLibraryDesign.Colors.captionText)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(12)
-        .shadow(color: Color.primary.opacity(0.05), radius: 4, y: 2)
+        .liquidGlassCard(cornerRadius: 12, variant: .tinted(color))
     }
 }
 
@@ -1078,25 +1076,15 @@ struct FilterPill: View {
     let title: String
     let isSelected: Bool
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 14, weight: .medium, design: .rounded))
-                .foregroundColor(isSelected ? .white : StoryLibraryDesign.Colors.bodyText)
+                .foregroundColor(isSelected ? .purple : StoryLibraryDesign.Colors.bodyText)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(
-                    isSelected ? 
-                        StoryLibraryDesign.Colors.primaryPurple : 
-                        Color(.secondarySystemBackground)
-                )
-                .cornerRadius(20)
-                .shadow(
-                    color: Color.primary.opacity(isSelected ? 0.15 : 0.05),
-                    radius: isSelected ? 6 : 3,
-                    y: isSelected ? 3 : 1
-                )
+                .liquidGlassCapsule(variant: isSelected ? .tinted(.purple) : .regular)
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
     }
@@ -1104,30 +1092,28 @@ struct FilterPill: View {
 
 struct StatusBadge: View {
     let status: StoryStatus
-    
+
     var body: some View {
         Text(status.title)
             .font(StoryLibraryDesign.Typography.badge)
-            .foregroundColor(.white)
+            .foregroundColor(status.color)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(status.color)
-            .cornerRadius(StoryLibraryDesign.Layout.badgeCornerRadius)
+            .liquidGlassCapsule(variant: .tinted(status.color))
     }
 }
 
 struct EventBadge: View {
     let eventTitle: String
     let color: Color
-    
+
     var body: some View {
         Text(eventTitle)
             .font(StoryLibraryDesign.Typography.badge)
             .foregroundColor(color)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(color.opacity(0.15))
-            .cornerRadius(StoryLibraryDesign.Layout.badgeCornerRadius)
+            .liquidGlassCapsule(variant: .tinted(color))
     }
 }
 
@@ -1225,11 +1211,7 @@ struct LoadMoreView: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(Color(.secondarySystemBackground))
-                    .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
-            )
+            .liquidGlassCapsule(variant: .tinted(.purple))
         }
         .disabled(isLoading)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isLoading)

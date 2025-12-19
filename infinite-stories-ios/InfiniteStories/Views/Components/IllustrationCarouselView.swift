@@ -117,7 +117,7 @@ struct IllustrationCarouselView: View {
                     }
                 }
 
-                // Tap to seek hint overlay
+                // Tap to seek hint overlay with glass styling
                 if showTapToSeekHint {
                     VStack {
                         Spacer()
@@ -127,10 +127,9 @@ struct IllustrationCarouselView: View {
                             Text("Tap any illustration to jump to that part of the story")
                                 .font(.subheadline)
                         }
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .padding()
-                        .background(Color.black.opacity(0.8))
-                        .cornerRadius(12)
+                        .liquidGlassCard(cornerRadius: 12)
                         .padding()
                     }
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
@@ -262,20 +261,19 @@ struct IllustrationCarouselView: View {
         .clipShape(RoundedRectangle(cornerRadius: isFullScreen ? 0 : 20))
         .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
         .overlay(
-            // Seek feedback overlay
+            // Seek feedback overlay with glass styling
             ZStack {
                 if showSeekFeedback {
                     VStack {
                         Image(systemName: "speaker.wave.2.fill")
                             .font(.system(size: 40))
-                            .foregroundColor(.white)
+                            .foregroundColor(.orange)
                         Text("Jumping to \(illustration.formattedTimestamp)")
                             .font(.headline)
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                     }
                     .padding()
-                    .background(Color.black.opacity(0.7))
-                    .cornerRadius(12)
+                    .liquidGlassCard(cornerRadius: 12, variant: .tinted(.orange))
                     .opacity(seekFeedbackOpacity)
                     .animation(.easeInOut(duration: 0.3), value: seekFeedbackOpacity)
                 }

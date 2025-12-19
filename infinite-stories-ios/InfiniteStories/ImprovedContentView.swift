@@ -8,7 +8,465 @@
 import SwiftUI
 import SwiftData
 
-// MARK: - Main Improved Content View
+// MARK: - Home Content View (for Tab Bar navigation)
+/// This view is used within the Home tab and removes redundant navigation elements
+/// that are now handled by the tab bar (Settings, Journey).
+struct HomeContentView: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @EnvironmentObject private var themeSettings: ThemeSettings
+
+    // API-only state management
+    @State private var heroes: [Hero] = []
+    @State private var stories: [Story] = []
+    @State private var isLoading = false
+    @State private var loadError: Error?
+
+    // Repositories
+    private let heroRepository = HeroRepository()
+    private let storyRepository = StoryRepository()
+
+    @State private var showingHeroCreation = false
+    @State private var showingStoryGeneration = false
+    @State private var selectedStory: Story?
+    @State private var selectedHeroForStory: Hero?
+    @State private var isRefreshing = false
+    @State private var errorMessage: String?
+    @State private var showingError = false
+    @State private var showingCustomEventManagement = false
+
+    // Computed properties for stats
+    private var currentStreak: Int {
+        calculateReadingStreak()
+    }
+
+    private var recentStories: [Story] {
+        let sorted = stories.sorted(by: { $0.createdAt > $1.createdAt })
+        return Array(sorted.prefix(6))
+    }
+
+    var body: some View {
+        ZStack {
+            // System Background
+            Color(.systemBackground)
+                .ignoresSafeArea()
+
+            // Loading/Error/Content states
+            if isLoading && heroes.isEmpty {
+                ProgressView("Loading...")
+                    .scaleEffect(1.2)
+            } else if let error = loadError {
+                ErrorView(error: error, retryAction: {
+                    Task { await loadData() }
+                })
+            } else {
+                homeMainContent
+            }
+        }
+        .navigationTitle("InfiniteStories")
+        .navigationBarTitleDisplayMode(.large)
+        .glassNavigation()
+        .task {
+            await loadData()
+        }
+    }
+
+    private var homeMainContent: some View {
+        ZStack {
+            // Main Content
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Hero Section
+                    HeroSectionView(
+                        heroes: heroes,
+                        showingHeroCreation: $showingHeroCreation,
+                        selectedHeroForStory: $selectedHeroForStory,
+                        showingStoryGeneration: $showingStoryGeneration
+                    )
+
+                    // Recent Stories Section
+                    homeRecentStoriesSection
+
+                    // Empty State
+                    if heroes.isEmpty {
+                        EmptyStateView(showingHeroCreation: $showingHeroCreation)
+                            .padding(.top, 20)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+                .padding(.bottom, 100)
+            }
+            .refreshable {
+                await loadData()
+            }
+
+            // Floating Create Story Button
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    FloatingCreateStoryButton(
+                        hasHeroes: !heroes.isEmpty,
+                        showingStoryGeneration: $showingStoryGeneration,
+                        showingHeroCreation: $showingHeroCreation
+                    )
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 30)
+                }
+            }
+
+            // Floating Custom Event Management Button
+            VStack {
+                Spacer()
+                HStack {
+                    FloatingCustomEventButton(
+                        showingCustomEventManagement: $showingCustomEventManagement
+                    )
+                    .padding(.leading, 20)
+                    .padding(.bottom, 30)
+                    Spacer()
+                }
+            }
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                AppLogoView()
+            }
+        }
+        .sheet(isPresented: $showingHeroCreation, onDismiss: {
+            Task {
+                await loadData()
+            }
+        }) {
+            HeroCreationView(heroToEdit: nil)
+                .glassSheet()
+        }
+        .sheet(isPresented: $showingStoryGeneration, onDismiss: {
+            Task {
+                await loadData()
+            }
+        }) {
+            Group {
+                if heroes.count > 1 {
+                    HeroSelectionForStoryView(selectedHero: $selectedHeroForStory, showingStoryGeneration: $showingStoryGeneration)
+                } else if let hero = selectedHeroForStory ?? heroes.first {
+                    StoryGenerationView(hero: hero)
+                }
+            }
+            .glassSheet()
+        }
+        .sheet(item: $selectedStory) { story in
+            NavigationStack {
+                let storyIndex = stories.firstIndex(where: { $0.id == story.id }) ?? 0
+                AudioPlayerView(
+                    story: story,
+                    allStories: stories,
+                    storyIndex: storyIndex
+                )
+                    .onDisappear {
+                        handleStoryPlayed(story)
+                    }
+            }
+            .glassSheet()
+        }
+        .alert("Error", isPresented: $showingError) {
+            Button("OK") {
+                errorMessage = nil
+            }
+        } message: {
+            Text(errorMessage ?? "An unexpected error occurred")
+        }
+        .sheet(isPresented: $showingCustomEventManagement) {
+            CustomEventManagementView()
+                .glassSheet()
+        }
+    }
+
+    private var homeRecentStoriesSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Only show section if we have stories
+            if !stories.isEmpty {
+                // Header
+                HStack {
+                    Text("Recent Adventures")
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .foregroundColor(.primary)
+
+                    Spacer()
+
+                    NavigationLink(destination: ImprovedStoryLibraryView()) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "books.vertical.fill")
+                                .font(.system(size: 14))
+                            Text("View All")
+                                .font(.system(size: 14, weight: .medium, design: .rounded))
+                        }
+                        .foregroundColor(.accentColor)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(
+                            Capsule()
+                                .fill(Color.accentColor.opacity(0.1))
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(Color.accentColor.opacity(0.2), lineWidth: 1)
+                        )
+                    }
+                }
+
+                // Story Cards
+                VStack(spacing: 12) {
+                    ForEach(Array(stories.sorted(by: { $0.createdAt > $1.createdAt }).prefix(6)), id: \.id) { story in
+                        Button {
+                            selectedStory = story
+                        } label: {
+                            homeStoryCardLabel(for: story)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            } else if heroes.isEmpty {
+                EmptyStateView(showingHeroCreation: $showingHeroCreation)
+                    .padding()
+            }
+        }
+        .padding(.top, 25)
+    }
+
+    private func homeStoryCardLabel(for story: Story) -> some View {
+        HStack(spacing: 12) {
+            // Hero Avatar or Event Icon Thumbnail
+            ZStack {
+                if let hero = story.hero {
+                    HeroAvatarImageView(hero: hero, size: 50)
+                } else {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.accentColor.opacity(0.15))
+                        .frame(width: 50, height: 50)
+                        .overlay(
+                            Image(systemName: story.eventIcon)
+                                .font(.system(size: 20))
+                                .foregroundColor(.accentColor)
+                        )
+                }
+
+                // Show first illustration as preview if available
+                if let firstIllustration = story.illustrations.first {
+                    AsyncImage(url: firstIllustration.imageURL) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 50, height: 50)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(Color.accentColor.opacity(0.3), lineWidth: 1)
+                            )
+                    } placeholder: {
+                        EmptyView()
+                    }
+                }
+            }
+
+            // Content
+            VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(story.title)
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+
+                    if let hero = story.hero {
+                        Text("Hero: \(hero.name)")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.accentColor)
+                    }
+                }
+
+                Text(story.shortContent)
+                    .font(.system(size: 13))
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+
+                // Metadata row
+                HStack(spacing: 8) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 10))
+                        Text(story.eventTitle)
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                    }
+                    .foregroundColor(homeEventColor(for: story))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(
+                        Capsule()
+                            .fill(homeEventColor(for: story).opacity(0.15))
+                    )
+
+                    if !story.illustrations.isEmpty {
+                        HStack(spacing: 2) {
+                            Image(systemName: "photo.stack.fill")
+                                .font(.system(size: 10))
+                            Text("\(story.illustrations.count)")
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                        .foregroundColor(.purple)
+                    }
+
+                    if story.hasAudio {
+                        HStack(spacing: 2) {
+                            Image(systemName: "speaker.wave.2.fill")
+                                .font(.system(size: 10))
+                            Text("\(Int(story.estimatedDuration / 60))m")
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                        .foregroundColor(.orange)
+                    }
+
+                    if story.playCount > 0 {
+                        HStack(spacing: 2) {
+                            Image(systemName: "play.circle.fill")
+                                .font(.system(size: 10))
+                            Text("\(story.playCount)")
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                        .foregroundColor(.blue)
+                    }
+
+                    Spacer()
+
+                    Text(homeFormatSmartDate(story.createdAt))
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary.opacity(0.8))
+                }
+            }
+
+            // Right side badges
+            VStack(alignment: .trailing, spacing: 4) {
+                if story.playCount == 0 {
+                    Text("NEW")
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule()
+                                .fill(Color.mint)
+                        )
+                }
+
+                if story.isFavorite {
+                    Image(systemName: "heart.fill")
+                        .foregroundColor(.red)
+                        .font(.system(size: 14))
+                }
+
+                Spacer()
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, minHeight: 90)
+        .liquidGlassCard(cornerRadius: 14)
+    }
+
+    private func homeEventColor(for story: Story) -> Color {
+        if let builtInEvent = story.builtInEvent {
+            switch builtInEvent {
+            case .bedtime: return .purple
+            case .schoolDay: return .yellow
+            case .birthday: return .pink
+            case .weekend: return .green
+            case .rainyDay: return .blue
+            case .family: return .orange
+            default: return .accentColor
+            }
+        } else if let customEvent = story.customEvent {
+            return Color(hex: customEvent.colorHex)
+        } else {
+            return .accentColor
+        }
+    }
+
+    private func homeFormatSmartDate(_ date: Date) -> String {
+        let calendar = Calendar.current
+        let now = Date()
+
+        if calendar.isDateInToday(date) {
+            let formatter = DateFormatter()
+            formatter.timeStyle = .short
+            return "Today, \(formatter.string(from: date))"
+        } else if calendar.isDateInYesterday(date) {
+            return "Yesterday"
+        } else if let daysAgo = calendar.dateComponents([.day], from: date, to: now).day, daysAgo < 7 {
+            return "\(daysAgo)d ago"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MMM d"
+            return formatter.string(from: date)
+        }
+    }
+
+    private func calculateReadingStreak() -> Int {
+        let calendar = Calendar.current
+        var streak = 0
+        var currentDate = Date()
+
+        for _ in 0..<30 {
+            let dayStories = stories.filter {
+                calendar.isDate($0.createdAt, inSameDayAs: currentDate)
+            }
+
+            if !dayStories.isEmpty {
+                streak += 1
+                currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate) ?? currentDate
+            } else {
+                break
+            }
+        }
+
+        return streak
+    }
+
+    @MainActor
+    private func loadData() async {
+        guard NetworkMonitor.shared.isConnected else {
+            loadError = APIError.networkUnavailable
+            return
+        }
+        isLoading = true
+        loadError = nil
+
+        do {
+            let fetchedHeroes = try await heroRepository.fetchHeroes()
+            heroes = fetchedHeroes
+
+            let fetchedStories = try await storyRepository.fetchStories(
+                heroId: nil,
+                limit: 50,
+                offset: 0,
+                heroes: fetchedHeroes
+            )
+
+            stories = fetchedStories
+            Logger.ui.success("Loaded \(heroes.count) heroes and \(stories.count) stories")
+        } catch {
+            loadError = error
+            Logger.ui.error("Failed to load data: \(error.localizedDescription)")
+        }
+
+        isLoading = false
+    }
+
+    private func handleStoryPlayed(_ story: Story) {
+        // Play count update would need backend API support
+    }
+}
+
+// MARK: - Main Improved Content View (Legacy - kept for backwards compatibility)
 struct ImprovedContentView: View {
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var themeSettings: ThemeSettings

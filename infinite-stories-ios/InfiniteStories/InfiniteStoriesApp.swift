@@ -151,17 +151,11 @@ struct InfiniteStoriesApp: App {
         WindowGroup {
             // Check authentication state first
             if authState.isAuthenticated {
-                // Easy switching between original and improved UI
-                Group {
-                    if AppConfiguration.useImprovedUI {
-                        ImprovedContentView()
-                    } else {
-                        ContentView()
-                    }
-                }
-                .preferredColorScheme(themeSettings.themePreference.colorScheme)
-                .environmentObject(themeSettings)
-                .environmentObject(authState)
+                // Use tab-based navigation for improved UI
+                MainTabView()
+                    .preferredColorScheme(themeSettings.themePreference.colorScheme)
+                    .environmentObject(themeSettings)
+                    .environmentObject(authState)
             } else {
                 AuthenticationView()
                     .preferredColorScheme(themeSettings.themePreference.colorScheme)

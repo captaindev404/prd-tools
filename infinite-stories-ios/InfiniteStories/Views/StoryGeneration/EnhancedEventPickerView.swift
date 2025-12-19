@@ -269,7 +269,7 @@ struct CategoryFilterChip: View {
     var icon: String? = nil
     let isSelected: Bool
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 4) {
@@ -282,9 +282,8 @@ struct CategoryFilterChip: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(isSelected ? Color.orange : Color(.systemGray5))
-            .foregroundColor(isSelected ? .white : .primary)
-            .cornerRadius(15)
+            .foregroundColor(isSelected ? .orange : .primary)
+            .liquidGlassCapsule(variant: isSelected ? .tinted(.orange) : .regular)
         }
         .buttonStyle(.plain)
     }
@@ -294,7 +293,7 @@ struct BuiltInEventCard: View {
     let event: StoryEvent
     let isSelected: Bool
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             HStack {
@@ -302,32 +301,27 @@ struct BuiltInEventCard: View {
                     .font(.title2)
                     .foregroundColor(.orange)
                     .frame(width: 40)
-                
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text(event.rawValue)
                         .font(.headline)
                         .foregroundColor(.primary)
-                    
+
                     Text(event.promptSeed.capitalized)
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .lineLimit(2)
                 }
-                
+
                 Spacer()
-                
+
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundColor(.orange)
                 }
             }
             .padding()
-            .background(Color(.systemGray6))
-            .cornerRadius(12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? Color.orange : Color.clear, lineWidth: 2)
-            )
+            .liquidGlassCard(cornerRadius: 12, variant: isSelected ? .tinted(.orange) : .regular)
         }
         .buttonStyle(.plain)
     }
@@ -440,12 +434,7 @@ struct CustomEventCard: View {
                 }
             }
             .padding()
-            .background(Color(.systemGray6))
-            .cornerRadius(12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? Color.orange : Color.clear, lineWidth: 2)
-            )
+            .liquidGlassCard(cornerRadius: 12, variant: isSelected ? .tinted(.orange) : .regular)
         }
         .buttonStyle(.plain)
         .contextMenu {

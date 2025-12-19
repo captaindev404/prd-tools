@@ -9,7 +9,208 @@ import SwiftUI
 import SwiftData
 import Charts
 
-// MARK: - Main Reading Journey View
+// MARK: - Reading Journey Tab Content (for Tab Bar navigation)
+/// This view is used within the Journey tab and removes redundant dismiss button
+/// since navigation is now handled by the tab bar.
+struct ReadingJourneyTabContent: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
+    @Query(sort: \Story.createdAt, order: .reverse) private var stories: [Story]
+    @Query private var heroes: [Hero]
+
+    @State private var selectedTimeRange: TimeRange = .week
+    @State private var selectedHero: Hero?
+    @State private var showingShareSheet = false
+
+    // Computed statistics
+    private var totalStories: Int {
+        stories.count
+    }
+
+    private var totalListeningTime: TimeInterval {
+        stories.reduce(0) { $0 + ($1.estimatedDuration * Double($1.playCount)) }
+    }
+
+    private var totalPlayCount: Int {
+        stories.reduce(0) { $0 + $1.playCount }
+    }
+
+    private var favoriteStories: [Story] {
+        stories.filter { $0.isFavorite }
+    }
+
+    private var currentStreak: Int {
+        calculateReadingStreak()
+    }
+
+    private var averageStoryLength: TimeInterval {
+        guard !stories.isEmpty else { return 0 }
+        let totalDuration = stories.reduce(0) { $0 + $1.estimatedDuration }
+        return totalDuration / Double(stories.count)
+    }
+
+    private var mostActiveHero: Hero? {
+        heroes.max { $0.stories.count < $1.stories.count }
+    }
+
+    private var listeningDataPoints: [ListeningDataPoint] {
+        generateListeningData()
+    }
+
+    private var heroStoryDistribution: [HeroStoryData] {
+        heroes.compactMap { hero in
+            let storyCount = hero.stories.count
+            guard storyCount > 0 else { return nil }
+            return HeroStoryData(hero: hero, storyCount: storyCount)
+        }.sorted { $0.storyCount > $1.storyCount }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 25) {
+                    // Header Stats Cards
+                    HeaderStatsSection(
+                        totalStories: totalStories,
+                        totalListeningTime: totalListeningTime,
+                        currentStreak: currentStreak,
+                        favoriteCount: favoriteStories.count
+                    )
+
+                    // Listening Activity Chart
+                    ListeningActivityChart(
+                        dataPoints: listeningDataPoints,
+                        selectedTimeRange: $selectedTimeRange
+                    )
+
+                    // Hero Performance Section
+                    if !heroStoryDistribution.isEmpty {
+                        HeroPerformanceSection(
+                            heroData: heroStoryDistribution,
+                            mostActiveHero: mostActiveHero
+                        )
+                    }
+
+                    // Milestones & Achievements
+                    MilestonesSection(
+                        totalStories: totalStories,
+                        totalListeningTime: totalListeningTime,
+                        currentStreak: currentStreak
+                    )
+
+                    // Recent Activity Timeline
+                    RecentActivitySection(stories: Array(stories.prefix(10)))
+
+                    // Favorite Stories Collection
+                    if !favoriteStories.isEmpty {
+                        FavoriteStoriesSection(favorites: favoriteStories)
+                    }
+
+                    // Reading Insights
+                    ReadingInsightsSection(
+                        stories: stories,
+                        averageStoryLength: averageStoryLength,
+                        totalPlayCount: totalPlayCount
+                    )
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
+            }
+            .background(backgroundGradient)
+            .navigationTitle("Reading Journey")
+            .navigationBarTitleDisplayMode(.large)
+            .glassNavigation()
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: { showingShareSheet = true }) {
+                        Image(systemName: "square.and.arrow.up")
+                            .foregroundColor(.accentColor)
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showingShareSheet) {
+            JourneyShareSheet(items: [generateShareText()])
+        }
+    }
+
+    private var backgroundGradient: some View {
+        Color(.systemBackground)
+            .ignoresSafeArea()
+    }
+
+    private func calculateReadingStreak() -> Int {
+        let calendar = Calendar.current
+        var streak = 0
+        var currentDate = Date()
+
+        for _ in 0..<365 {
+            let dayStories = stories.filter {
+                calendar.isDate($0.createdAt, inSameDayAs: currentDate)
+            }
+
+            if !dayStories.isEmpty {
+                streak += 1
+                currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate) ?? currentDate
+            } else if streak > 0 {
+                // Break in streak
+                break
+            } else {
+                // Haven't found the start of the streak yet
+                currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate) ?? currentDate
+            }
+        }
+
+        return streak
+    }
+
+    private func generateListeningData() -> [ListeningDataPoint] {
+        let calendar = Calendar.current
+        var dataPoints: [ListeningDataPoint] = []
+
+        let daysToShow = selectedTimeRange.days
+        for dayOffset in 0..<daysToShow {
+            guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: Date()) else { continue }
+
+            let dayStories = stories.filter {
+                calendar.isDate($0.createdAt, inSameDayAs: date)
+            }
+
+            let totalMinutes = dayStories.reduce(0) { $0 + ($1.estimatedDuration / 60) }
+            dataPoints.append(ListeningDataPoint(date: date, minutes: totalMinutes))
+        }
+
+        return dataPoints.reversed()
+    }
+
+    private func generateShareText() -> String {
+        """
+        My Infinite Stories Reading Journey
+
+        Total Stories: \(totalStories)
+        Listening Time: \(formatDuration(totalListeningTime))
+        Current Streak: \(currentStreak) days
+        Favorite Stories: \(favoriteStories.count)
+
+        Most Active Hero: \(mostActiveHero?.name ?? "None yet")
+
+        Created with Infinite Stories - Where magical adventures come to life!
+        """
+    }
+
+    private func formatDuration(_ duration: TimeInterval) -> String {
+        let hours = Int(duration) / 3600
+        let minutes = (Int(duration) % 3600) / 60
+
+        if hours > 0 {
+            return "\(hours)h \(minutes)m"
+        } else {
+            return "\(minutes)m"
+        }
+    }
+}
+
+// MARK: - Main Reading Journey View (Legacy - for sheet/fullScreenCover presentation)
 struct ReadingJourneyView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
