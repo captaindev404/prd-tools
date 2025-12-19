@@ -130,68 +130,70 @@ struct SettingsTabContent: View {
                         .font(.caption)
                 }
 
-                Section {
-                    Toggle("Auto-Generate Illustrations", isOn: Binding(
-                        get: { UserDefaults.standard.bool(forKey: "autoGenerateIllustrations") },
-                        set: { UserDefaults.standard.set($0, forKey: "autoGenerateIllustrations") }
-                    ))
+                if AppConfiguration.enableStoryIllustrations {
+                    Section {
+                        Toggle("Auto-Generate Illustrations", isOn: Binding(
+                            get: { UserDefaults.standard.bool(forKey: "autoGenerateIllustrations") },
+                            set: { UserDefaults.standard.set($0, forKey: "autoGenerateIllustrations") }
+                        ))
 
-                    Toggle("Continue on Illustration Failures", isOn: Binding(
-                        get: { UserDefaults.standard.bool(forKey: "allowIllustrationFailures") },
-                        set: { UserDefaults.standard.set($0, forKey: "allowIllustrationFailures") }
-                    ))
+                        Toggle("Continue on Illustration Failures", isOn: Binding(
+                            get: { UserDefaults.standard.bool(forKey: "allowIllustrationFailures") },
+                            set: { UserDefaults.standard.set($0, forKey: "allowIllustrationFailures") }
+                        ))
 
-                    Toggle("Show Error Details", isOn: Binding(
-                        get: { UserDefaults.standard.bool(forKey: "showIllustrationErrors") },
-                        set: { UserDefaults.standard.set($0, forKey: "showIllustrationErrors") }
-                    ))
+                        Toggle("Show Error Details", isOn: Binding(
+                            get: { UserDefaults.standard.bool(forKey: "showIllustrationErrors") },
+                            set: { UserDefaults.standard.set($0, forKey: "showIllustrationErrors") }
+                        ))
 
-                    VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("Max Retry Attempts")
+                                Spacer()
+                                Picker("Retries", selection: Binding(
+                                    get: {
+                                        let value = UserDefaults.standard.integer(forKey: "maxIllustrationRetries")
+                                        return value > 0 ? value : 3
+                                    },
+                                    set: { UserDefaults.standard.set($0, forKey: "maxIllustrationRetries") }
+                                )) {
+                                    Text("1").tag(1)
+                                    Text("2").tag(2)
+                                    Text("3").tag(3)
+                                    Text("5").tag(5)
+                                }
+                                .pickerStyle(.menu)
+                            }
+
+                            Text("Number of automatic retry attempts for failed illustrations")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
                         HStack {
-                            Text("Max Retry Attempts")
+                            Text("Max Illustrations Per Story")
                             Spacer()
-                            Picker("Retries", selection: Binding(
+                            Picker("Max", selection: Binding(
                                 get: {
-                                    let value = UserDefaults.standard.integer(forKey: "maxIllustrationRetries")
-                                    return value > 0 ? value : 3
+                                    let value = UserDefaults.standard.integer(forKey: "maxIllustrationsPerStory")
+                                    return value > 0 ? value : 6
                                 },
-                                set: { UserDefaults.standard.set($0, forKey: "maxIllustrationRetries") }
+                                set: { UserDefaults.standard.set($0, forKey: "maxIllustrationsPerStory") }
                             )) {
-                                Text("1").tag(1)
-                                Text("2").tag(2)
-                                Text("3").tag(3)
                                 Text("5").tag(5)
+                                Text("6").tag(6)
+                                Text("7").tag(7)
+                                Text("8").tag(8)
                             }
                             .pickerStyle(.menu)
                         }
-
-                        Text("Number of automatic retry attempts for failed illustrations")
+                    } header: {
+                        Text("Illustrations")
+                    } footer: {
+                        Text("Illustrations enhance stories with AI-generated visuals. If generation fails, placeholders will be shown. You can retry failed illustrations later.")
                             .font(.caption)
-                            .foregroundColor(.secondary)
                     }
-
-                    HStack {
-                        Text("Max Illustrations Per Story")
-                        Spacer()
-                        Picker("Max", selection: Binding(
-                            get: {
-                                let value = UserDefaults.standard.integer(forKey: "maxIllustrationsPerStory")
-                                return value > 0 ? value : 6
-                            },
-                            set: { UserDefaults.standard.set($0, forKey: "maxIllustrationsPerStory") }
-                        )) {
-                            Text("5").tag(5)
-                            Text("6").tag(6)
-                            Text("7").tag(7)
-                            Text("8").tag(8)
-                        }
-                        .pickerStyle(.menu)
-                    }
-                } header: {
-                    Text("Illustrations")
-                } footer: {
-                    Text("Illustrations enhance stories with AI-generated visuals. If generation fails, placeholders will be shown. You can retry failed illustrations later.")
-                        .font(.caption)
                 }
 
                 #if DEBUG
