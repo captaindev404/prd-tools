@@ -54,10 +54,13 @@ struct HeroCreationView: View {
                             }
                         }
                         .buttonStyle(.bordered)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .accessibilityLabel("Go back")
+                        .accessibilityHint("Return to the previous step")
                     }
-                    
+
                     Spacer()
-                    
+
                     Button(currentStep == totalSteps - 1 ? (heroToEdit != nil ? "Update Hero" : "Create Hero") : "Next") {
                         withAnimation {
                             if currentStep == totalSteps - 1 {
@@ -68,7 +71,10 @@ struct HeroCreationView: View {
                         }
                     }
                     .buttonStyle(.borderedProminent)
+                    .frame(minWidth: 44, minHeight: 44)
                     .disabled(!canProceed)
+                    .accessibilityLabel(currentStep == totalSteps - 1 ? (heroToEdit != nil ? "Update hero" : "Create hero") : "Next step")
+                    .accessibilityHint(currentStep == totalSteps - 1 ? "Saves your hero" : "Proceed to the next step")
                 }
                 .padding()
             }
@@ -79,6 +85,8 @@ struct HeroCreationView: View {
                     Button("Cancel") {
                         dismiss()
                     }
+                    .accessibilityLabel("Cancel")
+                    .accessibilityHint("Discard changes and close")
                 }
             }
         }
@@ -376,22 +384,28 @@ struct AvatarPromptView: View {
                             Text("Generate Avatar")
                         }
                         .frame(maxWidth: .infinity)
+                        .frame(minHeight: 44)
                         .padding()
                         .background(Color.purple)
                         .foregroundColor(.white)
                         .cornerRadius(12)
                     }
+                    .accessibilityLabel("Generate Avatar")
+                    .accessibilityHint("Create an AI-generated avatar for your hero")
 
                     Button {
                         onDismiss()
                     } label: {
                         Text("Maybe Later")
                             .frame(maxWidth: .infinity)
+                            .frame(minHeight: 44)
                             .padding()
                             .background(Color(.systemGray5))
                             .foregroundColor(.primary)
                             .cornerRadius(12)
                     }
+                    .accessibilityLabel("Skip avatar generation")
+                    .accessibilityHint("Continue without generating an avatar")
                 }
                 .padding(.horizontal, 40)
 
@@ -424,7 +438,7 @@ struct TraitCard: View {
                 Text(trait.rawValue)
                     .font(.headline)
                     .fontWeight(.semibold)
-                
+
                 Text(trait.description)
                     .font(.caption)
                     .multilineTextAlignment(.center)
@@ -441,6 +455,9 @@ struct TraitCard: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(trait.rawValue) trait")
+        .accessibilityHint(trait.description)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 

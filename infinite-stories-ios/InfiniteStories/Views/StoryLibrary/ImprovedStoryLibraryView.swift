@@ -18,17 +18,17 @@ struct StoryLibraryDesign {
         static let primaryPurple = Color.purple
         static let primaryOrange = Color.orange
         static let primaryBlue = Color.blue
-        
+
         // Background Colors (adaptive)
         static let cardBackground = Color(.systemBackground)
         static let newStoryGradientStart = Color.purple.opacity(0.1)
         static let newStoryGradientEnd = Color.blue.opacity(0.1)
-        
+
         // Status Colors
         static let newBadge = Color.mint
         static let inProgressBadge = Color.orange
         static let completedBadge = Color.green
-        
+
         // Event Colors (for category badges)
         static let bedtimeColor = Color.purple
         static let schoolColor = Color.yellow
@@ -36,11 +36,15 @@ struct StoryLibraryDesign {
         static let weekendColor = Color.green
         static let rainyDayColor = Color.blue
         static let familyColor = Color.orange
-        
-        // Text Colors (adaptive)
+
+        // Text Colors (adaptive - designed for liquid glass backgrounds)
         static let titleText = Color.primary
-        static let bodyText = Color.secondary
-        static let captionText = Color.secondary.opacity(0.8)
+        static let bodyText = Color.primary.opacity(0.75)
+        static let captionText = Color.primary.opacity(0.6)
+        static let searchPlaceholder = Color.primary.opacity(0.5)
+        static let iconTint = Color.primary.opacity(0.7)
+        static let selectedText = Color.white
+        static let badgeText = Color.white
     }
     
     // Typography
@@ -268,35 +272,38 @@ struct ImprovedStoryLibraryView: View {
     // MARK: - Header Section
     private var headerSection: some View {
         VStack(spacing: StoryLibraryDesign.Spacing.elementSpacing) {
-            // Search bar
+            // Search bar with liquid glass styling
             HStack {
                 Image(systemName: "magnifyingglass")
-                    .foregroundColor(StoryLibraryDesign.Colors.captionText)
-                
+                    .foregroundColor(StoryLibraryDesign.Colors.iconTint)
+                    .font(.system(size: 16))
+
                 TextField("Search stories...", text: $searchText)
                     .textFieldStyle(.plain)
+                    .foregroundColor(StoryLibraryDesign.Colors.titleText)
+                    .font(.system(size: 16))
                     .accessibilityLabel("Search stories")
                     .accessibilityHint("Enter text to search through your story library")
-                
+
                 if !searchText.isEmpty {
-                    Button(action: { 
+                    Button(action: {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                             searchText = ""
                         }
                     }) {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(StoryLibraryDesign.Colors.captionText)
+                            .foregroundColor(StoryLibraryDesign.Colors.iconTint)
+                            .font(.system(size: 16))
                             .scaleEffect(searchText.isEmpty ? 0 : 1)
                             .animation(.spring(response: 0.3, dampingFraction: 0.8), value: searchText)
                             .accessibilityLabel("Clear search")
                             .accessibilityHint("Tap to clear the search text")
                     }
+                    .frame(minWidth: 44, minHeight: 44)
                 }
             }
             .padding(12)
-            .background(Color(.secondarySystemBackground))
-            .cornerRadius(12)
-            .shadow(color: Color.primary.opacity(0.05), radius: 4, y: 2)
+            .liquidGlassCard(cornerRadius: 12)
         }
     }
     
@@ -514,7 +521,7 @@ struct ImprovedStoryLibraryView: View {
     private func storyCardView(for story: Story) -> some View {
         let isRegenerating = regeneratingStories.contains(story.id)
 
-        ImprovedStoryCard(
+        StoryCard(
             story: story,
             onTap: {
                 selectedStory = story
@@ -548,7 +555,8 @@ struct ImprovedStoryLibraryView: View {
             },
             isRegenerating: isRegenerating,
             hasFailedIllustrations: viewModel.hasRetryableFailedIllustrations(story),
-            failedIllustrationCount: viewModel.failedIllustrationCount(for: story)
+            failedIllustrationCount: viewModel.failedIllustrationCount(for: story),
+            variant: .full
         )
         .transition(.asymmetric(
             insertion: .scale(scale: 0.9).combined(with: .opacity),
@@ -565,484 +573,6 @@ struct ImprovedStoryLibraryView: View {
     }
 }
 
-// MARK: - Improved Story Card (Enhanced Accessibility)
-struct ImprovedStoryCard: View {
-    let story: Story
-    let onTap: () -> Void
-    var onToggleFavorite: (() -> Void)? = nil
-    var onShare: (() -> Void)? = nil
-    var onDelete: (() -> Void)? = nil
-    var onEdit: (() -> Void)? = nil
-    var onRegenerateAudio: (() -> Void)? = nil
-    var onRetryFailedIllustrations: (() -> Void)? = nil
-    var isRegenerating: Bool = false
-    var hasFailedIllustrations: Bool = false
-    var failedIllustrationCount: Int = 0
-
-    init(
-        story: Story,
-        onTap: @escaping () -> Void,
-        onToggleFavorite: (() -> Void)? = nil,
-        onShare: (() -> Void)? = nil,
-        onDelete: (() -> Void)? = nil,
-        onEdit: (() -> Void)? = nil,
-        onRegenerateAudio: (() -> Void)? = nil,
-        onRetryFailedIllustrations: (() -> Void)? = nil,
-        isRegenerating: Bool = false,
-        hasFailedIllustrations: Bool = false,
-        failedIllustrationCount: Int = 0
-    ) {
-        self.story = story
-        self.onTap = onTap
-        self.onToggleFavorite = onToggleFavorite
-        self.onShare = onShare
-        self.onDelete = onDelete
-        self.onEdit = onEdit
-        self.onRegenerateAudio = onRegenerateAudio
-        self.onRetryFailedIllustrations = onRetryFailedIllustrations
-        self.isRegenerating = isRegenerating
-        self.hasFailedIllustrations = hasFailedIllustrations
-        self.failedIllustrationCount = failedIllustrationCount
-    }
-
-    @State private var isPressed = false
-    @State private var showingActions = false
-    @FocusState private var isFocused: Bool
-    @Environment(\.colorScheme) var colorScheme
-    @Environment(\.accessibilityReduceMotion) var reduceMotion
-    @Environment(\.dynamicTypeSize) var dynamicTypeSize
-    
-    private var storyStatus: StoryStatus {
-        if story.playCount == 0 {
-            return .new
-        } else if story.playCount < 3 {
-            return .inProgress
-        } else {
-            return .completed
-        }
-    }
-    
-    private var progressPercentage: Double {
-        // Assume 3 plays = completed
-        return min(Double(story.playCount) / 3.0, 1.0)
-    }
-    
-    private var eventColor: Color {
-        if let builtInEvent = story.builtInEvent {
-            switch builtInEvent {
-            case .bedtime: return StoryLibraryDesign.Colors.bedtimeColor
-            case .schoolDay: return StoryLibraryDesign.Colors.schoolColor
-            case .birthday: return StoryLibraryDesign.Colors.birthdayColor
-            case .weekend: return StoryLibraryDesign.Colors.weekendColor
-            case .rainyDay: return StoryLibraryDesign.Colors.rainyDayColor
-            case .family: return StoryLibraryDesign.Colors.familyColor
-            default: return StoryLibraryDesign.Colors.primaryPurple
-            }
-        } else if let customEvent = story.customEvent {
-            return Color(hex: customEvent.colorHex)
-        } else {
-            return StoryLibraryDesign.Colors.primaryPurple
-        }
-    }
-    
-    @ViewBuilder
-    private var cardContent: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Main content
-            HStack(alignment: .top, spacing: StoryLibraryDesign.Spacing.cardPadding) {
-                // Thumbnail
-                thumbnailView
-
-                // Content
-                VStack(alignment: .leading, spacing: 6) {
-                    titleRow
-                    contentPreview
-                    Spacer(minLength: 8)
-                    metadataRow
-                }
-            }
-            .padding(StoryLibraryDesign.Spacing.cardPadding)
-
-            // Progress bar or regeneration indicator
-            if isRegenerating {
-                regenerationProgressBar
-            } else if storyStatus == .inProgress {
-                progressBar
-            }
-        }
-        .frame(minHeight: 120) // Increased minimum height to ensure card is visible
-        .background(cardBackground)
-        .overlay(cardOverlay)
-        .overlay(
-            // Add visible border to ensure cards are visible
-            RoundedRectangle(cornerRadius: StoryLibraryDesign.Layout.cardCornerRadius)
-                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-        )
-        .shadow(
-            color: Color.black.opacity(isPressed ? 0.15 : 0.1),
-            radius: isPressed ? 4 : StoryLibraryDesign.Layout.cardShadowRadius,
-            y: isPressed ? 2 : StoryLibraryDesign.Layout.cardShadowY
-        )
-        .scaleEffect(isPressed ? 0.98 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isPressed)
-    }
-    
-    @ViewBuilder
-    private var thumbnailView: some View {
-        ZStack {
-            if let hero = story.hero {
-                // Show hero avatar
-                HeroAvatarImageView(hero: hero, size: 60)
-            } else {
-                // Fallback to event icon
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(
-                            LinearGradient(
-                                colors: [eventColor.opacity(0.3), eventColor.opacity(0.1)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 60, height: 60)
-
-                    Image(systemName: story.eventIcon)
-                        .font(.system(size: 24))
-                        .foregroundColor(eventColor)
-                }
-            }
-
-            // Show first illustration as preview thumbnail if available
-            if let firstIllustration = story.illustrations.first {
-                AsyncImage(url: firstIllustration.imageURL) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: 60, height: 60)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.purple.opacity(0.3), lineWidth: 2)
-                        )
-                } placeholder: {
-                    // Keep showing hero/event icon while loading
-                    EmptyView()
-                }
-                .transition(.opacity)
-            }
-        }
-    }
-    
-    @ViewBuilder
-    private var titleRow: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(story.title)
-                    .font(StoryLibraryDesign.Typography.cardTitle)
-                    .foregroundColor(StoryLibraryDesign.Colors.titleText)
-                    .lineLimit(2)
-
-                if let hero = story.hero {
-                    Text("Hero: \(hero.name)")
-                        .font(.caption)
-                        .foregroundColor(StoryLibraryDesign.Colors.primaryPurple)
-                        .fontWeight(.medium)
-                }
-            }
-            
-            Spacer()
-            
-            if storyStatus == .new {
-                StatusBadge(status: .new)
-            }
-            
-            if story.isFavorite {
-                Image(systemName: "heart.fill")
-                    .foregroundColor(.red)
-                    .font(.system(size: 14))
-            }
-        }
-    }
-    
-    @ViewBuilder
-    private var contentPreview: some View {
-        Text(story.shortContent)
-            .font(StoryLibraryDesign.Typography.cardBody)
-            .foregroundColor(StoryLibraryDesign.Colors.bodyText)
-            .lineLimit(2)
-            .multilineTextAlignment(.leading)
-    }
-    
-    @ViewBuilder
-    private var metadataRow: some View {
-        HStack(spacing: 12) {
-            EventBadge(eventTitle: story.eventTitle, color: eventColor)
-
-            Spacer()
-
-            // Illustration indicator
-            if !story.illustrations.isEmpty {
-                IllustrationBadge(
-                    count: story.illustrations.count,
-                    generatedCount: story.generatedIllustrations.count
-                )
-            }
-
-            // Regenerate audio button
-            if !isRegenerating && story.audioFileName != nil {
-                Button(action: { onRegenerateAudio?() }) {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 12))
-                        .foregroundColor(.blue)
-                        .padding(6)
-                        .background(Color.blue.opacity(0.1))
-                        .clipShape(Circle())
-                }
-                .buttonStyle(PlainButtonStyle())
-            }
-
-            if story.hasAudio && !isRegenerating {
-                MetadataItem(
-                    icon: "speaker.wave.2.fill",
-                    text: "\(Int(story.estimatedDuration / 60))m",
-                    color: StoryLibraryDesign.Colors.primaryOrange
-                )
-            }
-
-            if story.playCount > 0 {
-                MetadataItem(
-                    icon: "play.circle.fill",
-                    text: "\(story.playCount)",
-                    color: StoryLibraryDesign.Colors.primaryBlue
-                )
-            }
-
-            MetadataItem(
-                icon: "calendar",
-                text: formatSmartDate(story.createdAt),
-                color: StoryLibraryDesign.Colors.captionText
-            )
-        }
-    }
-    
-    @ViewBuilder
-    private var regenerationProgressBar: some View {
-        HStack(spacing: 8) {
-            ProgressView()
-                .progressViewStyle(CircularProgressViewStyle())
-                .scaleEffect(0.7)
-            Text("Regenerating audio...")
-                .font(.caption)
-                .foregroundColor(.purple)
-            Spacer()
-        }
-        .padding(.horizontal, StoryLibraryDesign.Spacing.cardPadding)
-        .padding(.vertical, 8)
-        .background(Color.purple.opacity(0.1))
-    }
-
-    @ViewBuilder
-    private var progressBar: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .leading) {
-                Rectangle()
-                    .fill(Color.gray.opacity(0.1))
-                    .frame(height: StoryLibraryDesign.Layout.progressBarHeight)
-                
-                Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                StoryLibraryDesign.Colors.inProgressBadge,
-                                StoryLibraryDesign.Colors.inProgressBadge.opacity(0.8)
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .frame(
-                        width: geometry.size.width * progressPercentage,
-                        height: StoryLibraryDesign.Layout.progressBarHeight
-                    )
-                    .animation(.spring(response: 0.5, dampingFraction: 0.7), value: progressPercentage)
-            }
-        }
-        .frame(height: StoryLibraryDesign.Layout.progressBarHeight)
-        .cornerRadius(StoryLibraryDesign.Layout.progressBarHeight / 2, corners: [.bottomLeft, .bottomRight])
-    }
-    
-    @ViewBuilder
-    private var cardBackground: some View {
-        RoundedRectangle(cornerRadius: StoryLibraryDesign.Layout.cardCornerRadius)
-            .fill(
-                storyStatus == .new ?
-                LinearGradient(
-                    colors: [
-                        StoryLibraryDesign.Colors.newStoryGradientStart,
-                        StoryLibraryDesign.Colors.newStoryGradientEnd
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ) :
-                LinearGradient(
-                    colors: [
-                        Color(.systemBackground),
-                        Color(.secondarySystemBackground)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-    }
-    
-    @ViewBuilder
-    private var cardOverlay: some View {
-        RoundedRectangle(cornerRadius: StoryLibraryDesign.Layout.cardCornerRadius)
-            .stroke(
-                storyStatus == .new ?
-                StoryLibraryDesign.Colors.newBadge.opacity(0.3) :
-                Color.clear,
-                lineWidth: 1
-            )
-    }
-
-    var body: some View {
-        Button(action: {
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            onTap()
-        }) {
-            cardContent
-        }
-        .buttonStyle(AccessibleCardButtonStyle())
-        .scaleEffect(isPressed ? 0.95 : (isFocused ? 1.02 : 1.0))
-        .overlay(
-            RoundedRectangle(cornerRadius: StoryLibraryDesign.Layout.cardCornerRadius)
-                .stroke(isFocused ? Color.blue : Color.clear, lineWidth: 3)
-        )
-        .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7), value: isFocused)
-        .animation(reduceMotion ? nil : .spring(response: 0.2, dampingFraction: 0.8), value: isPressed)
-        .focusable()
-        .focused($isFocused)
-        .onLongPressGesture(minimumDuration: 0.5) {
-            // Haptic feedback
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            showingActions = true
-        } onPressingChanged: { pressing in
-            withAnimation(reduceMotion ? nil : .spring()) {
-                isPressed = pressing
-            }
-        }
-        .contextMenu {
-            Button(action: { onToggleFavorite?() }) {
-                Label(
-                    story.isFavorite ? "Remove from Favorites" : "Add to Favorites",
-                    systemImage: story.isFavorite ? "heart.slash" : "heart"
-                )
-            }
-
-            Button(action: { onShare?() }) {
-                Label("Share Story", systemImage: "square.and.arrow.up")
-            }
-
-            if story.hasAudio {
-                Button(action: { /* Download functionality can be added later */ }) {
-                    Label("Download Audio", systemImage: "arrow.down.circle")
-                }
-            }
-
-            // Add retry failed illustrations option
-            if hasFailedIllustrations {
-                Button(action: { onRetryFailedIllustrations?() }) {
-                    Label(
-                        "Retry Failed Illustrations (\(failedIllustrationCount))",
-                        systemImage: "arrow.clockwise.circle"
-                    )
-                }
-            }
-            
-            if story.audioNeedsRegeneration {
-                Button(action: { onRegenerateAudio?() }) {
-                    Label("Regenerate Audio", systemImage: "arrow.clockwise")
-                }
-            }
-            
-            Button(action: { onEdit?() }) {
-                Label("Edit Story", systemImage: "pencil")
-            }
-            
-            Button(role: .destructive, action: { onDelete?() }) {
-                Label("Delete Story", systemImage: "trash")
-            }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(AccessibilityLabelProvider.storyCardLabel(for: story))
-        .accessibilityHint(AccessibilityLabelProvider.storyCardHint(for: story))
-        .accessibilityAddTraits(.isButton)
-        .accessibilityValue(story.isFavorite ? "Favorite" : "")
-        .accessibilityActions {
-            if let onToggleFavorite = onToggleFavorite {
-                Button(story.isFavorite ? "Remove from favorites" : "Add to favorites") {
-                    onToggleFavorite()
-                }
-            }
-            
-            if let onShare = onShare {
-                Button("Share story") {
-                    onShare()
-                }
-            }
-            
-            if story.hasAudio {
-                Button("Download audio") {
-                    // Download action
-                }
-            }
-            
-            if let onDelete = onDelete {
-                Button("Delete story") {
-                    onDelete()
-                }
-            }
-        }
-    }
-    
-    private func iconForEvent(_ event: StoryEvent) -> String {
-        switch event {
-        case .bedtime: return "moon.stars.fill"
-        case .schoolDay: return "backpack.fill"
-        case .birthday: return "birthday.cake.fill"
-        case .weekend: return "sun.max.fill"
-        case .rainyDay: return "cloud.rain.fill"
-        case .family: return "figure.2.and.child.holdinghands"
-        case .friendship: return "person.2.fill"
-        case .learning: return "lightbulb.fill"
-        case .helping: return "hands.sparkles.fill"
-        case .holiday: return "gift.fill"
-        }
-    }
-    
-    private func formatSmartDate(_ date: Date) -> String {
-        let calendar = Calendar.current
-        let now = Date()
-        
-        if calendar.isDateInToday(date) {
-            return "Today"
-        } else if calendar.isDateInYesterday(date) {
-            return "Yesterday"
-        } else {
-            let days = calendar.dateComponents([.day], from: date, to: now).day ?? 0
-            if days < 7 {
-                return "\(days)d ago"
-            } else if days < 30 {
-                return "\(days / 7)w ago"
-            } else {
-                let formatter = DateFormatter()
-                formatter.dateFormat = "MMM d"
-                return formatter.string(from: date)
-            }
-        }
-    }
-}
 
 // MARK: - Supporting Components
 
@@ -1076,41 +606,38 @@ struct FilterPill: View {
     let title: String
     let isSelected: Bool
     let action: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 14, weight: .medium, design: .rounded))
-                .foregroundColor(isSelected ? .purple : StoryLibraryDesign.Colors.bodyText)
+                .foregroundColor(isSelected ?
+                    (colorScheme == .dark ? Color.purple.opacity(0.9) : Color.purple) :
+                    StoryLibraryDesign.Colors.titleText)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
+                .frame(minHeight: 44)
                 .liquidGlassCapsule(variant: isSelected ? .tinted(.purple) : .regular)
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
-    }
-}
-
-struct StatusBadge: View {
-    let status: StoryStatus
-
-    var body: some View {
-        Text(status.title)
-            .font(StoryLibraryDesign.Typography.badge)
-            .foregroundColor(status.color)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .liquidGlassCapsule(variant: .tinted(status.color))
+        .accessibilityLabel("\(title) filter")
+        .accessibilityHint(isSelected ? "Currently selected" : "Tap to filter by \(title.lowercased())")
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 
 struct EventBadge: View {
     let eventTitle: String
     let color: Color
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Text(eventTitle)
             .font(StoryLibraryDesign.Typography.badge)
-            .foregroundColor(color)
+            .foregroundColor(colorScheme == .dark ? color.opacity(0.9) : color)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .liquidGlassCapsule(variant: .tinted(color))
@@ -1121,7 +648,8 @@ struct MetadataItem: View {
     let icon: String
     let text: String
     let color: Color
-    
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
@@ -1129,7 +657,9 @@ struct MetadataItem: View {
             Text(text)
                 .font(StoryLibraryDesign.Typography.metadata)
         }
-        .foregroundColor(color)
+        .foregroundColor(color == StoryLibraryDesign.Colors.captionText ?
+            StoryLibraryDesign.Colors.captionText :
+            (colorScheme == .dark ? color.opacity(0.85) : color))
     }
 }
 
@@ -1144,51 +674,11 @@ enum StoryFilter: String, CaseIterable {
     var title: String { rawValue }
 }
 
-enum StoryStatus {
-    case new, inProgress, completed
-    
-    var title: String {
-        switch self {
-        case .new: return "NEW"
-        case .inProgress: return "READING"
-        case .completed: return "COMPLETED"
-        }
-    }
-    
-    var color: Color {
-        switch self {
-        case .new: return StoryLibraryDesign.Colors.newBadge
-        case .inProgress: return StoryLibraryDesign.Colors.inProgressBadge
-        case .completed: return StoryLibraryDesign.Colors.completedBadge
-        }
-    }
-}
-
-// MARK: - Corner Radius Extension
-extension View {
-    func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> some View {
-        clipShape(RoundedCorner(radius: radius, corners: corners))
-    }
-}
-
-struct RoundedCorner: Shape {
-    var radius: CGFloat = .infinity
-    var corners: UIRectCorner = .allCorners
-    
-    func path(in rect: CGRect) -> Path {
-        let path = UIBezierPath(
-            roundedRect: rect,
-            byRoundingCorners: corners,
-            cornerRadii: CGSize(width: radius, height: radius)
-        )
-        return Path(path.cgPath)
-    }
-}
-
 // MARK: - Load More View
 struct LoadMoreView: View {
     @Binding var isLoading: Bool
     let action: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Button(action: action) {
@@ -1196,25 +686,34 @@ struct LoadMoreView: View {
                 if isLoading {
                     ProgressView()
                         .scaleEffect(0.8)
-                        .progressViewStyle(CircularProgressViewStyle(tint: StoryLibraryDesign.Colors.primaryPurple))
+                        .progressViewStyle(CircularProgressViewStyle(tint: colorScheme == .dark ?
+                            StoryLibraryDesign.Colors.primaryPurple.opacity(0.9) :
+                            StoryLibraryDesign.Colors.primaryPurple))
                     Text("Loading more stories...")
                         .font(.system(size: 14, weight: .medium, design: .rounded))
                         .foregroundColor(StoryLibraryDesign.Colors.bodyText)
                 } else {
                     Image(systemName: "arrow.down.circle.fill")
                         .font(.system(size: 20))
-                        .foregroundColor(StoryLibraryDesign.Colors.primaryPurple)
+                        .foregroundColor(colorScheme == .dark ?
+                            StoryLibraryDesign.Colors.primaryPurple.opacity(0.9) :
+                            StoryLibraryDesign.Colors.primaryPurple)
                     Text("Load More Stories")
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundColor(StoryLibraryDesign.Colors.primaryPurple)
+                        .foregroundColor(colorScheme == .dark ?
+                            StoryLibraryDesign.Colors.primaryPurple.opacity(0.9) :
+                            StoryLibraryDesign.Colors.primaryPurple)
                 }
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
+            .frame(minHeight: 44)
             .liquidGlassCapsule(variant: .tinted(.purple))
         }
         .disabled(isLoading)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isLoading)
+        .accessibilityLabel(isLoading ? "Loading more stories" : "Load more stories")
+        .accessibilityHint(isLoading ? "Please wait while more stories are loading" : "Tap to load additional stories")
     }
 }
 
@@ -1224,11 +723,18 @@ struct SelectionCircle: View {
 
     var body: some View {
         ZStack {
+            // Subtle glass background for the entire circle frame
             Circle()
-                .strokeBorder(isSelected ? Color.clear : Color.gray.opacity(0.4), lineWidth: 2)
+                .fill(Color.clear)
+                .frame(width: 32, height: 32)
+                .liquidGlassCard(cornerRadius: 16, variant: isSelected ? .tinted(.accentColor) : .clear)
+
+            // Selection indicator
+            Circle()
+                .strokeBorder(isSelected ? Color.clear : Color.accentColor.opacity(0.3), lineWidth: 2)
                 .background(
                     Circle()
-                        .fill(isSelected ? Color.purple : Color.clear)
+                        .fill(isSelected ? Color.accentColor : Color.clear)
                 )
                 .frame(width: 24, height: 24)
 
@@ -1268,7 +774,7 @@ struct IllustrationBadge: View {
                     .font(.system(size: 12, weight: .bold, design: .rounded))
             }
         }
-        .foregroundColor(.white)
+        .foregroundColor(StoryLibraryDesign.Colors.badgeText)
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(
@@ -1301,6 +807,7 @@ struct EditModeToolbar: View {
     let totalStories: Int
     let onDelete: () -> Void
     let onSelectAll: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1310,34 +817,45 @@ struct EditModeToolbar: View {
                 // Selection info
                 Text("\(selectedStories.count) selected")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(StoryLibraryDesign.Colors.bodyText)
+                    .accessibilityLabel("\(selectedStories.count) stories selected")
 
                 Spacer()
 
-                // Select All/None button
+                // Select All/None button with glass styling
                 Button(action: onSelectAll) {
                     Text(selectedStories.count == totalStories ? "Deselect All" : "Select All")
                         .font(.subheadline.weight(.medium))
+                        .foregroundColor(colorScheme == .dark ?
+                            Color.accentColor.opacity(0.9) :
+                            Color.accentColor)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .frame(minHeight: 44)
+                        .liquidGlassCapsule(variant: .tinted(.accentColor))
                 }
+                .accessibilityLabel(selectedStories.count == totalStories ? "Deselect all" : "Select all")
+                .accessibilityHint(selectedStories.count == totalStories ? "Remove selection from all stories" : "Select all stories for bulk action")
 
-                // Delete button
+                // Delete button with glass styling
                 Button(action: onDelete) {
                     Label("Delete", systemImage: "trash")
                         .font(.subheadline.weight(.medium))
-                        .foregroundColor(.white)
+                        .foregroundColor(selectedStories.isEmpty ?
+                            Color.red.opacity(0.5) :
+                            (colorScheme == .dark ? Color.red.opacity(0.9) : Color.red))
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
-                        .background(
-                            Color.red
-                                .opacity(selectedStories.isEmpty ? 0.5 : 1.0)
-                        )
-                        .cornerRadius(20)
+                        .frame(minHeight: 44)
+                        .liquidGlassCapsule(variant: .tintedInteractive(.red))
                 }
                 .disabled(selectedStories.isEmpty)
+                .accessibilityLabel("Delete selected stories")
+                .accessibilityHint(selectedStories.isEmpty ? "Select stories to delete" : "Delete \(selectedStories.count) selected stories")
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 15)
-            .background(.ultraThinMaterial)
+            .liquidGlassBackground()
         }
     }
 }

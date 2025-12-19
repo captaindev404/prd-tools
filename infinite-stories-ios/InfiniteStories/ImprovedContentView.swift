@@ -205,26 +205,21 @@ struct HomeContentView: View {
                         .foregroundColor(.accentColor)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
-                        .background(
-                            Capsule()
-                                .fill(Color.accentColor.opacity(0.1))
-                        )
-                        .overlay(
-                            Capsule()
-                                .stroke(Color.accentColor.opacity(0.2), lineWidth: 1)
-                        )
+                        .frame(minHeight: 44)
+                        .liquidGlassCapsule(variant: .tinted(.accentColor))
                     }
+                    .accessibilityLabel("View all stories")
+                    .accessibilityHint("Open the story library")
                 }
 
                 // Story Cards
                 VStack(spacing: 12) {
                     ForEach(Array(stories.sorted(by: { $0.createdAt > $1.createdAt }).prefix(6)), id: \.id) { story in
-                        Button {
-                            selectedStory = story
-                        } label: {
-                            homeStoryCardLabel(for: story)
-                        }
-                        .buttonStyle(.plain)
+                        StoryCard(
+                            story: story,
+                            onTap: { selectedStory = story },
+                            variant: .compact
+                        )
                     }
                 }
             } else if heroes.isEmpty {
@@ -235,180 +230,6 @@ struct HomeContentView: View {
         .padding(.top, 25)
     }
 
-    private func homeStoryCardLabel(for story: Story) -> some View {
-        HStack(spacing: 12) {
-            // Hero Avatar or Event Icon Thumbnail
-            ZStack {
-                if let hero = story.hero {
-                    HeroAvatarImageView(hero: hero, size: 50)
-                } else {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.accentColor.opacity(0.15))
-                        .frame(width: 50, height: 50)
-                        .overlay(
-                            Image(systemName: story.eventIcon)
-                                .font(.system(size: 20))
-                                .foregroundColor(.accentColor)
-                        )
-                }
-
-                // Show first illustration as preview if available
-                if let firstIllustration = story.illustrations.first {
-                    AsyncImage(url: firstIllustration.imageURL) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 50, height: 50)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .stroke(Color.accentColor.opacity(0.3), lineWidth: 1)
-                            )
-                    } placeholder: {
-                        EmptyView()
-                    }
-                }
-            }
-
-            // Content
-            VStack(alignment: .leading, spacing: 4) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(story.title)
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .foregroundColor(.primary)
-                        .lineLimit(1)
-
-                    if let hero = story.hero {
-                        Text("Hero: \(hero.name)")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.accentColor)
-                    }
-                }
-
-                Text(story.shortContent)
-                    .font(.system(size: 13))
-                    .foregroundColor(.secondary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-
-                // Metadata row
-                HStack(spacing: 8) {
-                    HStack(spacing: 3) {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 10))
-                        Text(story.eventTitle)
-                            .font(.system(size: 11, weight: .medium, design: .rounded))
-                    }
-                    .foregroundColor(homeEventColor(for: story))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(
-                        Capsule()
-                            .fill(homeEventColor(for: story).opacity(0.15))
-                    )
-
-                    if !story.illustrations.isEmpty {
-                        HStack(spacing: 2) {
-                            Image(systemName: "photo.stack.fill")
-                                .font(.system(size: 10))
-                            Text("\(story.illustrations.count)")
-                                .font(.system(size: 11, weight: .medium))
-                        }
-                        .foregroundColor(.purple)
-                    }
-
-                    if story.hasAudio {
-                        HStack(spacing: 2) {
-                            Image(systemName: "speaker.wave.2.fill")
-                                .font(.system(size: 10))
-                            Text("\(Int(story.estimatedDuration / 60))m")
-                                .font(.system(size: 11, weight: .medium))
-                        }
-                        .foregroundColor(.orange)
-                    }
-
-                    if story.playCount > 0 {
-                        HStack(spacing: 2) {
-                            Image(systemName: "play.circle.fill")
-                                .font(.system(size: 10))
-                            Text("\(story.playCount)")
-                                .font(.system(size: 11, weight: .medium))
-                        }
-                        .foregroundColor(.blue)
-                    }
-
-                    Spacer()
-
-                    Text(homeFormatSmartDate(story.createdAt))
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary.opacity(0.8))
-                }
-            }
-
-            // Right side badges
-            VStack(alignment: .trailing, spacing: 4) {
-                if story.playCount == 0 {
-                    Text("NEW")
-                        .font(.system(size: 9, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(
-                            Capsule()
-                                .fill(Color.mint)
-                        )
-                }
-
-                if story.isFavorite {
-                    Image(systemName: "heart.fill")
-                        .foregroundColor(.red)
-                        .font(.system(size: 14))
-                }
-
-                Spacer()
-            }
-        }
-        .padding()
-        .frame(maxWidth: .infinity, minHeight: 90)
-        .liquidGlassCard(cornerRadius: 14)
-    }
-
-    private func homeEventColor(for story: Story) -> Color {
-        if let builtInEvent = story.builtInEvent {
-            switch builtInEvent {
-            case .bedtime: return .purple
-            case .schoolDay: return .yellow
-            case .birthday: return .pink
-            case .weekend: return .green
-            case .rainyDay: return .blue
-            case .family: return .orange
-            default: return .accentColor
-            }
-        } else if let customEvent = story.customEvent {
-            return Color(hex: customEvent.colorHex)
-        } else {
-            return .accentColor
-        }
-    }
-
-    private func homeFormatSmartDate(_ date: Date) -> String {
-        let calendar = Calendar.current
-        let now = Date()
-
-        if calendar.isDateInToday(date) {
-            let formatter = DateFormatter()
-            formatter.timeStyle = .short
-            return "Today, \(formatter.string(from: date))"
-        } else if calendar.isDateInYesterday(date) {
-            return "Yesterday"
-        } else if let daysAgo = calendar.dateComponents([.day], from: date, to: now).day, daysAgo < 7 {
-            return "\(daysAgo)d ago"
-        } else {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "MMM d"
-            return formatter.string(from: date)
-        }
-    }
 
     private func calculateReadingStreak() -> Int {
         let calendar = Calendar.current
@@ -547,39 +368,16 @@ struct ImprovedContentView: View {
                     Text("Recent Adventures")
                         .font(.system(size: 18, weight: .bold, design: .rounded))
                         .foregroundColor(.primary)
-
-                    Spacer()
-
-                    NavigationLink(destination: ImprovedStoryLibraryView()) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "books.vertical.fill")
-                                .font(.system(size: 14))
-                            Text("View All")
-                                .font(.system(size: 14, weight: .medium, design: .rounded))
-                        }
-                        .foregroundColor(.accentColor)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(
-                            Capsule()
-                                .fill(Color.accentColor.opacity(0.1))
-                        )
-                        .overlay(
-                            Capsule()
-                                .stroke(Color.accentColor.opacity(0.2), lineWidth: 1)
-                        )
-                    }
                 }
 
                 // Story Cards
                 VStack(spacing: 12) {
                     ForEach(Array(stories.sorted(by: { $0.createdAt > $1.createdAt }).prefix(6)), id: \.id) { story in
-                        Button {
-                            selectedStory = story
-                        } label: {
-                            storyCardLabel(for: story)
-                        }
-                        .buttonStyle(.plain)
+                        StoryCard(
+                            story: story,
+                            onTap: { selectedStory = story },
+                            variant: .compact
+                        )
                     }
                 }
             } else if heroes.isEmpty {
@@ -590,180 +388,6 @@ struct ImprovedContentView: View {
         .padding(.top, 25)
     }
 
-    private func storyCardLabel(for story: Story) -> some View {
-        HStack(spacing: 12) {
-            // Hero Avatar or Event Icon Thumbnail
-            ZStack {
-                if let hero = story.hero {
-                    HeroAvatarImageView(hero: hero, size: 50)
-                } else {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.accentColor.opacity(0.15))
-                        .frame(width: 50, height: 50)
-                        .overlay(
-                            Image(systemName: story.eventIcon)
-                                .font(.system(size: 20))
-                                .foregroundColor(.accentColor)
-                        )
-                }
-
-                // Show first illustration as preview if available
-                if let firstIllustration = story.illustrations.first {
-                    AsyncImage(url: firstIllustration.imageURL) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 50, height: 50)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .stroke(Color.accentColor.opacity(0.3), lineWidth: 1)
-                            )
-                    } placeholder: {
-                        EmptyView()
-                    }
-                }
-            }
-
-            // Content
-            VStack(alignment: .leading, spacing: 4) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(story.title)
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .foregroundColor(.primary)
-                        .lineLimit(1)
-
-                    if let hero = story.hero {
-                        Text("Hero: \(hero.name)")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.accentColor)
-                    }
-                }
-
-                Text(story.shortContent)
-                    .font(.system(size: 13))
-                    .foregroundColor(.secondary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-
-                // Metadata row
-                HStack(spacing: 8) {
-                    HStack(spacing: 3) {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 10))
-                        Text(story.eventTitle)
-                            .font(.system(size: 11, weight: .medium, design: .rounded))
-                    }
-                    .foregroundColor(eventColor(for: story))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(
-                        Capsule()
-                            .fill(eventColor(for: story).opacity(0.15))
-                    )
-
-                    if !story.illustrations.isEmpty {
-                        HStack(spacing: 2) {
-                            Image(systemName: "photo.stack.fill")
-                                .font(.system(size: 10))
-                            Text("\(story.illustrations.count)")
-                                .font(.system(size: 11, weight: .medium))
-                        }
-                        .foregroundColor(.purple)
-                    }
-
-                    if story.hasAudio {
-                        HStack(spacing: 2) {
-                            Image(systemName: "speaker.wave.2.fill")
-                                .font(.system(size: 10))
-                            Text("\(Int(story.estimatedDuration / 60))m")
-                                .font(.system(size: 11, weight: .medium))
-                        }
-                        .foregroundColor(.orange)
-                    }
-
-                    if story.playCount > 0 {
-                        HStack(spacing: 2) {
-                            Image(systemName: "play.circle.fill")
-                                .font(.system(size: 10))
-                            Text("\(story.playCount)")
-                                .font(.system(size: 11, weight: .medium))
-                        }
-                        .foregroundColor(.blue)
-                    }
-
-                    Spacer()
-
-                    Text(formatSmartDate(story.createdAt))
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary.opacity(0.8))
-                }
-            }
-
-            // Right side badges
-            VStack(alignment: .trailing, spacing: 4) {
-                if story.playCount == 0 {
-                    Text("NEW")
-                        .font(.system(size: 9, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(
-                            Capsule()
-                                .fill(Color.mint)
-                        )
-                }
-
-                if story.isFavorite {
-                    Image(systemName: "heart.fill")
-                        .foregroundColor(.red)
-                        .font(.system(size: 14))
-                }
-
-                Spacer()
-            }
-        }
-        .padding()
-        .frame(maxWidth: .infinity, minHeight: 90)
-        .liquidGlassCard(cornerRadius: 14)
-    }
-
-    private func eventColor(for story: Story) -> Color {
-        if let builtInEvent = story.builtInEvent {
-            switch builtInEvent {
-            case .bedtime: return .purple
-            case .schoolDay: return .yellow
-            case .birthday: return .pink
-            case .weekend: return .green
-            case .rainyDay: return .blue
-            case .family: return .orange
-            default: return .accentColor
-            }
-        } else if let customEvent = story.customEvent {
-            return Color(hex: customEvent.colorHex)
-        } else {
-            return .accentColor
-        }
-    }
-
-    private func formatSmartDate(_ date: Date) -> String {
-        let calendar = Calendar.current
-        let now = Date()
-
-        if calendar.isDateInToday(date) {
-            let formatter = DateFormatter()
-            formatter.timeStyle = .short
-            return "Today, \(formatter.string(from: date))"
-        } else if calendar.isDateInYesterday(date) {
-            return "Yesterday"
-        } else if let daysAgo = calendar.dateComponents([.day], from: date, to: now).day, daysAgo < 7 {
-            return "\(daysAgo)d ago"
-        } else {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "MMM d"
-            return formatter.string(from: date)
-        }
-    }
 
     private var mainContent: some View {
         ZStack {
@@ -1039,7 +663,13 @@ struct HeroSectionView: View {
                         Text("Manage heroes")
                             .font(.subheadline)
                             .foregroundColor(.accentColor)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .frame(minHeight: 44)
+                            .liquidGlassCapsule(variant: .clear)
                     }
+                    .accessibilityLabel("Manage heroes")
+                    .accessibilityHint("Edit, delete, or create new heroes")
                 }
             }
 
@@ -1209,14 +839,7 @@ struct RecentStoriesView: View {
                     .foregroundColor(.accentColor)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(
-                        Capsule()
-                            .fill(Color.accentColor.opacity(0.1))
-                            .overlay(
-                                Capsule()
-                                    .stroke(Color.accentColor.opacity(0.2), lineWidth: 1)
-                            )
-                    )
+                    .liquidGlassCapsule(variant: .tinted(.accentColor))
                 }
             }
 
@@ -1585,9 +1208,10 @@ struct ImprovedContentView_Preview: View {
 
                                             LazyVStack(spacing: 12) {
                                                 ForEach(recentStories) { story in
-                                                    ImprovedStoryCard(
+                                                    StoryCard(
                                                         story: story,
-                                                        onTap: { selectedStory = story }
+                                                        onTap: { selectedStory = story },
+                                                        variant: .compact
                                                     )
                                                 }
                                             }

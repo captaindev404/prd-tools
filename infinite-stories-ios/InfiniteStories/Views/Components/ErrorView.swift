@@ -51,9 +51,12 @@ struct ErrorView: View {
                         .font(.headline)
                         .foregroundStyle(.white)
                         .frame(maxWidth: 200)
+                        .frame(minHeight: 44)
                         .padding()
                 }
                 .liquidGlassCard(cornerRadius: 12, variant: .tintedInteractive(.orange))
+                .accessibilityLabel("Sign in again")
+                .accessibilityHint("Your session has expired. Tap to sign in again.")
                 .padding(.top, 8)
             } else {
                 Button(action: retryAction) {
@@ -61,9 +64,12 @@ struct ErrorView: View {
                         .font(.headline)
                         .foregroundStyle(.white)
                         .frame(maxWidth: 200)
+                        .frame(minHeight: 44)
                         .padding()
                 }
                 .liquidGlassCard(cornerRadius: 12, variant: .tintedInteractive(.blue))
+                .accessibilityLabel("Try again")
+                .accessibilityHint("Retry the failed operation")
                 .padding(.top, 8)
             }
         }

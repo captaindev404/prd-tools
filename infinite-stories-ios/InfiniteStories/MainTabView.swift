@@ -2,7 +2,7 @@
 //  MainTabView.swift
 //  InfiniteStories
 //
-//  Root TabView container with 4 tabs leveraging iOS 26 Liquid Glass tab bars.
+//  Root TabView container with 5 tabs leveraging iOS 26 Liquid Glass tab bars.
 //
 
 import SwiftUI
@@ -11,14 +11,16 @@ import SwiftUI
 enum AppTab: Int, CaseIterable, Identifiable {
     case home = 0
     case library = 1
-    case journey = 2
-    case settings = 3
+    case heroes = 2
+    case journey = 3
+    case settings = 4
 
     var id: Int { rawValue }
 
     var title: String {
         switch self {
         case .home: return "Home"
+        case .heroes: return "Heroes"
         case .library: return "Library"
         case .journey: return "Journey"
         case .settings: return "Settings"
@@ -28,6 +30,7 @@ enum AppTab: Int, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .home: return "house.fill"
+        case .heroes: return "person.2.fill"
         case .library: return "books.vertical.fill"
         case .journey: return "chart.line.uptrend.xyaxis"
         case .settings: return "gearshape.fill"
@@ -61,6 +64,14 @@ struct MainTabView: View {
                 }
                 .tag(AppTab.library)
 
+            // Heroes Tab
+            HeroesTabView()
+                .tabItem {
+                    Label(AppTab.heroes.title, systemImage: AppTab.heroes.icon)
+                        .accessibilityLabel("\(AppTab.heroes.title) tab")
+                }
+                .tag(AppTab.heroes)
+
             // Journey Tab
             JourneyTabView()
                 .tabItem {
@@ -90,6 +101,18 @@ struct HomeTabView: View {
     var body: some View {
         NavigationStack {
             HomeContentView()
+        }
+    }
+}
+
+// MARK: - Heroes Tab View
+
+/// Wrapper for the Heroes tab content with its own NavigationStack
+struct HeroesTabView: View {
+    var body: some View {
+        NavigationStack {
+            HeroListView()
+                .glassNavigation()
         }
     }
 }

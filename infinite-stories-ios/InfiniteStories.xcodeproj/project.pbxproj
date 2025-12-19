@@ -33,6 +33,7 @@
 		CE8B1C972EC76A2100D60B87 /* InfiniteStories.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = InfiniteStories.xcodeproj; sourceTree = "<group>"; };
 		CE9694A62EB57F5200D739B6 /* InfiniteStories.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = InfiniteStories.xcodeproj; sourceTree = "<group>"; };
 		CE9DB6D32EF592C700DDD268 /* InfiniteStories.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = InfiniteStories.xcodeproj; sourceTree = "<group>"; };
+		CEDCB5FB2EF602C100E28EB7 /* InfiniteStories.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = InfiniteStories.xcodeproj; sourceTree = "<group>"; };
 		CEF88A3D2EC1FCEE00509585 /* InfiniteStories.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = InfiniteStories.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -146,6 +147,13 @@
 			sourceTree = "<group>";
 		};
 		CE9DB6D62EF592C700DDD268 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		CEDCB5FF2EF602C100E28EB7 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -266,6 +274,10 @@
 			productRefGroup = CE3AA1BA2E71C97D00236398 /* Products */;
 			projectDirPath = "";
 			projectReferences = (
+				{
+					ProductGroup = CEDCB5FF2EF602C100E28EB7 /* Products */;
+					ProjectRef = CEDCB5FB2EF602C100E28EB7 /* InfiniteStories.xcodeproj */;
+				},
 				{
 					ProductGroup = CE70BB772EB95D6A00DBE3C9 /* Products */;
 					ProjectRef = CE70BB742EB95D6A00DBE3C9 /* InfiniteStories.xcodeproj */;

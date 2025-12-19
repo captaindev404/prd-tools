@@ -26,56 +26,46 @@ struct HeroListView: View {
     private let heroRepository = HeroRepository()
 
     var body: some View {
-        NavigationView {
-            Group {
-                if isLoading {
-                    ProgressView("Loading heroes...")
-                        .scaleEffect(1.2)
-                } else if let error = error {
-                    ErrorView(error: error, retryAction: {
-                        Task { await loadHeroes() }
-                    })
-                } else if heroes.isEmpty {
-                    EmptyHeroStateView()
-                } else {
-                    heroList
-                }
-            }
-            .navigationTitle("Manage Heroes")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                    .fontWeight(.semibold)
-                }
-            }
-            .sheet(isPresented: $showingHeroCreation) {
-                HeroCreationView(heroToEdit: nil, onSave: { _ in
+        Group {
+            if isLoading {
+                ProgressView("Loading heroes...")
+                    .scaleEffect(1.2)
+            } else if let error = error {
+                ErrorView(error: error, retryAction: {
                     Task { await loadHeroes() }
                 })
+            } else if heroes.isEmpty {
+                EmptyHeroStateView()
+            } else {
+                heroList
             }
-            .sheet(item: $heroToEdit) { hero in
-                HeroCreationView(heroToEdit: hero, onSave: { _ in
-                    Task { await loadHeroes() }
-                })
-            }
-            .confirmationDialog(
-                "Delete Hero?",
-                isPresented: $showingDeleteConfirmation,
-                titleVisibility: .visible,
-                presenting: heroToDelete
-            ) { hero in
-                Button("Delete Hero", role: .destructive) {
-                    Task {
-                        await deleteHero(hero)
-                    }
+        }
+        .navigationTitle("Manage Heroes")
+        .navigationBarTitleDisplayMode(.large)
+        .sheet(isPresented: $showingHeroCreation) {
+            HeroCreationView(heroToEdit: nil, onSave: { _ in
+                Task { await loadHeroes() }
+            })
+        }
+        .sheet(item: $heroToEdit) { hero in
+            HeroCreationView(heroToEdit: hero, onSave: { _ in
+                Task { await loadHeroes() }
+            })
+        }
+        .confirmationDialog(
+            "Delete Hero?",
+            isPresented: $showingDeleteConfirmation,
+            titleVisibility: .visible,
+            presenting: heroToDelete
+        ) { hero in
+            Button("Delete Hero", role: .destructive) {
+                Task {
+                    await deleteHero(hero)
                 }
-                Button("Cancel", role: .cancel) { }
-            } message: { hero in
-                Text("This will permanently delete \(hero.name).")
             }
+            Button("Cancel", role: .cancel) { }
+        } message: { hero in
+            Text("This will permanently delete \(hero.name).")
         }
         .task {
             await loadHeroes()
@@ -95,6 +85,7 @@ struct HeroListView: View {
                     }
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
+                    .frame(minHeight: 44)
                     .padding()
                     .background(
                         LinearGradient(
@@ -105,6 +96,8 @@ struct HeroListView: View {
                     )
                     .cornerRadius(15)
                 }
+                .accessibilityLabel("Create New Hero")
+                .accessibilityHint("Opens the hero creation wizard")
                 .padding(.horizontal)
 
                 // Hero List
@@ -211,6 +204,8 @@ struct HeroManagementCard: View {
                                         .frame(width: 20, height: 20)
                                 )
                         }
+                        .accessibilityLabel("Add avatar for \(hero.name)")
+                        .accessibilityHint("Generate an AI avatar for this hero")
                         .offset(x: 4, y: 4)
                     }
                 }
@@ -261,7 +256,10 @@ struct HeroManagementCard: View {
                                     .font(.caption)
                             }
                             .foregroundColor(.purple)
+                            .frame(minHeight: 44)
                         }
+                        .accessibilityLabel("Add avatar")
+                        .accessibilityHint("Generate an AI avatar for \(hero.name)")
                         .padding(.top, 2)
                     }
                 }
@@ -294,8 +292,11 @@ struct HeroManagementCard: View {
                     .font(.subheadline)
                     .foregroundColor(.blue)
                     .frame(maxWidth: .infinity)
+                    .frame(minHeight: 44)
                     .padding(.vertical, 12)
                 }
+                .accessibilityLabel("Edit \(hero.name)")
+                .accessibilityHint("Opens the hero editor")
 
                 Divider()
                     .frame(height: 20)
@@ -312,8 +313,11 @@ struct HeroManagementCard: View {
                         .font(.subheadline)
                         .foregroundColor(.purple)
                         .frame(maxWidth: .infinity)
+                        .frame(minHeight: 44)
                         .padding(.vertical, 12)
                     }
+                    .accessibilityLabel("Generate avatar for \(hero.name)")
+                    .accessibilityHint("Creates an AI-generated avatar")
 
                     Divider()
                         .frame(height: 20)
@@ -327,8 +331,11 @@ struct HeroManagementCard: View {
                     .font(.subheadline)
                     .foregroundColor(.red)
                     .frame(maxWidth: .infinity)
+                    .frame(minHeight: 44)
                     .padding(.vertical, 12)
                 }
+                .accessibilityLabel("Delete \(hero.name)")
+                .accessibilityHint("Permanently removes this hero")
             }
             .background(Color(.systemGray6).opacity(colorScheme == .dark ? 0.3 : 0.5))
         }

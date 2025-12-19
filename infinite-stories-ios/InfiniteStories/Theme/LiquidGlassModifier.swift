@@ -74,17 +74,55 @@ struct LiquidGlassCardModifier: ViewModifier {
         switch variant {
         case .regular, .interactive:
             content
-                .background(shape.fill(Color(.secondarySystemBackground)))
-                .overlay(shape.stroke(Color.primary.opacity(0.1), lineWidth: 1))
+                .background(
+                    ZStack {
+                        shape.fill(.ultraThinMaterial)
+                        // Subtle gradient overlay for depth
+                        shape.fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(colorScheme == .dark ? 0.08 : 0.5),
+                                    Color.white.opacity(colorScheme == .dark ? 0.02 : 0.1)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    }
+                )
+                .overlay(shape.stroke(Color.primary.opacity(colorScheme == .dark ? 0.15 : 0.08), lineWidth: 0.5))
+                .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.08), radius: 8, x: 0, y: 4)
 
         case .clear:
             content
-                .background(shape.fill(Color(.systemBackground).opacity(0.8)))
+                .background(
+                    ZStack {
+                        shape.fill(.ultraThinMaterial)
+                        shape.fill(Color.white.opacity(colorScheme == .dark ? 0.03 : 0.3))
+                    }
+                )
+                .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
 
         case .tinted(let color), .tintedInteractive(let color):
             content
-                .background(shape.fill(color.opacity(0.15)))
-                .overlay(shape.stroke(color.opacity(0.3), lineWidth: 1))
+                .background(
+                    ZStack {
+                        shape.fill(.ultraThinMaterial)
+                        // Tinted gradient for colored glass effect
+                        shape.fill(
+                            LinearGradient(
+                                colors: [
+                                    color.opacity(colorScheme == .dark ? 0.25 : 0.2),
+                                    color.opacity(colorScheme == .dark ? 0.1 : 0.08)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    }
+                )
+                .overlay(shape.stroke(color.opacity(colorScheme == .dark ? 0.4 : 0.25), lineWidth: 0.5))
+                .shadow(color: color.opacity(0.15), radius: 8, x: 0, y: 4)
         }
     }
 }
@@ -126,13 +164,18 @@ struct LiquidGlassBackgroundModifier: ViewModifier {
     private func applyFallbackBackground(to content: Content) -> some View {
         switch variant {
         case .regular, .interactive:
-            content.background(Color(.systemBackground))
+            content.background(.ultraThinMaterial)
 
         case .clear:
-            content.background(Color(.systemBackground).opacity(0.8))
+            content.background(.ultraThinMaterial.opacity(0.7))
 
         case .tinted(let color), .tintedInteractive(let color):
-            content.background(color.opacity(0.1))
+            content.background(
+                ZStack {
+                    Color.clear.background(.ultraThinMaterial)
+                    color.opacity(colorScheme == .dark ? 0.15 : 0.1)
+                }
+            )
         }
     }
 }
@@ -186,6 +229,7 @@ struct LiquidGlassButtonModifier: ViewModifier {
 // MARK: - Liquid Glass Capsule Modifier
 
 struct LiquidGlassCapsuleModifier: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
     let variant: GlassVariant
 
     init(variant: GlassVariant = .regular) {
@@ -226,17 +270,53 @@ struct LiquidGlassCapsuleModifier: ViewModifier {
         switch variant {
         case .regular, .interactive:
             content
-                .background(Capsule().fill(Color(.secondarySystemBackground)))
-                .overlay(Capsule().stroke(Color.primary.opacity(0.1), lineWidth: 1))
+                .background(
+                    ZStack {
+                        Capsule().fill(.ultraThinMaterial)
+                        Capsule().fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(colorScheme == .dark ? 0.08 : 0.5),
+                                    Color.white.opacity(colorScheme == .dark ? 0.02 : 0.1)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    }
+                )
+                .overlay(Capsule().stroke(Color.primary.opacity(colorScheme == .dark ? 0.15 : 0.08), lineWidth: 0.5))
+                .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.08), radius: 6, x: 0, y: 3)
 
         case .clear:
             content
-                .background(Capsule().fill(Color(.systemBackground).opacity(0.8)))
+                .background(
+                    ZStack {
+                        Capsule().fill(.ultraThinMaterial)
+                        Capsule().fill(Color.white.opacity(colorScheme == .dark ? 0.03 : 0.3))
+                    }
+                )
+                .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
 
         case .tinted(let color), .tintedInteractive(let color):
             content
-                .background(Capsule().fill(color.opacity(0.15)))
-                .overlay(Capsule().stroke(color.opacity(0.3), lineWidth: 1))
+                .background(
+                    ZStack {
+                        Capsule().fill(.ultraThinMaterial)
+                        Capsule().fill(
+                            LinearGradient(
+                                colors: [
+                                    color.opacity(colorScheme == .dark ? 0.25 : 0.2),
+                                    color.opacity(colorScheme == .dark ? 0.1 : 0.08)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    }
+                )
+                .overlay(Capsule().stroke(color.opacity(colorScheme == .dark ? 0.4 : 0.25), lineWidth: 0.5))
+                .shadow(color: color.opacity(0.15), radius: 6, x: 0, y: 3)
         }
     }
 }

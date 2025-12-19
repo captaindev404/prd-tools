@@ -198,14 +198,18 @@ struct AudioPlayerView: View {
                                 .fontWeight(.bold)
                                 .multilineTextAlignment(.center)
                                 .lineLimit(2)
+                                .truncationMode(.tail)
+                                .fixedSize(horizontal: false, vertical: true)
 
                             if let hero = currentStory.hero {
                                 Text("Featuring \(hero.name)")
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
                             }
                         }
-                        .padding(.horizontal)
+                        .padding(.horizontal, 20)
                         .padding(.top, isCompact ? 8 : 12)
 
                         // Controls Bar
@@ -261,7 +265,7 @@ struct AudioPlayerView: View {
                                     .foregroundColor(.secondary)
                             }
                         }
-                        .padding(.horizontal)
+                        .padding(.horizontal, 20)
                         .padding(.vertical, 8)
                     }
                     .background(Color(.systemBackground))
@@ -301,7 +305,7 @@ struct AudioPlayerView: View {
                                             .monospacedDigit()
                                     }
                                 }
-                                .padding(.horizontal)
+                                .padding(.horizontal, 20)
                                 .padding(.top, 8)
                             }
 
@@ -321,9 +325,12 @@ struct AudioPlayerView: View {
                                     Image(systemName: "backward.fill")
                                         .font(.system(size: isCompact ? 20 : 24))
                                         .foregroundColor(canGoToPrevious ? .orange : .gray)
+                                        .frame(minWidth: 44, minHeight: 44)
                                 }
                                 .scaleEffect(previousButtonPressed ? 0.9 : 1.0)
                                 .disabled(!canGoToPrevious && viewModel.duration == 0)
+                                .accessibilityLabel(viewModel.isQueueMode ? "Previous story" : "Restart")
+                                .accessibilityHint(viewModel.isQueueMode ? "Play the previous story in queue" : "Restart the current story from the beginning")
                                 .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
                                     withAnimation(.easeInOut(duration: 0.1)) {
                                         previousButtonPressed = pressing
@@ -339,9 +346,12 @@ struct AudioPlayerView: View {
                                     Image(systemName: "gobackward.15")
                                         .font(.system(size: isCompact ? 20 : 24))
                                         .foregroundColor(.orange)
+                                        .frame(minWidth: 44, minHeight: 44)
                                 }
                                 .scaleEffect(skipBackwardPressed ? 0.9 : 1.0)
                                 .disabled(viewModel.duration == 0)
+                                .accessibilityLabel("Skip back 15 seconds")
+                                .accessibilityHint("Rewind the audio by 15 seconds")
                                 .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
                                     withAnimation(.easeInOut(duration: 0.1)) {
                                         skipBackwardPressed = pressing
@@ -363,9 +373,12 @@ struct AudioPlayerView: View {
                                     Image(systemName: playButtonIcon)
                                         .font(.system(size: isCompact ? 48 : 56))
                                         .foregroundColor(.orange)
+                                        .frame(minWidth: 56, minHeight: 56)
                                 }
                                 .scaleEffect(playButtonPressed ? 0.95 : 1.0)
                                 .animation(.spring(response: 0.2, dampingFraction: 0.8), value: playButtonPressed)
+                                .accessibilityLabel(viewModel.isPlaying ? "Pause" : "Play")
+                                .accessibilityHint(viewModel.isPlaying ? "Pause the story audio" : "Play the story audio")
                                 .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
                                     withAnimation(.easeInOut(duration: 0.1)) {
                                         playButtonPressed = pressing
@@ -383,9 +396,12 @@ struct AudioPlayerView: View {
                                     Image(systemName: "goforward.15")
                                         .font(.system(size: isCompact ? 20 : 24))
                                         .foregroundColor(.orange)
+                                        .frame(minWidth: 44, minHeight: 44)
                                 }
                                 .scaleEffect(skipForwardPressed ? 0.9 : 1.0)
                                 .disabled(viewModel.duration == 0)
+                                .accessibilityLabel("Skip forward 15 seconds")
+                                .accessibilityHint("Fast forward the audio by 15 seconds")
                                 .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
                                     withAnimation(.easeInOut(duration: 0.1)) {
                                         skipForwardPressed = pressing
@@ -403,9 +419,12 @@ struct AudioPlayerView: View {
                                     Image(systemName: "forward.fill")
                                         .font(.system(size: isCompact ? 20 : 24))
                                         .foregroundColor(canGoToNext ? .orange : .gray)
+                                        .frame(minWidth: 44, minHeight: 44)
                                 }
                                 .scaleEffect(nextButtonPressed ? 0.9 : 1.0)
                                 .disabled(!canGoToNext)
+                                .accessibilityLabel("Next story")
+                                .accessibilityHint("Play the next story in queue")
                                 .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
                                     withAnimation(.easeInOut(duration: 0.1)) {
                                         nextButtonPressed = pressing
@@ -468,13 +487,16 @@ struct AudioPlayerView: View {
                                     .foregroundColor(.secondary)
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 6)
+                                    .frame(minHeight: 44)
                                     .background(Color(.systemGray6))
                                     .cornerRadius(8)
                                 }
                                 .opacity((viewModel.isPlaying || viewModel.isPaused) ? 1.0 : 0.5)
                                 .disabled(!(viewModel.isPlaying || viewModel.isPaused))
+                                .accessibilityLabel("Stop playback")
+                                .accessibilityHint("Stop the audio and reset to the beginning")
                             }
-                            .padding(.horizontal)
+                            .padding(.horizontal, 20)
 
                             // Story Text Preview (if illustrations are hidden or unavailable)
                             if !showIllustrations || !currentStory.hasIllustrations {
@@ -496,21 +518,21 @@ struct AudioPlayerView: View {
                                             }
                                         }
                                     }
-                                    .padding(.horizontal)
+                                    .padding(.horizontal, 20)
 
                                     ScrollView {
                                         Text(currentStory.content.isEmpty ? "No story content available" : currentStory.content)
-                                            .font(.system(.body, design: .serif))
-                                            .lineSpacing(4)
-                                            .padding()
+                                            .font(.system(.title3, design: .serif))
+                                            .lineSpacing(6)
+                                            .padding(16)
                                             .frame(maxWidth: .infinity, alignment: .leading)
                                     }
-                                    .frame(maxHeight: isCompact ? 100 : 150)
+                                    .frame(maxHeight: isCompact ? 200 : 300)
                                     .background(
                                         RoundedRectangle(cornerRadius: 12)
                                             .fill(Color(.systemGray6).opacity(0.5))
                                     )
-                                    .padding(.horizontal)
+                                    .padding(.horizontal, 20)
                                 }
                                 .padding(.top, 8)
                             }
@@ -518,14 +540,16 @@ struct AudioPlayerView: View {
                             // Story metadata
                             HStack {
                                 Text("Created: \(currentStory.formattedDate)")
+                                    .lineLimit(1)
                                 Spacer()
                                 if currentStory.playCount > 0 {
                                     Text("Played \(currentStory.playCount) \(currentStory.playCount == 1 ? "time" : "times")")
+                                        .lineLimit(1)
                                 }
                             }
                             .font(.caption2)
                             .foregroundColor(.secondary)
-                            .padding(.horizontal)
+                            .padding(.horizontal, 20)
                             .padding(.bottom, 8)
                         }
                     }
@@ -542,8 +566,10 @@ struct AudioPlayerView: View {
                         viewModel.stopAudio()
                         dismiss()
                     }
+                    .accessibilityLabel("Done")
+                    .accessibilityHint("Stop playback and close the audio player")
                 }
-                
+
                 ToolbarItem(placement: .navigationBarLeading) {
                     HStack(spacing: 16) {
                         Button(action: {
@@ -552,24 +578,33 @@ struct AudioPlayerView: View {
                         }) {
                             Image(systemName: currentStory.isFavorite ? "heart.fill" : "heart")
                                 .foregroundColor(currentStory.isFavorite ? .red : .secondary)
+                                .frame(minWidth: 44, minHeight: 44)
                         }
-                        
+                        .accessibilityLabel(currentStory.isFavorite ? "Remove from favorites" : "Add to favorites")
+                        .accessibilityHint(currentStory.isFavorite ? "Remove this story from your favorites" : "Add this story to your favorites")
+
                         Button(action: {
                             showingEditView = true
                         }) {
                             Image(systemName: "pencil")
                                 .foregroundColor(.purple)
+                                .frame(minWidth: 44, minHeight: 44)
                         }
-                        
+                        .accessibilityLabel("Edit story")
+                        .accessibilityHint("Open the story editor")
+
                         // Export Audio Button
                         Button(action: {
                             exportAudioFile()
                         }) {
                             Image(systemName: "square.and.arrow.up")
                                 .foregroundColor(currentStory.hasAudio ? .blue : .gray)
+                                .frame(minWidth: 44, minHeight: 44)
                         }
                         .disabled(!currentStory.hasAudio && currentStory.audioFileName == nil)
                         .opacity(currentStory.hasAudio || currentStory.audioFileName != nil ? 1.0 : 0.6)
+                        .accessibilityLabel("Export audio")
+                        .accessibilityHint("Share or save the story audio file")
                     }
                 }
             }
@@ -669,15 +704,19 @@ struct AudioPlayerView: View {
                     .fontWeight(.bold)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
+                    .truncationMode(.tail)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 if let hero = currentStory.hero {
                     Text("Featuring \(hero.name)")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                 }
             }
             .padding(.top, 12)
-            .padding(.horizontal)
+            .padding(.horizontal, 20)
 
             Spacer()
 
@@ -711,7 +750,7 @@ struct AudioPlayerView: View {
                                 .monospacedDigit()
                         }
                     }
-                    .padding(.horizontal)
+                    .padding(.horizontal, 20)
                 }
 
                 // Main Playback Controls
@@ -726,6 +765,7 @@ struct AudioPlayerView: View {
                         Image(systemName: "backward.fill")
                             .font(.system(size: 20))
                             .foregroundColor(canGoToPrevious ? .orange : .gray)
+                            .frame(minWidth: 44, minHeight: 44)
                     }
                     .disabled(!canGoToPrevious && viewModel.duration == 0)
 
@@ -735,6 +775,7 @@ struct AudioPlayerView: View {
                         Image(systemName: "gobackward.15")
                             .font(.system(size: 20))
                             .foregroundColor(.orange)
+                            .frame(minWidth: 44, minHeight: 44)
                     }
                     .disabled(viewModel.duration == 0)
 
@@ -748,6 +789,7 @@ struct AudioPlayerView: View {
                         Image(systemName: playButtonIcon)
                             .font(.system(size: 44))
                             .foregroundColor(.orange)
+                            .frame(minWidth: 56, minHeight: 56)
                     }
 
                     Button(action: {
@@ -756,6 +798,7 @@ struct AudioPlayerView: View {
                         Image(systemName: "goforward.15")
                             .font(.system(size: 20))
                             .foregroundColor(.orange)
+                            .frame(minWidth: 44, minHeight: 44)
                     }
                     .disabled(viewModel.duration == 0)
 
@@ -767,10 +810,11 @@ struct AudioPlayerView: View {
                         Image(systemName: "forward.fill")
                             .font(.system(size: 20))
                             .foregroundColor(canGoToNext ? .orange : .gray)
+                            .frame(minWidth: 44, minHeight: 44)
                     }
                     .disabled(!canGoToNext)
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 20)
 
                 // Secondary Controls
                 HStack(spacing: 12) {
@@ -826,7 +870,7 @@ struct AudioPlayerView: View {
                             )
                     }
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 20)
             }
 
             Spacer()
@@ -834,14 +878,17 @@ struct AudioPlayerView: View {
             // Metadata
             HStack {
                 Text("Created: \(currentStory.formattedDate)")
+                    .lineLimit(1)
                 Spacer()
                 if currentStory.playCount > 0 {
                     Text("\(currentStory.playCount) plays")
+                        .lineLimit(1)
                 }
             }
             .font(.caption2)
             .foregroundColor(.secondary)
-            .padding()
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
         }
     }
 
