@@ -123,7 +123,7 @@ class StoryViewModel: ObservableObject {
     @Published var illustrationGenerationProgress: Double = 0.0
     @Published var illustrationGenerationStage: String = ""
     @Published var illustrationErrors: [String] = []
-    @Published var enableIllustrations: Bool = true // Toggle for illustration generation
+    @Published var enableIllustrations: Bool = AppConfiguration.enableStoryIllustrations
 
     // Story navigation
     @Published var currentStoryIndex: Int = 0

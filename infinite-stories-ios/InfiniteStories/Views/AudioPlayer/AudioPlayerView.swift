@@ -169,8 +169,8 @@ struct AudioPlayerView: View {
                         .frame(height: illustrationHeight)
                         .clipped()
                         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: showIllustrations)
-                    } else if showIllustrations && !currentStory.hasIllustrations {
-                        // Placeholder when no illustrations available
+                    } else if showIllustrations && !currentStory.hasIllustrations && AppConfiguration.enableStoryIllustrations {
+                        // Placeholder when no illustrations available (only show if feature enabled)
                         VStack(spacing: 16) {
                             Image(systemName: "photo.stack")
                                 .font(.system(size: 60))

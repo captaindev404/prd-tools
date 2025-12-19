@@ -78,8 +78,8 @@ struct StoryGenerationView: View {
                 }
                 .padding(.horizontal)
 
-                // Illustration Options (only show if hero has avatar)
-                if hero.hasAvatar {
+                // Illustration Options (only show if feature enabled and hero has avatar)
+                if AppConfiguration.enableStoryIllustrations && hero.hasAvatar {
                     VStack(spacing: 12) {
                         HStack {
                             Image(systemName: "photo.artframe")

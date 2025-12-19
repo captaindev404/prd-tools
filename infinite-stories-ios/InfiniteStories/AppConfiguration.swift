@@ -41,15 +41,20 @@ struct AppConfiguration {
     }
     
     // MARK: - Feature Flags
-    
+
     /// Enable pull-to-refresh on the home screen
     static let enablePullToRefresh = true
-    
+
     /// Show stats dashboard on home screen
     static let showStatsDashboard = true
-    
+
     /// Enable haptic feedback for buttons
     static let enableHapticFeedback = true
+
+    /// Enable story illustration generation
+    /// Set to false to defer illustration feature to V2
+    /// Note: Avatar generation remains enabled
+    static let enableStoryIllustrations = false
     
     // MARK: - Theme Settings
     
