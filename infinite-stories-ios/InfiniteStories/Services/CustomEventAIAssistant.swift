@@ -38,7 +38,7 @@ class CustomEventAIAssistant: ObservableObject {
         }
 
         do {
-            let backendURL = "\(AppConfiguration.backendBaseURL)/api/ai-assistant/generate-title"
+            let backendURL = "\(AppConfiguration.backendBaseURL)/api/v1/ai-assistant/generate-title"
 
             let requestBody: [String: Any] = [
                 "description": description,
@@ -96,7 +96,7 @@ class CustomEventAIAssistant: ObservableObject {
         }
 
         do {
-            let backendURL = "\(AppConfiguration.backendBaseURL)/api/ai-assistant/enhance-prompt"
+            let backendURL = "\(AppConfiguration.backendBaseURL)/api/v1/ai-assistant/enhance-prompt"
 
             let requestBody: [String: Any] = [
                 "title": title,
@@ -152,7 +152,7 @@ class CustomEventAIAssistant: ObservableObject {
         }
 
         do {
-            let backendURL = "\(AppConfiguration.backendBaseURL)/api/ai-assistant/generate-keywords"
+            let backendURL = "\(AppConfiguration.backendBaseURL)/api/v1/ai-assistant/generate-keywords"
 
             let requestBody: [String: Any] = [
                 "event": event,
@@ -204,7 +204,7 @@ class CustomEventAIAssistant: ObservableObject {
         }
 
         do {
-            let backendURL = "\(AppConfiguration.backendBaseURL)/api/ai-assistant/suggest-similar-events"
+            let backendURL = "\(AppConfiguration.backendBaseURL)/api/v1/ai-assistant/suggest-similar-events"
 
             let requestBody: [String: Any] = [
                 "description": description

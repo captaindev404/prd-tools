@@ -59,73 +59,73 @@ enum Endpoint {
         switch self {
         // Authentication
         case .signIn:
-            return "/api/auth/sign-in"
+            return "/api/v1/auth/sign-in"
         case .signUp:
-            return "/api/auth/sign-up"
+            return "/api/v1/auth/sign-up"
         case .refreshSession:
-            return "/api/auth/session/refresh"
+            return "/api/v1/auth/session/refresh"
         case .signOut:
-            return "/api/auth/sign-out"
+            return "/api/v1/auth/sign-out"
         case .getSession:
-            return "/api/auth/session"
+            return "/api/v1/auth/session"
 
         // Heroes
         case .getHeroes:
-            return "/api/heroes"
+            return "/api/v1/heroes"
         case .getHero(let id, _):
-            return "/api/heroes/\(id)"
+            return "/api/v1/heroes/\(id)"
         case .createHero:
-            return "/api/heroes"
+            return "/api/v1/heroes"
         case .updateHero(let id, _):
-            return "/api/heroes/\(id)"
+            return "/api/v1/heroes/\(id)"
         case .deleteHero(let id):
-            return "/api/heroes/\(id)"
+            return "/api/v1/heroes/\(id)"
         case .generateAvatar(let heroId, _):
-            return "/api/heroes/\(heroId)/avatar"
+            return "/api/v1/heroes/\(heroId)/avatar"
 
         // Stories
         case .getStories:
-            return "/api/stories"
+            return "/api/v1/stories"
         case .getStory(let id, _):
-            return "/api/stories/\(id)"
+            return "/api/v1/stories/\(id)"
         case .createStory:
-            return "/api/stories"
+            return "/api/v1/stories"
         case .updateStory(let id, _):
-            return "/api/stories/\(id)"
+            return "/api/v1/stories/\(id)"
         case .deleteStory(let id):
-            return "/api/stories/\(id)"
+            return "/api/v1/stories/\(id)"
         case .generateAudio(let storyId, _, _):
-            return "/api/stories/\(storyId)/audio"
+            return "/api/v1/stories/\(storyId)/audio"
         case .generateIllustrations(let storyId):
-            return "/api/stories/\(storyId)/illustrations"
+            return "/api/v1/stories/\(storyId)/illustrations"
         case .getIllustrationStatus(let storyId):
-            return "/api/stories/\(storyId)/illustrations/status"
+            return "/api/v1/stories/\(storyId)/illustrations/status"
 
         // Custom Events
         case .getCustomEvents:
-            return "/api/custom-events"
+            return "/api/v1/custom-events"
         case .getCustomEvent(let id):
-            return "/api/custom-events/\(id)"
+            return "/api/v1/custom-events/\(id)"
         case .createCustomEvent:
-            return "/api/custom-events"
+            return "/api/v1/custom-events"
         case .updateCustomEvent(let id, _):
-            return "/api/custom-events/\(id)"
+            return "/api/v1/custom-events/\(id)"
         case .deleteCustomEvent(let id):
-            return "/api/custom-events/\(id)"
+            return "/api/v1/custom-events/\(id)"
         case .enhanceCustomEvent(let id):
-            return "/api/custom-events/\(id)/enhance"
+            return "/api/v1/custom-events/\(id)/enhance"
 
         // User
         case .getUserProfile:
-            return "/api/user/profile"
+            return "/api/v1/user/profile"
         case .updateUserProfile:
-            return "/api/user/profile"
+            return "/api/v1/user/profile"
         case .getUserUsage:
-            return "/api/user/usage"
+            return "/api/v1/user/usage"
 
         // Health
         case .healthCheck:
-            return "/api/health"
+            return "/api/v1/health"
         }
     }
 

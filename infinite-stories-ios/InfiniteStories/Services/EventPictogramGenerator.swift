@@ -64,7 +64,7 @@ class EventPictogramGenerator: ObservableObject {
     }
 
     private func generatePictogramViaBackend(prompt: String) async throws -> Data {
-        let backendURL = "\(AppConfiguration.backendBaseURL)/api/images/generate-pictogram"
+        let backendURL = "\(AppConfiguration.backendBaseURL)/api/v1/images/generate-pictogram"
 
         guard let url = URL(string: backendURL) else {
             throw NSError(domain: "EventPictogramGenerator", code: -2,
