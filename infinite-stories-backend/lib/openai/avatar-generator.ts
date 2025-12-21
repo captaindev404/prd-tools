@@ -1,6 +1,6 @@
 import { openai } from './client';
-import { filterPrompt, logFilterResults } from './content-filter';
 import { uploadToR2, generateFileKey } from '@/lib/storage/r2-client';
+import { AvatarPromptTemplate, SanitizationService } from '@/lib/prompts';
 
 export interface AvatarGenerationParams {
   heroName: string;
@@ -44,8 +44,8 @@ export async function generateAvatar(
     heroId,
   } = params;
 
-  // Build the avatar prompt
-  const prompt = buildAvatarPrompt({
+  // Build the avatar prompt using centralized template
+  const prompt = AvatarPromptTemplate.build({
     heroName,
     heroAge,
     heroTraits,
@@ -53,11 +53,11 @@ export async function generateAvatar(
     specialAbilities,
   });
 
-  // Apply content filtering
-  const filtered = filterPrompt(prompt, 'en');
-  logFilterResults(filtered, 'avatar-generation');
+  // Apply centralized sanitization
+  const sanitizationResult = SanitizationService.sanitize(prompt, 'en');
+  SanitizationService.logResults(sanitizationResult, 'avatar-generation');
 
-  if (filtered.riskLevel === 'high') {
+  if (sanitizationResult.riskLevel === 'high') {
     throw new Error('Avatar generation failed: Content safety check failed');
   }
 
@@ -71,7 +71,7 @@ export async function generateAvatar(
     // Generate avatar using gpt-image-1 Images API
     const response = await openai.images.generate({
       model: 'gpt-image-1',
-      prompt: filtered.filtered,
+      prompt: sanitizationResult.sanitized,
       size: size,
       quality: qualityMap[style] || 'medium',
       n: 1,
@@ -123,7 +123,7 @@ export async function generateAvatar(
 
     return {
       imageUrl: r2Url,
-      prompt: filtered.filtered,
+      prompt: sanitizationResult.sanitized,
       revisedPrompt: image.revised_prompt,
       generationId: fileKey,
     };
@@ -131,109 +131,4 @@ export async function generateAvatar(
     console.error('Error generating avatar:', error);
     throw new Error(`Failed to generate avatar: ${(error as Error).message}`);
   }
-}
-
-/**
- * Build a child-appropriate avatar prompt
- */
-function buildAvatarPrompt(params: {
-  heroName: string;
-  heroAge: number;
-  heroTraits: string[];
-  physicalTraits?: {
-    hairColor?: string;
-    eyeColor?: string;
-    skinTone?: string;
-    height?: string;
-  };
-  specialAbilities?: string[];
-}): string {
-  const { heroName, heroAge, heroTraits, physicalTraits, specialAbilities } = params;
-
-  let prompt = `A friendly, child-appropriate cartoon illustration of ${heroName}, `;
-  prompt += `a ${heroAge}-year-old child character. `;
-
-  // Add physical traits
-  if (physicalTraits) {
-    if (physicalTraits.hairColor) {
-      prompt += `${physicalTraits.hairColor} hair, `;
-    }
-    if (physicalTraits.eyeColor) {
-      prompt += `${physicalTraits.eyeColor} eyes, `;
-    }
-    if (physicalTraits.skinTone) {
-      prompt += `${physicalTraits.skinTone} skin tone, `;
-    }
-  }
-
-  // Add personality traits
-  if (heroTraits.length > 0) {
-    const traitDescriptions = heroTraits
-      .map((trait) => getTraitDescription(trait))
-      .filter(Boolean)
-      .join(', ');
-    if (traitDescriptions) {
-      prompt += `with a ${traitDescriptions} expression. `;
-    }
-  }
-
-  // Add special abilities as visual elements
-  if (specialAbilities && specialAbilities.length > 0) {
-    const abilityVisuals = specialAbilities
-      .map((ability) => getAbilityVisual(ability))
-      .filter(Boolean)
-      .join(', ');
-    if (abilityVisuals) {
-      prompt += `The character has ${abilityVisuals}. `;
-    }
-  }
-
-  // Style guidelines
-  prompt += 'Style: colorful, cheerful, kid-friendly cartoon illustration, ';
-  prompt += 'bright colors, simple and appealing design suitable for children aged 3-12. ';
-  prompt += 'The character should look happy and friendly, perfect for a bedtime story app.';
-
-  return prompt;
-}
-
-/**
- * Get visual description for personality trait
- */
-function getTraitDescription(trait: string): string {
-  const descriptions: Record<string, string> = {
-    brave: 'confident and determined',
-    kind: 'warm and gentle',
-    curious: 'inquisitive and alert',
-    adventurous: 'excited and energetic',
-    creative: 'imaginative and expressive',
-    funny: 'playful and cheerful',
-    smart: 'thoughtful and clever',
-    gentle: 'calm and peaceful',
-    energetic: 'lively and enthusiastic',
-    patient: 'composed and serene',
-    caring: 'compassionate and attentive',
-    determined: 'focused and resolute',
-  };
-
-  return descriptions[trait.toLowerCase()] || '';
-}
-
-/**
- * Get visual representation for special ability
- */
-function getAbilityVisual(ability: string): string {
-  const visuals: Record<string, string> = {
-    flying: 'small sparkly wings or a flowing cape',
-    'super strength': 'a confident stance and determined expression',
-    invisibility: 'a subtle shimmer or glow around them',
-    'talking to animals': 'friendly animals nearby',
-    magic: 'sparkles or stars floating around them',
-    'time travel': 'a magical pocket watch or clock',
-    teleportation: 'magical portals or swirls',
-    healing: 'a gentle glow and healing sparkles',
-    'shape shifting': 'subtle transformation effects',
-    telepathy: 'thought bubbles or mind connection symbols',
-  };
-
-  return visuals[ability.toLowerCase()] || 'magical elements';
 }

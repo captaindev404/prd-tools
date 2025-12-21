@@ -1,4 +1,5 @@
 import {openai, type SupportedLanguage} from './client';
+import { StoryPromptTemplate, SceneExtractionPromptTemplate } from '@/lib/prompts';
 
 export interface StoryGenerationParams {
     heroName: string;
@@ -40,17 +41,18 @@ export async function generateStory(
         maxTokens = 2000,
     } = params;
 
-    // Build the story generation prompt
-    const systemPrompt = getSystemPrompt(language);
-    const userPrompt = getUserPrompt({
-        heroName,
-        heroAge,
-        heroTraits,
-        specialAbilities,
-        eventType,
-        customPrompt,
-        language,
-    });
+    // Build the story generation prompt using centralized templates
+    const { system: systemPrompt, user: userPrompt } = StoryPromptTemplate.build(
+        {
+            heroName,
+            heroAge,
+            heroTraits,
+            specialAbilities,
+            eventType,
+            language,
+        },
+        customPrompt
+    );
 
     try {
         const response = await openai.responses.create({
@@ -120,18 +122,14 @@ export async function extractScenesFromStory(
     storyContent: string,
     language: SupportedLanguage = 'English'
 ): Promise<StoryScene[]> {
-    const systemPrompt = `You are a story analysis assistant. Analyze the provided story and break it down into 3-8 distinct visual scenes that would work well for illustrations. For each scene, provide:
-1. A detailed scene description suitable for image generation
-2. An estimated timestamp (in seconds) when this scene occurs in the narration
-3. An estimated duration (in seconds) for this scene
-
-Return the response as a JSON array of objects with: sceneDescription, audioTimestamp, estimatedDuration.`;
+    // Use centralized scene extraction template
+    const { system: systemPrompt, user: userInput } = SceneExtractionPromptTemplate.build(storyContent);
 
     try {
         const response = await openai.responses.create({
             model: 'gpt-5-mini',
-            instructions: systemPrompt,  // ✅ System prompt as instructions
-            input: `Extract visual scenes from this story:\n\n${storyContent}`,  // ✅ String input
+            instructions: systemPrompt,
+            input: userInput,
             text: {
                 format: {
                     type: 'json_schema',
@@ -194,64 +192,4 @@ Return the response as a JSON array of objects with: sceneDescription, audioTime
         console.error('Error extracting scenes:', error);
         throw new Error(`Failed to extract scenes: ${(error as Error).message}`);
     }
-}
-
-// Helper functions
-
-function getSystemPrompt(language: SupportedLanguage): string {
-    const prompts: Record<SupportedLanguage, string> = {
-        English: 'You are a creative children\'s storyteller. Generate engaging, age-appropriate bedtime stories that are fun, educational, and promote positive values. Stories should be 300-500 words long, suitable for children aged 3-12. You must provide both a creative title and the full story content as separate fields in the JSON response.',
-        Spanish: 'Eres un narrador creativo de cuentos infantiles. Genera historias para dormir atractivas y apropiadas para la edad que sean divertidas, educativas y promuevan valores positivos. Las historias deben tener 300-500 palabras, adecuadas para niños de 3-12 años. Debes proporcionar un título creativo y el contenido completo de la historia como campos separados en la respuesta JSON.',
-        French: 'Vous êtes un conteur créatif pour enfants. Générez des histoires pour s\'endormir engageantes et adaptées à l\'âge qui sont amusantes, éducatives et promeuvent des valeurs positives. Les histoires doivent faire 300-500 mots, adaptées aux enfants de 3 à 12 ans. Vous devez fournir un titre créatif et le contenu complet de l\'histoire comme champs séparés dans la réponse JSON.',
-        German: 'Sie sind ein kreativer Kindergeschichtenerzähler. Generieren Sie ansprechende, altersgerechte Gute-Nacht-Geschichten, die Spaß machen, lehrreich sind und positive Werte fördern. Geschichten sollten 300-500 Wörter lang und für Kinder im Alter von 3-12 Jahren geeignet sein. Sie müssen sowohl einen kreativen Titel als auch den vollständigen Geschichteninhalt als separate Felder in der JSON-Antwort bereitstellen.',
-        Italian: 'Sei un narratore creativo di storie per bambini. Genera storie della buonanotte coinvolgenti e appropriate all\'età che siano divertenti, educative e promuovano valori positivi. Le storie dovrebbero essere lunghe 300-500 parole, adatte a bambini dai 3 ai 12 anni. Devi fornire un titolo creativo e il contenuto completo della storia come campi separati nella risposta JSON.',
-    };
-
-    return prompts[language];
-}
-
-function getUserPrompt(params: Omit<StoryGenerationParams, 'maxTokens'>): string {
-    const {
-        heroName,
-        heroAge,
-        heroTraits,
-        specialAbilities,
-        eventType,
-        customPrompt,
-        language,
-    } = params;
-
-    let prompt = `Create a ${language} bedtime story featuring:\n`;
-    prompt += `- Hero: ${heroName}, age ${heroAge}\n`;
-    prompt += `- Personality: ${heroTraits.join(', ')}\n`;
-
-    if (specialAbilities && specialAbilities.length > 0) {
-        prompt += `- Special abilities: ${specialAbilities.join(', ')}\n`;
-    }
-
-    if (eventType) {
-        prompt += `- Story theme: ${eventType}\n`;
-    }
-
-    if (customPrompt) {
-        prompt += `- Custom scenario: ${customPrompt}\n`;
-    }
-
-    prompt += '\nThe story should be engaging, age-appropriate, and end on a positive, calming note perfect for bedtime.';
-
-    return prompt;
-}
-
-function parseStoryResponse(response: string): GeneratedStory {
-    // Split by lines and extract title (first non-empty line)
-    const lines = response.split('\n').filter((line) => line.trim());
-    const title = lines[0].replace(/^#+\s*/, '').trim(); // Remove markdown headers
-    const content = lines.slice(1).join('\n').trim();
-
-    // For now, return empty scenes array - they will be extracted separately
-    return {
-        title,
-        content,
-        scenes: [],
-    };
 }

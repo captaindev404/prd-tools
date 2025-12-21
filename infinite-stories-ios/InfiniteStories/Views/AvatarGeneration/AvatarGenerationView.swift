@@ -17,7 +17,7 @@ struct AvatarGenerationView: View {
     @State private var generatedImage: UIImage?
     @State private var generationError: String?
     @State private var showingSuggestions = false
-    @StateObject private var appSettings = AppSettings()
+    @State private var appSettings = AppSettings()
     @State private var avatarSaved = false
     @State private var generatedGenerationId: String? // Store generation ID for chaining
 

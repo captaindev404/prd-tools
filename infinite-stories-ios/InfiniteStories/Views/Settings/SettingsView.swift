@@ -14,7 +14,7 @@ import SwiftData
 struct SettingsTabContent: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
-    @StateObject private var settings = AppSettings()
+    @State private var settings = AppSettings()
     @EnvironmentObject private var themeSettings: ThemeSettings
     @EnvironmentObject private var authState: AuthStateManager
 
@@ -383,7 +383,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
-    @StateObject private var settings = AppSettings()
+    @State private var settings = AppSettings()
     @EnvironmentObject private var themeSettings: ThemeSettings
     @EnvironmentObject private var authState: AuthStateManager
 

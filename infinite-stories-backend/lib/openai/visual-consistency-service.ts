@@ -1,5 +1,6 @@
 import { openai } from './client';
 import { prisma } from '@/lib/prisma/client';
+import { VISUAL_CHARACTERISTICS_SYSTEM_PROMPT, buildVisualCharacteristicsPrompt } from '@/lib/prompts';
 
 export interface VisualCharacteristics {
   hairStyle?: string;
@@ -28,10 +29,11 @@ export async function extractVisualCharacteristics(
   heroAge: number
 ): Promise<VisualCharacteristics> {
   try {
+    // Use centralized system prompts
     const response = await openai.responses.create({
       model: 'gpt-5-mini',
-      instructions: 'You are an expert at extracting visual characteristics from image descriptions. Extract detailed visual features from the given avatar description for consistent character illustration.',  // ✅ System prompt
-      input: `Extract visual characteristics from this avatar description for ${heroName} (age ${heroAge}):\n\n${avatarPrompt}\n\nProvide detailed visual features that can be used for consistent illustration across multiple scenes.`,  // ✅ User input as string
+      instructions: VISUAL_CHARACTERISTICS_SYSTEM_PROMPT,
+      input: buildVisualCharacteristicsPrompt(avatarPrompt, heroName, heroAge),
       temperature: 0.3,  // ✅ Restored
       text: {
         format: {

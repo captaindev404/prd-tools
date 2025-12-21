@@ -1,99 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { AvatarGenerationRequest, ImageGenerationResponse } from '@/types/openai';
-
-// Basic sanitization helper
-function enhancedBasicSanitization(prompt: string): string {
-  // Remove non-ASCII characters
-  const asciiOnly = prompt.replace(/[^\x00-\x7F]/g, '');
-
-  // Apply safety transformations
-  let sanitized = asciiOnly;
-
-  // Phrase replacements (order matters - longer phrases first)
-  const phraseReplacements: [string, string][] = [
-    ['standing alone', 'standing with friends'],
-    ['sitting alone', 'sitting with companions'],
-    ['walking alone', 'walking with friends'],
-    ['all alone', 'with magical friends'],
-    ['by himself', 'with his friends'],
-    ['by herself', 'with her friends'],
-    ['by themselves', 'with their companions'],
-    ['dark forest', 'bright enchanted garden'],
-    ['dark woods', 'sunny magical meadow'],
-    ['scary forest', 'magical garden'],
-    ['haunted house', 'magical castle'],
-    ['abandoned house', 'cozy cottage'],
-    ['fighting with', 'playing with'],
-    ['in battle', 'on an adventure'],
-  ];
-
-  for (const [problematic, safe] of phraseReplacements) {
-    sanitized = sanitized.replace(new RegExp(problematic, 'gi'), safe);
-  }
-
-  // Word replacements with word boundaries
-  const wordReplacements: [string, string][] = [
-    ['\\balone\\b', 'with friends'],
-    ['\\blonely\\b', 'happy with companions'],
-    ['\\bisolated\\b', 'surrounded by friendly creatures'],
-    ['\\babandoned\\b', 'in a cozy magical place'],
-    ['\\bsolitary\\b', 'with cheerful friends'],
-    ['\\bsolo\\b', 'with companions'],
-    ['\\bdark\\b', 'bright'],
-    ['\\bscary\\b', 'wonderful'],
-    ['\\bfrightening\\b', 'magical'],
-    ['\\bterrifying\\b', 'amazing'],
-    ['\\bspooky\\b', 'enchanting'],
-    ['\\bhaunted\\b', 'magical'],
-    ['\\bmysterious\\b', 'delightful'],
-    ['\\bshadowy\\b', 'glowing'],
-    ['\\bgloomy\\b', 'bright'],
-    ['\\beerie\\b', 'cheerful'],
-    ['\\bcreepy\\b', 'friendly'],
-    ['\\bfighting\\b', 'playing'],
-    ['\\bbattle\\b', 'adventure'],
-    ['\\bweapon\\b', 'magical wand'],
-    ['\\bsword\\b', 'toy wand'],
-    ['\\bswords\\b', 'toy wands'],
-    ['\\battacking\\b', 'playing with'],
-    ['\\bsad\\b', 'happy'],
-    ['\\bcrying\\b', 'smiling'],
-    ['\\btears\\b', 'sparkles'],
-    ['\\bupset\\b', 'curious'],
-    ['\\bangry\\b', 'determined'],
-    ['\\bscared\\b', 'excited'],
-    ['\\bafraid\\b', 'brave'],
-    ['\\bworried\\b', 'thoughtful'],
-    ['\\bfrightened\\b', 'amazed'],
-  ];
-
-  for (const [pattern, replacement] of wordReplacements) {
-    sanitized = sanitized.replace(new RegExp(pattern, 'gi'), replacement);
-  }
-
-  // Ensure companions are present
-  if (
-    !sanitized.toLowerCase().includes('friends') &&
-    !sanitized.toLowerCase().includes('companions') &&
-    !sanitized.toLowerCase().includes('family') &&
-    !sanitized.toLowerCase().includes('creatures')
-  ) {
-    sanitized = sanitized.replace(/\.$/, '');
-    sanitized += ' surrounded by friendly magical creatures and companions.';
-  }
-
-  // Ensure brightness
-  if (
-    !sanitized.toLowerCase().includes('bright') &&
-    !sanitized.toLowerCase().includes('colorful') &&
-    !sanitized.toLowerCase().includes('sunny') &&
-    !sanitized.toLowerCase().includes('cheerful')
-  ) {
-    sanitized += ' The scene is bright, colorful, cheerful, and child-friendly with warm sunlight and a magical atmosphere.';
-  }
-
-  return sanitized;
-}
+import { SanitizationService } from '@/lib/prompts';
 
 export async function POST(request: NextRequest) {
   try {
@@ -116,8 +23,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Apply enhanced basic sanitization
-    const filteredPrompt = enhancedBasicSanitization(prompt);
+    // Apply centralized sanitization
+    const sanitizationResult = SanitizationService.sanitize(prompt, 'en');
+    SanitizationService.logResults(sanitizationResult, 'avatar-route');
+
+    if (sanitizationResult.riskLevel === 'high') {
+      return NextResponse.json(
+        { error: 'Content safety check failed' },
+        { status: 400 }
+      );
+    }
+
+    const filteredPrompt = sanitizationResult.sanitized;
 
     // Map quality parameter (standard/hd -> low/medium/high for GPT-Image-1)
     let gptImageQuality = quality;

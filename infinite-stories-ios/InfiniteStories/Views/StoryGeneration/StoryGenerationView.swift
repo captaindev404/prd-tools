@@ -15,7 +15,7 @@ struct StoryGenerationView: View {
     let hero: Hero
     
     @StateObject private var viewModel = StoryViewModel()
-    @StateObject private var appSettings = AppSettings()
+    @State private var appSettings = AppSettings()
     @State private var selectedBuiltInEvent: StoryEvent? = .bedtime
     @State private var selectedCustomEvent: CustomStoryEvent? = nil
     @State private var showingEventPicker = false

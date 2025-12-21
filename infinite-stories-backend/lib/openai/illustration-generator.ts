@@ -1,7 +1,7 @@
 import { openai } from './client';
-import { filterPrompt, logFilterResults } from './content-filter';
 import { uploadToR2, generateFileKey } from '@/lib/storage/r2-client';
 import { prisma } from '@/lib/prisma/client';
+import { IllustrationPromptTemplate, SanitizationService } from '@/lib/prompts';
 
 export interface IllustrationGenerationParams {
     sceneDescription: string;
@@ -46,18 +46,18 @@ export async function generateIllustration(
     illustrationId,
   } = params;
 
-  // Build the illustration prompt with character consistency
-  const prompt = buildIllustrationPrompt({
+  // Build the illustration prompt using centralized template
+  const prompt = IllustrationPromptTemplate.build({
     sceneDescription,
     heroName,
     heroVisualProfile,
   });
 
-  // Apply content filtering
-  const filtered = filterPrompt(prompt, 'en');
-  logFilterResults(filtered, 'illustration-generation');
+  // Apply centralized sanitization
+  const sanitizationResult = SanitizationService.sanitize(prompt, 'en');
+  SanitizationService.logResults(sanitizationResult, 'illustration-generation');
 
-  if (filtered.riskLevel === 'high') {
+  if (sanitizationResult.riskLevel === 'high') {
     throw new Error('Illustration generation failed: Content safety check failed');
   }
 
@@ -71,7 +71,7 @@ export async function generateIllustration(
     // Generate illustration using gpt-image-1 Images API
     const response = await openai.images.generate({
       model: 'gpt-image-1',
-      prompt: filtered.filtered,
+      prompt: sanitizationResult.sanitized,
       size: size,
       quality: qualityMap[style] || 'medium',
       n: 1,
@@ -123,7 +123,7 @@ export async function generateIllustration(
 
     return {
       imageUrl: r2Url,
-      prompt: filtered.filtered,
+      prompt: sanitizationResult.sanitized,
       revisedPrompt: image.revised_prompt,
       generationId: fileKey,
     };
@@ -131,58 +131,6 @@ export async function generateIllustration(
     console.error('Error generating illustration:', error);
     throw new Error(`Failed to generate illustration: ${(error as Error).message}`);
   }
-}
-
-/**
- * Build illustration prompt with character consistency
- */
-function buildIllustrationPrompt(params: {
-    sceneDescription: string;
-    heroName: string;
-    heroVisualProfile?: {
-        hairColor?: string;
-        eyeColor?: string;
-        skinTone?: string;
-        artStyle?: string;
-        canonicalPrompt?: string;
-    };
-}): string {
-    const { sceneDescription, heroName, heroVisualProfile } = params;
-
-    let prompt = '';
-
-    // Use canonical prompt if available for maximum consistency
-    if (heroVisualProfile?.canonicalPrompt) {
-        prompt = `${heroVisualProfile.canonicalPrompt} `;
-    } else {
-        // Build character description
-        prompt = `A child-friendly cartoon illustration featuring ${heroName}, a friendly child character`;
-
-        if (heroVisualProfile) {
-            if (heroVisualProfile.hairColor) {
-                prompt += ` with ${heroVisualProfile.hairColor} hair`;
-            }
-            if (heroVisualProfile.eyeColor) {
-                prompt += ` and ${heroVisualProfile.eyeColor} eyes`;
-            }
-            if (heroVisualProfile.skinTone) {
-                prompt += `, ${heroVisualProfile.skinTone} skin tone`;
-            }
-        }
-
-        prompt += '. ';
-    }
-
-    // Add scene description
-    prompt += `Scene: ${sceneDescription}. `;
-
-    // Add style guidelines
-    const artStyle = heroVisualProfile?.artStyle || 'colorful cartoon';
-    prompt += `Style: ${artStyle}, bright cheerful colors, kid-friendly, `;
-    prompt += 'simple and appealing design suitable for children aged 3-12. ';
-    prompt += 'The scene should be warm, inviting, and perfect for a bedtime story.';
-
-    return prompt;
 }
 
 /**
