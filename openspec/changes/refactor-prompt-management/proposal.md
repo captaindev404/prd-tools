@@ -33,7 +33,7 @@ a ${heroAge}-year-old child character. ${physicalTraits}...`;
   - `lib/openai/illustration-generator.ts`
   - `lib/openai/visual-consistency-service.ts`
   - `lib/openai/content-filter.ts`
-  - `app/api/images/generate-illustration/route.ts`
-  - `app/api/images/generate-avatar/route.ts`
-  - `app/api/ai-assistant/sanitize-prompt/route.ts`
-  - All AI assistant routes
+  - `app/api/v1/images/generate-illustration/route.ts`
+  - `app/api/v1/images/generate-avatar/route.ts`
+  - `app/api/v1/ai-assistant/sanitize-prompt/route.ts`
+  - All AI assistant routes under `app/api/v1/ai-assistant/`
