@@ -107,13 +107,14 @@ struct LiquidGlassCardModifier: ViewModifier {
             content
                 .background(
                     ZStack {
-                        shape.fill(.ultraThinMaterial)
-                        // Tinted gradient for colored glass effect
+                        // Solid color base for better visibility and accessibility
+                        shape.fill(color)
+                        // Subtle gradient overlay for depth
                         shape.fill(
                             LinearGradient(
                                 colors: [
-                                    color.opacity(colorScheme == .dark ? 0.25 : 0.2),
-                                    color.opacity(colorScheme == .dark ? 0.1 : 0.08)
+                                    Color.white.opacity(colorScheme == .dark ? 0.15 : 0.25),
+                                    Color.black.opacity(colorScheme == .dark ? 0.1 : 0.05)
                                 ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
@@ -121,8 +122,8 @@ struct LiquidGlassCardModifier: ViewModifier {
                         )
                     }
                 )
-                .overlay(shape.stroke(color.opacity(colorScheme == .dark ? 0.4 : 0.25), lineWidth: 0.5))
-                .shadow(color: color.opacity(0.15), radius: 8, x: 0, y: 4)
+                .overlay(shape.stroke(Color.white.opacity(colorScheme == .dark ? 0.3 : 0.4), lineWidth: 0.5))
+                .shadow(color: color.opacity(0.3), radius: 8, x: 0, y: 4)
         }
     }
 }
@@ -302,12 +303,14 @@ struct LiquidGlassCapsuleModifier: ViewModifier {
             content
                 .background(
                     ZStack {
-                        Capsule().fill(.ultraThinMaterial)
+                        // Solid color base for better visibility and accessibility
+                        Capsule().fill(color)
+                        // Subtle gradient overlay for depth
                         Capsule().fill(
                             LinearGradient(
                                 colors: [
-                                    color.opacity(colorScheme == .dark ? 0.25 : 0.2),
-                                    color.opacity(colorScheme == .dark ? 0.1 : 0.08)
+                                    Color.white.opacity(colorScheme == .dark ? 0.15 : 0.25),
+                                    Color.black.opacity(colorScheme == .dark ? 0.1 : 0.05)
                                 ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
@@ -315,8 +318,8 @@ struct LiquidGlassCapsuleModifier: ViewModifier {
                         )
                     }
                 )
-                .overlay(Capsule().stroke(color.opacity(colorScheme == .dark ? 0.4 : 0.25), lineWidth: 0.5))
-                .shadow(color: color.opacity(0.15), radius: 6, x: 0, y: 3)
+                .overlay(Capsule().stroke(Color.white.opacity(colorScheme == .dark ? 0.3 : 0.4), lineWidth: 0.5))
+                .shadow(color: color.opacity(0.3), radius: 6, x: 0, y: 3)
         }
     }
 }

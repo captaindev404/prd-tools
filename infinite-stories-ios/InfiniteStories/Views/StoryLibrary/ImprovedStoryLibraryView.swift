@@ -79,13 +79,15 @@ struct StoryLibraryDesign {
 struct ImprovedStoryLibraryView: View {
     // API-only state management
     @State private var stories: [Story] = []
+    @State private var heroes: [Hero] = []
     @State private var isLoadingData = false
     @State private var loadError: Error?
 
     @Environment(\.dismiss) private var dismiss
 
-    // Repository
+    // Repositories
     private let storyRepository = StoryRepository()
+    private let heroRepository = HeroRepository()
 
     @State private var selectedStory: Story?
     @State private var searchText = ""
@@ -259,7 +261,12 @@ struct ImprovedStoryLibraryView: View {
         loadError = nil
 
         do {
-            stories = try await storyRepository.fetchStories(heroId: nil, limit: 100, offset: 0)
+            // Fetch heroes first to match with stories
+            heroes = try await heroRepository.fetchHeroes()
+            Logger.ui.info("Loaded \(heroes.count) heroes for story matching")
+
+            // Fetch stories and pass heroes for proper hero assignment
+            stories = try await storyRepository.fetchStories(heroId: nil, limit: 100, offset: 0, heroes: heroes)
             Logger.ui.success("Loaded \(stories.count) stories")
         } catch {
             loadError = error
@@ -581,6 +588,7 @@ struct StatCard: View {
     let value: String
     let label: String
     let color: Color
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(spacing: 4) {
@@ -590,11 +598,11 @@ struct StatCard: View {
                 Text(value)
                     .font(.system(size: 18, weight: .bold, design: .rounded))
             }
-            .foregroundColor(color)
+            .foregroundColor(.white)
 
             Text(label)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundColor(StoryLibraryDesign.Colors.captionText)
+                .foregroundColor(.white.opacity(0.9))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
@@ -612,9 +620,7 @@ struct FilterPill: View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 14, weight: .medium, design: .rounded))
-                .foregroundColor(isSelected ?
-                    (colorScheme == .dark ? Color.purple.opacity(0.9) : Color.purple) :
-                    StoryLibraryDesign.Colors.titleText)
+                .foregroundColor(isSelected ? .white : StoryLibraryDesign.Colors.titleText)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .frame(minHeight: 44)

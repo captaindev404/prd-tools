@@ -436,16 +436,19 @@ struct StoryCard: View {
                     .font(.system(size: variant == .compact ? 10 : 11))
                 Text(story.eventTitle)
                     .font(metadataFont)
+                    .lineLimit(1)
             }
             .foregroundColor(eventColor)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
             .background(
                 Capsule()
                     .fill(eventColor.opacity(0.15))
             )
+            .fixedSize(horizontal: true, vertical: false)
+            .layoutPriority(1)
 
-            Spacer()
+            Spacer(minLength: 4)
 
             // Illustration indicator
             if !story.illustrations.isEmpty {
