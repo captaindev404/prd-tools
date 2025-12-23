@@ -67,11 +67,20 @@ struct AppConfiguration {
     // MARK: - Backend Configuration
 
     /// Backend API base URL
-    /// Change this to your deployed backend URL in production
+    /// - Simulator (Debug): localhost for local development
+    /// - Device (Debug): dev server for testing on real devices
+    /// - Beta (TestFlight): staging server for beta testing
+    /// - Release (App Store): production server
     #if DEBUG
-    static let backendBaseURL = "http://localhost:3000"
+        #if targetEnvironment(simulator)
+        static let backendBaseURL = "http://localhost:3000"
+        #else
+        static let backendBaseURL = "https://infinite-stories-web-dev.captaindev.io"
+        #endif
+    #elseif TESTFLIGHT
+    static let backendBaseURL = "https://infinite-stories-web-staging.captaindev.io"
     #else
-    static let backendBaseURL = "https://infinite-stories-backend.vercel.app"
+    static let backendBaseURL = "https://infinite-stories-web.captaindev.io"
     #endif
 
     // MARK: - Debug Settings

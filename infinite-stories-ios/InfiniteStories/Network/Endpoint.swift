@@ -59,15 +59,15 @@ enum Endpoint {
         switch self {
         // Authentication
         case .signIn:
-            return "/api/v1/auth/sign-in"
+            return "/api/auth/sign-in"
         case .signUp:
-            return "/api/v1/auth/sign-up"
+            return "/api/auth/sign-up"
         case .refreshSession:
-            return "/api/v1/auth/session/refresh"
+            return "/api/auth/session/refresh"
         case .signOut:
-            return "/api/v1/auth/sign-out"
+            return "/api/auth/sign-out"
         case .getSession:
-            return "/api/v1/auth/session"
+            return "/api/auth/session"
 
         // Heroes
         case .getHeroes:
