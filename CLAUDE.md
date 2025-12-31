@@ -47,8 +47,8 @@ User Action → Repository → APIClient → Backend API → Update View State
 ### Core Data Models
 
 **SwiftData Usage:**
-- **Hero/Story**: NOT persisted - transient objects from API (managed via repositories)
-- **Local-only SwiftData**: HeroVisualProfile, CustomStoryEvent, StoryIllustration (preferences/cache)
+- **Hero/Story/CustomStoryEvent**: NOT persisted - transient objects from API (managed via repositories)
+- **Local-only SwiftData**: HeroVisualProfile, StoryIllustration (preferences/cache)
 
 **Key Models:**
 - **Hero**: Character with traits, appearance, AI-generated avatar (via HeroRepository)
@@ -63,7 +63,7 @@ User Action → Repository → APIClient → Backend API → Update View State
 **Repository Layer (API-only):**
 - **HeroRepository**: CRUD operations, avatar generation via backend
 - **StoryRepository**: Story/audio/illustration generation (GPT-4o, gpt-4o-mini-tts)
-- **CustomEventRepository**: Local SwiftData for user preferences
+- **CustomEventRepository**: CRUD operations, AI enhancement via backend
 
 **Network & Error Handling:**
 - **NetworkMonitor**: Real-time connectivity status, blocks offline operations

@@ -82,6 +82,21 @@ export async function POST(req: NextRequest) {
     // Extract scenes for potential illustrations
     const scenes = await extractScenesFromStory(story.content, language);
 
+    // If using a custom event, verify it belongs to the user
+    if (body.customEventId) {
+      const customEvent = await prisma.customStoryEvent.findUnique({
+        where: { id: body.customEventId },
+      });
+
+      if (!customEvent) {
+        return errorResponse('NotFound', 'Custom event not found', 404);
+      }
+
+      if (customEvent.userId !== user.id) {
+        return errorResponse('Forbidden', 'You do not have access to this custom event', 403);
+      }
+    }
+
     // Create story in database
     const createdStory = await prisma.story.create({
       data: {
@@ -106,6 +121,17 @@ export async function POST(req: NextRequest) {
         },
       },
     });
+
+    // Update custom event usage tracking if applicable
+    if (body.customEventId) {
+      await prisma.customStoryEvent.update({
+        where: { id: body.customEventId },
+        data: {
+          usageCount: { increment: 1 },
+          lastUsedAt: new Date(),
+        },
+      });
+    }
 
     // Create scene placeholders for illustrations
     if (scenes.length > 0) {

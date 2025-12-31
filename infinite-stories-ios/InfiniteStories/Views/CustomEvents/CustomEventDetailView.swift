@@ -2,27 +2,31 @@
 //  CustomEventDetailView.swift
 //  InfiniteStories
 //
-//  Detailed view for a custom event with full information and actions
+//  Detailed view for a custom event with full information and actions (API-based)
 //
 
 import SwiftUI
-import SwiftData
 
 struct CustomEventDetailView: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
-    @Query private var stories: [Story]
 
     let event: CustomStoryEvent
-    @StateObject private var pictogramGenerator = EventPictogramGenerator()
+    var onEventUpdated: ((CustomStoryEvent) -> Void)?
 
-    @State private var showingEditSheet = false
-    @State private var showingPictogramGenerator = false
+    private let repository = CustomEventRepository()
+
+    @State private var currentEvent: CustomStoryEvent
     @State private var showingDeleteAlert = false
     @State private var showingShareSheet = false
+    @State private var isDeleting = false
+    @State private var isUpdating = false
+    @State private var isEnhancing = false
+    @State private var error: Error?
 
-    private var relatedStories: [Story] {
-        stories.filter { $0.customEvent?.id == event.id }
+    init(event: CustomStoryEvent, onEventUpdated: ((CustomStoryEvent) -> Void)? = nil) {
+        self.event = event
+        self.onEventUpdated = onEventUpdated
+        self._currentEvent = State(initialValue: event)
     }
 
     var body: some View {
@@ -41,35 +45,49 @@ struct CustomEventDetailView: View {
                 statisticsSection
 
                 // Keywords
-                if !event.keywords.isEmpty {
+                if !currentEvent.keywords.isEmpty {
                     keywordsSection
                 }
 
-                // Related Stories
-                if !relatedStories.isEmpty {
-                    relatedStoriesSection
-                }
+                // Prompt Seed
+                promptSeedSection
 
                 // Danger Zone
                 dangerZone
             }
             .padding()
         }
-        .navigationTitle(event.title)
+        .navigationTitle(currentEvent.title)
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             toolbarContent
         }
-        .sheet(isPresented: $showingPictogramGenerator) {
-            PictogramGenerationView(event: event)
-        }
         .alert("Delete Event", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
-                deleteEvent()
+                Task {
+                    await deleteEvent()
+                }
             }
         } message: {
             Text("Are you sure you want to delete this custom event? This action cannot be undone.")
+        }
+        .overlay {
+            if isDeleting || isEnhancing {
+                ZStack {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                    VStack(spacing: 12) {
+                        ProgressView()
+                        Text(isDeleting ? "Deleting..." : "Enhancing with AI...")
+                            .font(.caption)
+                            .foregroundColor(.white)
+                    }
+                    .padding(24)
+                    .background(Color(.systemGray6).opacity(0.95))
+                    .cornerRadius(16)
+                }
+            }
         }
     }
 
@@ -77,35 +95,28 @@ struct CustomEventDetailView: View {
 
     private var heroSection: some View {
         VStack(spacing: 16) {
-            // Pictogram
+            // Icon
             ZStack {
-                if event.hasPictogram {
-                    CachedPictogramImage(event: event)
-                        .frame(width: 150, height: 150)
-                        .clipShape(RoundedRectangle(cornerRadius: 24))
-                        .shadow(color: .black.opacity(0.1), radius: 10, y: 5)
-                } else {
-                    RoundedRectangle(cornerRadius: 24)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color(hex: event.colorHex).opacity(0.3),
-                                    Color(hex: event.colorHex).opacity(0.1)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(hex: currentEvent.colorHex).opacity(0.3),
+                                Color(hex: currentEvent.colorHex).opacity(0.1)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
                         )
-                        .frame(width: 150, height: 150)
-                        .overlay(
-                            Image(systemName: event.iconName)
-                                .font(.system(size: 60))
-                                .foregroundColor(Color(hex: event.colorHex))
-                        )
-                }
+                    )
+                    .frame(width: 150, height: 150)
+                    .overlay(
+                        Image(systemName: currentEvent.iconName)
+                            .font(.system(size: 60))
+                            .foregroundColor(Color(hex: currentEvent.colorHex))
+                    )
 
                 // Favorite badge
-                if event.isFavorite {
+                if currentEvent.isFavorite {
                     Image(systemName: "star.fill")
                         .font(.title3)
                         .foregroundColor(.yellow)
@@ -114,11 +125,22 @@ struct CustomEventDetailView: View {
                         .shadow(radius: 3)
                         .position(x: 130, y: 20)
                 }
+
+                // AI Enhanced badge
+                if currentEvent.aiEnhanced {
+                    Image(systemName: "sparkles")
+                        .font(.title3)
+                        .foregroundColor(.purple)
+                        .padding(8)
+                        .background(Circle().fill(.white))
+                        .shadow(radius: 3)
+                        .position(x: 20, y: 20)
+                }
             }
             .frame(width: 150, height: 150)
 
             // Description
-            Text(event.eventDescription)
+            Text(currentEvent.description)
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -127,22 +149,24 @@ struct CustomEventDetailView: View {
             // Category and Tone badges
             HStack(spacing: 12) {
                 BadgeView(
-                    text: event.category.rawValue,
-                    icon: event.category.icon,
-                    color: Color(hex: event.colorHex)
+                    text: currentEvent.eventCategory.displayName,
+                    icon: currentEvent.eventCategory.icon,
+                    color: Color(hex: currentEvent.colorHex)
                 )
 
                 BadgeView(
-                    text: event.tone.rawValue,
+                    text: currentEvent.storyTone.displayName,
                     icon: "waveform",
                     color: .blue
                 )
 
-                BadgeView(
-                    text: event.ageRange.rawValue,
-                    icon: "person.2",
-                    color: .green
-                )
+                if let ageRange = currentEvent.eventAgeRange {
+                    BadgeView(
+                        text: ageRange.rawValue,
+                        icon: "person.2",
+                        color: .green
+                    )
+                }
             }
         }
         .padding(.vertical)
@@ -155,30 +179,25 @@ struct CustomEventDetailView: View {
 
     private var quickActionsSection: some View {
         HStack(spacing: 12) {
-            ActionButton(
-                title: "Use in Story",
-                icon: "book.fill",
-                color: .purple
-            ) {
-                // Navigate to story generation with this event
-                // This would need to be implemented with proper navigation
+            if !currentEvent.aiEnhanced {
+                ActionButton(
+                    title: "Enhance",
+                    icon: "sparkles",
+                    color: .purple
+                ) {
+                    Task {
+                        await enhanceEvent()
+                    }
+                }
             }
 
             ActionButton(
-                title: event.hasPictogram ? "Regenerate" : "Generate",
-                icon: "photo.badge.plus",
-                color: .blue
-            ) {
-                showingPictogramGenerator = true
-            }
-
-            ActionButton(
-                title: event.isFavorite ? "Unfavorite" : "Favorite",
-                icon: event.isFavorite ? "star.slash" : "star",
+                title: currentEvent.isFavorite ? "Unfavorite" : "Favorite",
+                icon: currentEvent.isFavorite ? "star.slash" : "star",
                 color: .yellow
             ) {
-                withAnimation {
-                    event.toggleFavorite()
+                Task {
+                    await toggleFavorite()
                 }
             }
         }
@@ -193,10 +212,10 @@ struct CustomEventDetailView: View {
             VStack(spacing: 12) {
                 DetailRow(
                     label: "Created",
-                    value: event.createdAt.formatted(date: .abbreviated, time: .shortened)
+                    value: currentEvent.createdAt.formatted(date: .abbreviated, time: .shortened)
                 )
 
-                if let lastUsed = event.lastUsed {
+                if let lastUsed = currentEvent.lastUsedAt {
                     DetailRow(
                         label: "Last Used",
                         value: lastUsed.formatted(date: .abbreviated, time: .shortened)
@@ -205,23 +224,14 @@ struct CustomEventDetailView: View {
 
                 DetailRow(
                     label: "AI Enhanced",
-                    value: event.isAIEnhanced ? "Yes" : "No",
-                    valueColor: event.isAIEnhanced ? .green : .secondary
+                    value: currentEvent.aiEnhanced ? "Yes" : "No",
+                    valueColor: currentEvent.aiEnhanced ? .green : .secondary
                 )
 
-                if let pictogramGeneratedAt = event.pictogramGeneratedAt {
-                    DetailRow(
-                        label: "Pictogram Created",
-                        value: pictogramGeneratedAt.formatted(date: .abbreviated, time: .shortened)
-                    )
-                }
-
-                if let style = event.pictogramStyle {
-                    DetailRow(
-                        label: "Pictogram Style",
-                        value: style.displayName
-                    )
-                }
+                DetailRow(
+                    label: "Last Updated",
+                    value: currentEvent.updatedAt.formatted(date: .abbreviated, time: .shortened)
+                )
             }
             .padding()
             .background(Color.gray.opacity(0.05))
@@ -237,21 +247,14 @@ struct CustomEventDetailView: View {
 
             HStack(spacing: 16) {
                 EventStatCard(
-                    value: "\(event.usageCount)",
+                    value: "\(currentEvent.usageCount)",
                     label: "Times Used",
                     icon: "book.pages",
                     color: .blue
                 )
 
                 EventStatCard(
-                    value: "\(relatedStories.count)",
-                    label: "Stories Created",
-                    icon: "text.book.closed",
-                    color: .purple
-                )
-
-                EventStatCard(
-                    value: event.timeSinceCreation,
+                    value: currentEvent.timeSinceCreation,
                     label: "Age",
                     icon: "clock",
                     color: .green
@@ -267,35 +270,26 @@ struct CustomEventDetailView: View {
             SectionHeader(title: "Keywords", icon: "tag")
 
             FlowLayout(spacing: 8) {
-                ForEach(event.keywords, id: \.self) { keyword in
+                ForEach(currentEvent.keywords, id: \.self) { keyword in
                     KeywordChip(text: keyword)
                 }
             }
         }
     }
 
-    // MARK: - Related Stories
+    // MARK: - Prompt Seed
 
-    private var relatedStoriesSection: some View {
+    private var promptSeedSection: some View {
         VStack(spacing: 12) {
-            HStack {
-                SectionHeader(title: "Related Stories", icon: "book.pages")
-                Spacer()
-                Text("\(relatedStories.count)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Capsule().fill(Color.gray.opacity(0.2)))
-            }
+            SectionHeader(title: "Story Prompt", icon: "text.bubble")
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(relatedStories.prefix(5)) { story in
-                        RelatedStoryCard(story: story)
-                    }
-                }
-            }
+            Text(currentEvent.promptSeed)
+                .font(.body)
+                .foregroundColor(.secondary)
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.gray.opacity(0.05))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
         }
     }
 
@@ -320,6 +314,7 @@ struct CustomEventDetailView: View {
                 .background(Color.red)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
+            .disabled(isDeleting)
         }
         .padding(.top, 24)
     }
@@ -330,12 +325,6 @@ struct CustomEventDetailView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .navigationBarTrailing) {
             Menu {
-                Button {
-                    showingEditSheet = true
-                } label: {
-                    Label("Edit", systemImage: "pencil")
-                }
-
                 Button {
                     showingShareSheet = true
                 } label: {
@@ -349,12 +338,61 @@ struct CustomEventDetailView: View {
 
     // MARK: - Methods
 
-    private func deleteEvent() {
-        Task {
-            await pictogramGenerator.deletePictogram(for: event)
+    private func deleteEvent() async {
+        isDeleting = true
+
+        do {
+            try await repository.deleteCustomEvent(currentEvent)
+            await MainActor.run {
+                dismiss()
+            }
+        } catch {
+            await MainActor.run {
+                self.error = error
+                isDeleting = false
+            }
         }
-        modelContext.delete(event)
-        dismiss()
+    }
+
+    private func toggleFavorite() async {
+        var updatedEvent = currentEvent
+        updatedEvent.isFavorite.toggle()
+
+        isUpdating = true
+
+        do {
+            let result = try await repository.updateCustomEvent(updatedEvent)
+            await MainActor.run {
+                currentEvent = result
+                onEventUpdated?(result)
+                isUpdating = false
+            }
+        } catch {
+            await MainActor.run {
+                self.error = error
+                isUpdating = false
+            }
+        }
+    }
+
+    private func enhanceEvent() async {
+        guard !currentEvent.aiEnhanced else { return }
+
+        isEnhancing = true
+
+        do {
+            let enhancedEvent = try await repository.enhanceEvent(currentEvent)
+            await MainActor.run {
+                currentEvent = enhancedEvent
+                onEventUpdated?(enhancedEvent)
+                isEnhancing = false
+            }
+        } catch {
+            await MainActor.run {
+                self.error = error
+                isEnhancing = false
+            }
+        }
     }
 }
 
@@ -479,37 +517,6 @@ struct KeywordChip: View {
     }
 }
 
-struct RelatedStoryCard: View {
-    let story: Story
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(story.title)
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .lineLimit(2)
-
-            if let hero = story.hero {
-                HStack(spacing: 4) {
-                    Image(systemName: "person.fill")
-                        .font(.caption2)
-                    Text(hero.name)
-                        .font(.caption2)
-                }
-                .foregroundColor(.secondary)
-            }
-
-            Text(story.createdAt.formatted(date: .abbreviated, time: .omitted))
-                .font(.caption2)
-                .foregroundColor(.secondary)
-        }
-        .padding()
-        .frame(width: 150)
-        .background(Color.gray.opacity(0.05))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-}
-
 // MARK: - Flow Layout
 
 struct FlowLayout: Layout {
@@ -570,15 +577,7 @@ struct FlowLayout: Layout {
 #Preview {
     NavigationStack {
         CustomEventDetailView(
-            event: CustomStoryEvent(
-                title: "First Day at School",
-                description: "A story about overcoming nervousness and making new friends",
-                promptSeed: "Starting school adventure",
-                category: .learning,
-                ageRange: .preschool,
-                tone: .inspiring
-            )
+            event: CustomStoryEvent.previewData[0]
         )
     }
-    .modelContainer(for: [CustomStoryEvent.self, Story.self], inMemory: true)
 }

@@ -2,30 +2,29 @@
 //  CustomEventManagementView.swift
 //  InfiniteStories
 //
-//  Complete management interface for custom events with pictogram support
+//  Complete management interface for custom events (API-based)
 //
 
 import SwiftUI
-import SwiftData
 
 struct CustomEventManagementView: View {
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @Query(sort: \CustomStoryEvent.createdAt, order: .reverse) private var customEvents: [CustomStoryEvent]
 
-    @StateObject private var pictogramGenerator = EventPictogramGenerator()
-    @StateObject private var cacheManager = PictogramCacheManager.shared
+    // API-based state management
+    @State private var customEvents: [CustomStoryEvent] = []
+    @State private var isLoading = true
+    @State private var error: Error?
+
+    private let repository = CustomEventRepository()
 
     @State private var searchText = ""
     @State private var selectedCategory: EventCategory?
     @State private var sortOption: SortOption = .newest
     @State private var viewMode: ViewMode = .grid
     @State private var isInSelectionMode = false
-    @State private var selectedEvents: Set<UUID> = []
+    @State private var selectedEvents: Set<String> = []
     @State private var showingCreationSheet = false
-    @State private var showingBatchGenerationAlert = false
-    @State private var batchGenerationProgress = 0.0
-    @State private var batchGenerationStatus = ""
+    @State private var showingDeleteConfirmation = false
 
     enum ViewMode {
         case list, grid
@@ -46,14 +45,14 @@ struct CustomEventManagementView: View {
         if !searchText.isEmpty {
             events = events.filter { event in
                 event.title.localizedCaseInsensitiveContains(searchText) ||
-                event.eventDescription.localizedCaseInsensitiveContains(searchText) ||
+                event.description.localizedCaseInsensitiveContains(searchText) ||
                 event.keywords.contains { $0.localizedCaseInsensitiveContains(searchText) }
             }
         }
 
         // Category filter
         if let category = selectedCategory {
-            events = events.filter { $0.category == category }
+            events = events.filter { $0.eventCategory == category }
         }
 
         // Sorting
@@ -85,7 +84,18 @@ struct CustomEventManagementView: View {
                 Color(.systemBackground)
                     .ignoresSafeArea()
 
-                if customEvents.isEmpty {
+                if isLoading {
+                    ProgressView("Loading events...")
+                } else if let error = error {
+                    ErrorView(
+                        error: error,
+                        retryAction: {
+                            Task {
+                                await loadEvents()
+                            }
+                        }
+                    )
+                } else if customEvents.isEmpty {
                     emptyStateView
                 } else {
                     mainContentView
@@ -98,21 +108,38 @@ struct CustomEventManagementView: View {
             }
             .searchable(text: $searchText, prompt: "Search events...")
             .sheet(isPresented: $showingCreationSheet) {
-                CustomEventCreationView()
+                CustomEventCreationView(onEventCreated: { newEvent in
+                    customEvents.insert(newEvent, at: 0)
+                })
             }
-            .alert("Generate Pictograms", isPresented: $showingBatchGenerationAlert) {
+            .alert("Delete Events", isPresented: $showingDeleteConfirmation) {
                 Button("Cancel", role: .cancel) { }
-                Button("Generate") {
+                Button("Delete", role: .destructive) {
                     Task {
-                        await generatePictogramsForSelected()
+                        await deleteSelectedEvents()
                     }
                 }
             } message: {
-                Text("Generate pictograms for \(selectedEvents.count) selected events?")
+                Text("Are you sure you want to delete \(selectedEvents.count) selected events?")
             }
         }
         .task {
-            await cacheManager.warmCache(with: customEvents)
+            await loadEvents()
+        }
+    }
+
+    // MARK: - Load Events
+
+    private func loadEvents() async {
+        isLoading = true
+        error = nil
+
+        do {
+            customEvents = try await repository.fetchCustomEvents()
+            isLoading = false
+        } catch {
+            self.error = error
+            isLoading = false
         }
     }
 
@@ -157,7 +184,7 @@ struct CustomEventManagementView: View {
 
                 ForEach(EventCategory.allCases, id: \.self) { category in
                     CategoryChip(
-                        title: category.rawValue,
+                        title: category.displayName,
                         icon: category.icon,
                         isSelected: selectedCategory == category,
                         color: Color(hex: category.defaultColor)
@@ -184,9 +211,9 @@ struct CustomEventManagementView: View {
             )
 
             StatItem(
-                icon: "photo",
-                value: "\(filteredEvents.filter { $0.hasPictogram }.count)",
-                label: "With Pictograms"
+                icon: "sparkles",
+                value: "\(filteredEvents.filter { $0.aiEnhanced }.count)",
+                label: "AI Enhanced"
             )
 
             StatItem(
@@ -236,6 +263,9 @@ struct CustomEventManagementView: View {
             }
             .padding()
         }
+        .refreshable {
+            await loadEvents()
+        }
     }
 
     // MARK: - List View
@@ -255,13 +285,17 @@ struct CustomEventManagementView: View {
                 )
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button(role: .destructive) {
-                        deleteEvent(event)
+                        Task {
+                            await deleteEvent(event)
+                        }
                     } label: {
                         Label("Delete", systemImage: "trash")
                     }
 
                     Button {
-                        event.toggleFavorite()
+                        Task {
+                            await toggleFavorite(for: event)
+                        }
                     } label: {
                         Label(
                             event.isFavorite ? "Unfavorite" : "Favorite",
@@ -271,7 +305,14 @@ struct CustomEventManagementView: View {
                     .tint(.yellow)
                 }
                 .swipeActions(edge: .leading) {
-                    NavigationLink(destination: CustomEventDetailView(event: event)) {
+                    NavigationLink(destination: CustomEventDetailView(
+                        event: event,
+                        onEventUpdated: { updatedEvent in
+                            if let index = customEvents.firstIndex(where: { $0.id == updatedEvent.id }) {
+                                customEvents[index] = updatedEvent
+                            }
+                        }
+                    )) {
                         Label("Details", systemImage: "info.circle")
                     }
                     .tint(.blue)
@@ -279,25 +320,40 @@ struct CustomEventManagementView: View {
             }
         }
         .listStyle(.plain)
+        .refreshable {
+            await loadEvents()
+        }
     }
 
     // MARK: - Context Menu
 
     @ViewBuilder
     private func eventContextMenu(for event: CustomStoryEvent) -> some View {
-        NavigationLink(destination: CustomEventDetailView(event: event)) {
+        NavigationLink(destination: CustomEventDetailView(
+            event: event,
+            onEventUpdated: { updatedEvent in
+                if let index = customEvents.firstIndex(where: { $0.id == updatedEvent.id }) {
+                    customEvents[index] = updatedEvent
+                }
+            }
+        )) {
             Label("View Details", systemImage: "info.circle")
         }
 
-        NavigationLink(destination: PictogramGenerationView(event: event)) {
-            Label(
-                event.hasPictogram ? "Regenerate Pictogram" : "Generate Pictogram",
-                systemImage: "photo.badge.plus"
-            )
+        if !event.aiEnhanced {
+            Button {
+                Task {
+                    await enhanceEvent(event)
+                }
+            } label: {
+                Label("Enhance with AI", systemImage: "sparkles")
+            }
         }
 
         Button {
-            event.toggleFavorite()
+            Task {
+                await toggleFavorite(for: event)
+            }
         } label: {
             Label(
                 event.isFavorite ? "Unfavorite" : "Favorite",
@@ -308,7 +364,9 @@ struct CustomEventManagementView: View {
         Divider()
 
         Button(role: .destructive) {
-            deleteEvent(event)
+            Task {
+                await deleteEvent(event)
+            }
         } label: {
             Label("Delete", systemImage: "trash")
         }
@@ -374,15 +432,8 @@ struct CustomEventManagementView: View {
             if isInSelectionMode {
                 // Selection mode actions
                 Menu {
-                    Button {
-                        showingBatchGenerationAlert = true
-                    } label: {
-                        Label("Generate Pictograms", systemImage: "photo.badge.plus")
-                    }
-                    .disabled(selectedEvents.isEmpty)
-
                     Button(role: .destructive) {
-                        deleteSelectedEvents()
+                        showingDeleteConfirmation = true
                     } label: {
                         Label("Delete Selected", systemImage: "trash")
                     }
@@ -442,42 +493,49 @@ struct CustomEventManagementView: View {
         }
     }
 
-    private func deleteEvent(_ event: CustomStoryEvent) {
-        withAnimation {
-            // Delete pictogram if exists
-            Task {
-                await pictogramGenerator.deletePictogram(for: event)
+    private func deleteEvent(_ event: CustomStoryEvent) async {
+        do {
+            try await repository.deleteCustomEvent(event)
+            withAnimation {
+                customEvents.removeAll { $0.id == event.id }
             }
-            modelContext.delete(event)
+        } catch {
+            Logger.api.error("Failed to delete event: \(error.localizedDescription)")
         }
     }
 
-    private func deleteSelectedEvents() {
+    private func deleteSelectedEvents() async {
         for eventID in selectedEvents {
             if let event = customEvents.first(where: { $0.id == eventID }) {
-                deleteEvent(event)
+                await deleteEvent(event)
             }
         }
         selectedEvents.removeAll()
         isInSelectionMode = false
     }
 
-    private func generatePictogramsForSelected() async {
-        let eventsToGenerate = customEvents.filter { selectedEvents.contains($0.id) && !$0.hasPictogram }
+    private func toggleFavorite(for event: CustomStoryEvent) async {
+        var updatedEvent = event
+        updatedEvent.isFavorite.toggle()
 
-        await pictogramGenerator.generatePictogramsInBatch(
-            for: eventsToGenerate,
-            style: .playful
-        ) { progress, status in
-            Task { @MainActor in
-                batchGenerationProgress = progress
-                batchGenerationStatus = status
+        do {
+            let result = try await repository.updateCustomEvent(updatedEvent)
+            if let index = customEvents.firstIndex(where: { $0.id == event.id }) {
+                customEvents[index] = result
             }
+        } catch {
+            Logger.api.error("Failed to update favorite: \(error.localizedDescription)")
         }
+    }
 
-        await MainActor.run {
-            selectedEvents.removeAll()
-            isInSelectionMode = false
+    private func enhanceEvent(_ event: CustomStoryEvent) async {
+        do {
+            let enhancedEvent = try await repository.enhanceEvent(event)
+            if let index = customEvents.firstIndex(where: { $0.id == event.id }) {
+                customEvents[index] = enhancedEvent
+            }
+        } catch {
+            Logger.api.error("Failed to enhance event: \(error.localizedDescription)")
         }
     }
 }
@@ -542,22 +600,16 @@ struct CustomEventGridCard: View {
     var body: some View {
         NavigationLink(destination: CustomEventDetailView(event: event)) {
             VStack(spacing: 12) {
-                // Pictogram or Icon
+                // Icon
                 ZStack {
-                    if event.hasPictogram {
-                        CachedPictogramImage(event: event)
-                            .frame(width: 80, height: 80)
-                            .clipShape(RoundedRectangle(cornerRadius: 16))
-                    } else {
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color(hex: event.colorHex).opacity(0.2))
-                            .frame(width: 80, height: 80)
-                            .overlay(
-                                Image(systemName: event.iconName)
-                                    .font(.system(size: 36))
-                                    .foregroundColor(Color(hex: event.colorHex))
-                            )
-                    }
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color(hex: event.colorHex).opacity(0.2))
+                        .frame(width: 80, height: 80)
+                        .overlay(
+                            Image(systemName: event.iconName)
+                                .font(.system(size: 36))
+                                .foregroundColor(Color(hex: event.colorHex))
+                        )
 
                     // Selection indicator
                     if isInSelectionMode {
@@ -585,6 +637,14 @@ struct CustomEventGridCard: View {
                             .foregroundColor(.yellow)
                             .position(x: 10, y: 10)
                     }
+
+                    // AI Enhanced indicator
+                    if event.aiEnhanced {
+                        Image(systemName: "sparkles")
+                            .font(.caption)
+                            .foregroundColor(.purple)
+                            .position(x: 10, y: 70)
+                    }
                 }
 
                 VStack(spacing: 4) {
@@ -595,9 +655,9 @@ struct CustomEventGridCard: View {
                         .multilineTextAlignment(.center)
 
                     HStack(spacing: 4) {
-                        Image(systemName: event.category.icon)
+                        Image(systemName: event.eventCategory.icon)
                             .font(.caption2)
-                        Text(event.category.rawValue)
+                        Text(event.eventCategory.displayName)
                             .font(.caption2)
                     }
                     .foregroundColor(.secondary)
@@ -642,21 +702,15 @@ struct CustomEventListRow: View {
                     }
             }
 
-            // Pictogram
-            if event.hasPictogram {
-                CachedPictogramImage(event: event)
-                    .frame(width: 60, height: 60)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-            } else {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(hex: event.colorHex).opacity(0.2))
-                    .frame(width: 60, height: 60)
-                    .overlay(
-                        Image(systemName: event.iconName)
-                            .font(.title2)
-                            .foregroundColor(Color(hex: event.colorHex))
-                    )
-            }
+            // Icon
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(hex: event.colorHex).opacity(0.2))
+                .frame(width: 60, height: 60)
+                .overlay(
+                    Image(systemName: event.iconName)
+                        .font(.title2)
+                        .foregroundColor(Color(hex: event.colorHex))
+                )
 
             // Event details
             VStack(alignment: .leading, spacing: 4) {
@@ -670,19 +724,25 @@ struct CustomEventListRow: View {
                             .font(.caption)
                             .foregroundColor(.yellow)
                     }
+
+                    if event.aiEnhanced {
+                        Image(systemName: "sparkles")
+                            .font(.caption)
+                            .foregroundColor(.purple)
+                    }
                 }
 
-                Text(event.eventDescription)
+                Text(event.description)
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .lineLimit(2)
 
                 HStack(spacing: 8) {
-                    Label(event.category.rawValue, systemImage: event.category.icon)
+                    Label(event.eventCategory.displayName, systemImage: event.eventCategory.icon)
                         .font(.caption2)
                         .foregroundColor(.secondary)
 
-                    Text("•")
+                    Text("*")
                         .foregroundColor(.secondary)
 
                     Text(event.formattedUsageCount)
@@ -706,5 +766,4 @@ struct CustomEventListRow: View {
 
 #Preview {
     CustomEventManagementView()
-        .modelContainer(for: [CustomStoryEvent.self], inMemory: true)
 }

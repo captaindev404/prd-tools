@@ -6,21 +6,25 @@
 //
 
 import SwiftUI
-import SwiftData
 
 struct EnhancedEventPickerView: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
-    @Query(sort: \CustomStoryEvent.createdAt, order: .reverse) private var customEvents: [CustomStoryEvent]
-    
+
     @Binding var selectedBuiltInEvent: StoryEvent?
     @Binding var selectedCustomEvent: CustomStoryEvent?
-    
+
+    // API-based state management
+    @State private var customEvents: [CustomStoryEvent] = []
+    @State private var isLoading = true
+    @State private var loadError: Error?
+
+    private let repository = CustomEventRepository()
+
     @State private var showingCustomEventCreation = false
     @State private var showingCustomEventManagement = false
     @State private var searchText = ""
     @State private var selectedCategory: EventCategory? = nil
-    
+
     var body: some View {
         NavigationView {
             ScrollView {
@@ -36,7 +40,7 @@ struct EnhancedEventPickerView: View {
                     .background(Color(.systemGray6))
                     .cornerRadius(10)
                     .padding(.horizontal)
-                    
+
                     // Create Custom Event Button
                     Button(action: { showingCustomEventCreation = true }) {
                         HStack {
@@ -49,19 +53,19 @@ struct EnhancedEventPickerView: View {
                                         endPoint: .trailing
                                     )
                                 )
-                            
+
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Create Custom Event")
                                     .font(.headline)
                                     .foregroundColor(.primary)
-                                
+
                                 Text("Design your own story scenario")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
-                            
+
                             Spacer()
-                            
+
                             Image(systemName: "chevron.right")
                                 .foregroundColor(.secondary)
                         }
@@ -78,7 +82,7 @@ struct EnhancedEventPickerView: View {
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal)
-                    
+
                     // Category filters
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
@@ -87,10 +91,10 @@ struct EnhancedEventPickerView: View {
                                 isSelected: selectedCategory == nil,
                                 action: { selectedCategory = nil }
                             )
-                            
+
                             ForEach(EventCategory.allCases, id: \.self) { category in
                                 CategoryFilterChip(
-                                    title: category.rawValue,
+                                    title: category.displayName,
                                     icon: category.icon,
                                     isSelected: selectedCategory == category,
                                     action: { selectedCategory = category }
@@ -99,68 +103,93 @@ struct EnhancedEventPickerView: View {
                         }
                         .padding(.horizontal)
                     }
-                    
-                    // Custom Events Section
-                    if !filteredCustomEvents.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Text("Your Custom Events")
-                                    .font(.headline)
 
-                                Spacer()
-
-                                // Manage button
-                                Button(action: { showingCustomEventManagement = true }) {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "square.grid.2x2")
-                                            .font(.caption)
-                                        Text("Manage")
-                                            .font(.caption)
-                                            .fontWeight(.medium)
-                                    }
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 5)
-                                    .background(Color.purple.opacity(0.15))
-                                    .foregroundColor(.purple)
-                                    .cornerRadius(8)
+                    // Loading state
+                    if isLoading {
+                        ProgressView("Loading custom events...")
+                            .padding(.vertical, 20)
+                    } else if let error = loadError {
+                        VStack(spacing: 12) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.title)
+                                .foregroundColor(.orange)
+                            Text("Failed to load custom events")
+                                .font(.headline)
+                            Text(error.localizedDescription)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Button("Retry") {
+                                Task {
+                                    await loadCustomEvents()
                                 }
-
-                                Text("\(filteredCustomEvents.count)")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(Color(.systemGray5))
-                                    .cornerRadius(10)
                             }
-                            .padding(.horizontal)
-                            
-                            ForEach(filteredCustomEvents) { event in
-                                CustomEventCard(
-                                    event: event,
-                                    isSelected: selectedCustomEvent?.id == event.id,
-                                    action: {
-                                        selectedCustomEvent = event
-                                        selectedBuiltInEvent = nil
-                                        event.incrementUsage()
-                                        dismiss()
-                                    },
-                                    onDelete: {
-                                        deleteCustomEvent(event)
+                            .buttonStyle(.bordered)
+                        }
+                        .padding(.vertical, 20)
+                    } else {
+                        // Custom Events Section
+                        if !filteredCustomEvents.isEmpty {
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack {
+                                    Text("Your Custom Events")
+                                        .font(.headline)
+
+                                    Spacer()
+
+                                    // Manage button
+                                    Button(action: { showingCustomEventManagement = true }) {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "square.grid.2x2")
+                                                .font(.caption)
+                                            Text("Manage")
+                                                .font(.caption)
+                                                .fontWeight(.medium)
+                                        }
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 5)
+                                        .background(Color.purple.opacity(0.15))
+                                        .foregroundColor(.purple)
+                                        .cornerRadius(8)
                                     }
-                                )
+
+                                    Text("\(filteredCustomEvents.count)")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(Color(.systemGray5))
+                                        .cornerRadius(10)
+                                }
                                 .padding(.horizontal)
+
+                                ForEach(filteredCustomEvents) { event in
+                                    CustomEventCard(
+                                        event: event,
+                                        isSelected: selectedCustomEvent?.id == event.id,
+                                        action: {
+                                            selectedCustomEvent = event
+                                            selectedBuiltInEvent = nil
+                                            dismiss()
+                                        },
+                                        onDelete: {
+                                            Task {
+                                                await deleteCustomEvent(event)
+                                            }
+                                        }
+                                    )
+                                    .padding(.horizontal)
+                                }
                             }
                         }
                     }
-                    
+
                     // Built-in Events Section
                     if !filteredBuiltInEvents.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Suggested Events")
                                 .font(.headline)
                                 .padding(.horizontal)
-                            
+
                             ForEach(filteredBuiltInEvents, id: \.self) { event in
                                 BuiltInEventCard(
                                     event: event,
@@ -175,20 +204,18 @@ struct EnhancedEventPickerView: View {
                             }
                         }
                     }
-                    
-                    
-                    
+
                     // Empty state
-                    if filteredBuiltInEvents.isEmpty && filteredCustomEvents.isEmpty {
+                    if filteredBuiltInEvents.isEmpty && filteredCustomEvents.isEmpty && !isLoading {
                         VStack(spacing: 16) {
                             Image(systemName: "magnifyingglass")
                                 .font(.system(size: 50))
                                 .foregroundColor(.secondary)
-                            
+
                             Text("No events found")
                                 .font(.headline)
                                 .foregroundColor(.secondary)
-                            
+
                             if !searchText.isEmpty {
                                 Text("Try a different search term")
                                     .font(.subheadline)
@@ -210,54 +237,76 @@ struct EnhancedEventPickerView: View {
                 }
             }
             .sheet(isPresented: $showingCustomEventCreation) {
-                CustomEventCreationView()
+                CustomEventCreationView(onEventCreated: { newEvent in
+                    customEvents.insert(newEvent, at: 0)
+                })
             }
             .sheet(isPresented: $showingCustomEventManagement) {
                 CustomEventManagementView()
             }
+            .refreshable {
+                await loadCustomEvents()
+            }
+        }
+        .task {
+            await loadCustomEvents()
         }
     }
-    
+
+    // MARK: - Load Custom Events
+
+    private func loadCustomEvents() async {
+        isLoading = true
+        loadError = nil
+
+        do {
+            customEvents = try await repository.fetchCustomEvents()
+            isLoading = false
+        } catch {
+            loadError = error
+            isLoading = false
+        }
+    }
+
     // MARK: - Filtering
-    
+
     private var filteredBuiltInEvents: [StoryEvent] {
         let events = StoryEvent.allCases
-        
+
         guard !searchText.isEmpty else {
             return selectedCategory == nil ? events : []
         }
-        
+
         return events.filter { event in
             let matchesSearch = searchText.isEmpty ||
                 event.rawValue.localizedCaseInsensitiveContains(searchText) ||
                 event.promptSeed.localizedCaseInsensitiveContains(searchText)
-            
+
             return matchesSearch
         }
     }
-    
+
     private var filteredCustomEvents: [CustomStoryEvent] {
         customEvents.filter { event in
             let matchesSearch = searchText.isEmpty ||
                 event.title.localizedCaseInsensitiveContains(searchText) ||
-                event.eventDescription.localizedCaseInsensitiveContains(searchText) ||
+                event.description.localizedCaseInsensitiveContains(searchText) ||
                 event.keywords.contains { $0.localizedCaseInsensitiveContains(searchText) }
-            
-            let matchesCategory = selectedCategory == nil || event.category == selectedCategory
-            
+
+            let matchesCategory = selectedCategory == nil || event.eventCategory == selectedCategory
+
             return matchesSearch && matchesCategory
         }
     }
-    
+
     // MARK: - Actions
-    
-    private func deleteCustomEvent(_ event: CustomStoryEvent) {
-        modelContext.delete(event)
-        
+
+    private func deleteCustomEvent(_ event: CustomStoryEvent) async {
         do {
-            try modelContext.save()
+            try await repository.deleteCustomEvent(event)
+            customEvents.removeAll { $0.id == event.id }
         } catch {
-            print("Failed to delete custom event: \(error)")
+            Logger.api.error("Failed to delete custom event: \(error.localizedDescription)")
         }
     }
 }
@@ -334,28 +383,21 @@ struct CustomEventCard: View {
     let onDelete: () -> Void
 
     @State private var showingDeleteConfirmation = false
-    @State private var showingManagementView = false
+    @State private var showingDetailView = false
 
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    // Display pictogram if available, otherwise show icon
-                    if event.hasPictogram {
-                        CachedPictogramImage(event: event)
-                            .frame(width: 50, height: 50)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                            .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
-                    } else {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color(hex: event.colorHex).opacity(0.15))
-                            .frame(width: 50, height: 50)
-                            .overlay(
-                                Image(systemName: event.iconName)
-                                    .font(.title2)
-                                    .foregroundColor(Color(hex: event.colorHex))
-                            )
-                    }
+                    // Icon
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(hex: event.colorHex).opacity(0.15))
+                        .frame(width: 50, height: 50)
+                        .overlay(
+                            Image(systemName: event.iconName)
+                                .font(.title2)
+                                .foregroundColor(Color(hex: event.colorHex))
+                        )
 
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
@@ -369,64 +411,60 @@ struct CustomEventCard: View {
                                     .foregroundColor(.yellow)
                             }
 
-                            if event.isAIEnhanced {
+                            if event.aiEnhanced {
                                 Image(systemName: "sparkles")
                                     .font(.caption)
                                     .foregroundColor(.purple)
                             }
-
-                            if event.hasPictogram {
-                                Image(systemName: "photo")
-                                    .font(.caption)
-                                    .foregroundColor(.green)
-                            }
                         }
-                        
-                        Text(event.eventDescription)
+
+                        Text(event.description)
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .lineLimit(2)
                     }
-                    
+
                     Spacer()
-                    
+
                     if isSelected {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundColor(.orange)
                     }
                 }
-                
+
                 HStack(spacing: 12) {
                     // Category badge
                     HStack(spacing: 4) {
-                        Image(systemName: event.category.icon)
+                        Image(systemName: event.eventCategory.icon)
                             .font(.caption2)
-                        Text(event.category.rawValue)
+                        Text(event.eventCategory.displayName)
                             .font(.caption2)
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(Color(hex: event.colorHex).opacity(0.2))
                     .cornerRadius(6)
-                    
+
                     // Age range badge
-                    Text(event.ageRange.rawValue)
-                        .font(.caption2)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color(.systemGray5))
-                        .cornerRadius(6)
-                    
+                    if let ageRange = event.ageRange {
+                        Text(ageRange)
+                            .font(.caption2)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color(.systemGray5))
+                            .cornerRadius(6)
+                    }
+
                     // Tone badge
-                    Text(event.tone.rawValue)
+                    Text(event.storyTone.displayName)
                         .font(.caption2)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(Color(.systemGray5))
                         .cornerRadius(6)
-                    
+
                     Spacer()
-                    
+
                     // Usage count
                     Text(event.formattedUsageCount)
                         .font(.caption2)
@@ -439,25 +477,7 @@ struct CustomEventCard: View {
         .buttonStyle(.plain)
         .contextMenu {
             Button(action: {
-                event.toggleFavorite()
-            }) {
-                Label(
-                    event.isFavorite ? "Remove from Favorites" : "Add to Favorites",
-                    systemImage: event.isFavorite ? "star.slash" : "star"
-                )
-            }
-
-            Button(action: {
-                showingManagementView = true
-            }) {
-                Label(
-                    event.hasPictogram ? "Regenerate Pictogram" : "Generate Pictogram",
-                    systemImage: "photo.badge.plus"
-                )
-            }
-
-            Button(action: {
-                showingManagementView = true
+                showingDetailView = true
             }) {
                 Label("View Details", systemImage: "info.circle")
             }
@@ -470,7 +490,7 @@ struct CustomEventCard: View {
                 Label("Delete", systemImage: "trash")
             }
         }
-        .sheet(isPresented: $showingManagementView) {
+        .sheet(isPresented: $showingDetailView) {
             NavigationStack {
                 CustomEventDetailView(event: event)
             }
@@ -496,12 +516,11 @@ struct CustomEventCard: View {
 struct EnhancedEventPickerView_Previews: PreviewProvider {
     @State static var selectedBuiltIn: StoryEvent? = nil
     @State static var selectedCustom: CustomStoryEvent? = nil
-    
+
     static var previews: some View {
         EnhancedEventPickerView(
             selectedBuiltInEvent: $selectedBuiltIn,
             selectedCustomEvent: $selectedCustom
         )
-        .modelContainer(for: CustomStoryEvent.self, inMemory: true)
     }
 }
