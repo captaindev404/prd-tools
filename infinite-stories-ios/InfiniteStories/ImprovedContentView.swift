@@ -222,10 +222,8 @@ struct HomeContentView: View {
                         )
                     }
                 }
-            } else if heroes.isEmpty {
-                EmptyStateView(showingHeroCreation: $showingHeroCreation)
-                    .padding()
             }
+            // Empty state is handled in homeMainContent, not here
         }
         .padding(.top, 25)
     }
@@ -380,10 +378,8 @@ struct ImprovedContentView: View {
                         )
                     }
                 }
-            } else if heroes.isEmpty {
-                EmptyStateView(showingHeroCreation: $showingHeroCreation)
-                    .padding()
             }
+            // Empty state is handled in mainContent, not here
         }
         .padding(.top, 25)
     }
