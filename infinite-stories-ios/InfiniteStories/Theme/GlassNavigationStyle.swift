@@ -73,18 +73,12 @@ struct GlassToolbarModifier: ViewModifier {
 // MARK: - Glass Sheet Modifier
 
 /// Applies glass background to sheets and modals on iOS 26+
-/// Ensures sheets fill the full width without rounded corner gaps
+/// Ensures sheets fill the full width while respecting safe areas
 struct GlassSheetModifier: ViewModifier {
     func body(content: Content) -> some View {
         if #available(iOS 26, *) {
             content
                 .presentationBackground(.regularMaterial)
-                .presentationSizing(.page)
-        } else if #available(iOS 16.4, *) {
-            content
-                .presentationDetents([.large])
-                .presentationDragIndicator(.hidden)
-                .presentationCornerRadius(0)
         } else {
             content
                 .presentationDetents([.large])

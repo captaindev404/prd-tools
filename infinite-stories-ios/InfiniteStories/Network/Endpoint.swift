@@ -53,6 +53,14 @@ enum Endpoint {
     // MARK: - Health
     case healthCheck
 
+    // MARK: - Analytics
+    case reportListeningSession(data: ListeningSessionRequest)
+    case getAnalyticsSummary(refresh: Bool)
+    case getListeningActivity(range: TimeRange)
+    case getHeroAnalytics
+    case getMilestones
+    case getInsights
+
     // MARK: - Computed Properties
 
     var path: String {
@@ -126,6 +134,20 @@ enum Endpoint {
         // Health
         case .healthCheck:
             return "/api/v1/health"
+
+        // Analytics
+        case .reportListeningSession:
+            return "/api/v1/analytics/sessions"
+        case .getAnalyticsSummary:
+            return "/api/v1/analytics/summary"
+        case .getListeningActivity:
+            return "/api/v1/analytics/activity"
+        case .getHeroAnalytics:
+            return "/api/v1/analytics/heroes"
+        case .getMilestones:
+            return "/api/v1/analytics/milestones"
+        case .getInsights:
+            return "/api/v1/analytics/insights"
         }
     }
 
@@ -134,14 +156,16 @@ enum Endpoint {
         // GET requests
         case .getSession, .getHeroes, .getHero, .getStories, .getStory,
              .getCustomEvents, .getCustomEvent, .getUserProfile, .getUserUsage,
-             .getIllustrationStatus, .healthCheck:
+             .getIllustrationStatus, .healthCheck,
+             .getAnalyticsSummary, .getListeningActivity, .getHeroAnalytics,
+             .getMilestones, .getInsights:
             return .GET
 
         // POST requests
         case .signIn, .signUp, .refreshSession, .signOut,
              .createHero, .createStory, .createCustomEvent,
              .generateAvatar, .generateAudio, .generateIllustrations,
-             .enhanceCustomEvent:
+             .enhanceCustomEvent, .reportListeningSession:
             return .POST
 
         // PATCH requests
@@ -209,6 +233,17 @@ enum Endpoint {
                 URLQueryItem(name: "offset", value: "\(offset)")
             ]
 
+        case .getListeningActivity(let range):
+            return [
+                URLQueryItem(name: "range", value: range.apiValue)
+            ]
+
+        case .getAnalyticsSummary(let refresh):
+            if refresh {
+                return [URLQueryItem(name: "refresh", value: "true")]
+            }
+            return nil
+
         default:
             return nil
         }
@@ -258,6 +293,9 @@ enum Endpoint {
             return try? encoder.encode(["style": "standard"])
 
         case .updateUserProfile(let data):
+            return try? encoder.encode(data)
+
+        case .reportListeningSession(let data):
             return try? encoder.encode(data)
 
         default:
@@ -329,4 +367,26 @@ struct CustomEventUpdateRequest: Codable {
 struct UserProfileUpdateRequest: Codable {
     let name: String?
     let preferredLanguage: String?
+}
+
+// Note: TimeRange enum and apiValue are defined in ReadingJourneyRepository.swift
+
+// MARK: - Analytics Request DTOs
+
+/// Request to report a listening session to the analytics backend
+/// Matches POST /api/v1/analytics/sessions
+struct ListeningSessionRequest: Codable {
+    let storyId: String
+    let startedAt: Date?
+    let endedAt: Date?
+    let duration: Int? // Duration in seconds (auto-calculated by backend if startedAt/endedAt provided)
+    let completed: Bool
+
+    init(storyId: String, startedAt: Date? = nil, endedAt: Date? = nil, duration: Int? = nil, completed: Bool = false) {
+        self.storyId = storyId
+        self.startedAt = startedAt
+        self.endedAt = endedAt
+        self.duration = duration
+        self.completed = completed
+    }
 }

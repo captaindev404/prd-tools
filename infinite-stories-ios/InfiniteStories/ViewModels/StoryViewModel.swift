@@ -142,6 +142,9 @@ class StoryViewModel: ObservableObject {
     private let audioService: AudioServiceProtocol
     private let appSettings = AppSettings()
 
+    // Session tracking for Reading Journey analytics
+    private let sessionTracker = ListeningSessionTracker.shared
+
     // Illustration services
     let illustrationSyncManager = IllustrationSyncManager() // Made public for AudioPlayerView
     private var illustrationGenerationTask: Task<Void, Never>?
@@ -168,6 +171,14 @@ class StoryViewModel: ObservableObject {
         // Set navigation delegate if it's the AudioService implementation
         if let audioService = audioService as? AudioService {
             audioService.navigationDelegate = self
+
+            // Set up playback completion callback for session tracking
+            audioService.onPlaybackCompleted = { [weak self] in
+                guard let self = self else { return }
+                Task { @MainActor in
+                    await self.handlePlaybackCompleted()
+                }
+            }
         }
     }
 
@@ -495,6 +506,15 @@ class StoryViewModel: ObservableObject {
             illustrationSyncManager.configure(story: story, audioService: audioService)
         }
 
+        // Start session tracking for Reading Journey analytics
+        if let storyBackendId = story.backendId {
+            sessionTracker.startSession(storyId: storyBackendId)
+            // Also set the story ID in AudioService for reference
+            if let audioService = audioService as? AudioService {
+                audioService.setCurrentStoryId(storyBackendId)
+            }
+        }
+
         // Check if audio needs regeneration or generation
         guard let audioFileName = story.audioFileName, !story.audioNeedsRegeneration else {
             print("📱 🎵 Audio needs generation or regeneration...")
@@ -612,19 +632,37 @@ class StoryViewModel: ObservableObject {
         }
     }
 
-    func stopAudio() {
+    func stopAudio(endSession: Bool = true) {
+        // End session tracking when stopping audio (user dismissed)
+        if endSession {
+            Task {
+                await sessionTracker.endSession(completed: false)
+            }
+        }
+
         audioService.stopAudio()
         updateAudioState()
         stopAudioUpdateTimer()
+
+        // Clear the story ID in AudioService
+        if let audioService = audioService as? AudioService {
+            audioService.setCurrentStoryId(nil)
+        }
     }
-    
+
     func pauseAudio() {
+        // Pause session tracking
+        sessionTracker.pauseSession()
+
         audioService.pauseAudio()
         updateAudioState()
         stopAudioUpdateTimer()
     }
-    
+
     func resumeAudio() {
+        // Resume session tracking
+        sessionTracker.resumeSession()
+
         audioService.resumeAudio()
         updateAudioState()
         startAudioUpdateTimer()
@@ -709,7 +747,42 @@ class StoryViewModel: ObservableObject {
         audioUpdateTimer?.invalidate()
         audioUpdateTimer = nil
     }
-    
+
+    // MARK: - Session Tracking
+
+    /// Handle playback completing naturally (story reached the end)
+    private func handlePlaybackCompleted() async {
+        Logger.audio.info("Playback completed naturally, ending session as completed")
+
+        // End the session with completed = true since the story finished naturally
+        await sessionTracker.endSession(completed: true)
+
+        // Clear the story ID in AudioService
+        if let audioService = audioService as? AudioService {
+            audioService.setCurrentStoryId(nil)
+        }
+    }
+
+    /// End the current listening session (for use when view is dismissed)
+    func endListeningSession(completed: Bool = false) async {
+        await sessionTracker.endSession(completed: completed)
+
+        // Clear the story ID in AudioService
+        if let audioService = audioService as? AudioService {
+            audioService.setCurrentStoryId(nil)
+        }
+    }
+
+    /// End the current listening session synchronously (for use in deinit or onDisappear)
+    func endListeningSessionSync(completed: Bool = false) {
+        sessionTracker.endSessionSync(completed: completed)
+
+        // Clear the story ID in AudioService
+        if let audioService = audioService as? AudioService {
+            audioService.setCurrentStoryId(nil)
+        }
+    }
+
     private func handleAIError(_ error: Error) -> String {
         // Handle API errors from backend
         if let apiError = error as? APIError {
@@ -1395,6 +1468,10 @@ class StoryViewModel: ObservableObject {
 
     deinit {
         NotificationCenter.default.removeObserver(self)
+
+        // Note: Cannot call main actor-isolated sessionTracker from deinit
+        // The ListeningSessionTracker handles app lifecycle events and will
+        // persist session state on app termination/background via its own observers
 
         // Ensure idle timer is re-enabled
         IdleTimerManager.shared.enableIdleTimer(for: "StoryGeneration")

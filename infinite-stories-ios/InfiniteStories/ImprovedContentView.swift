@@ -157,16 +157,14 @@ struct HomeContentView: View {
             .glassSheet()
         }
         .sheet(item: $selectedStory) { story in
-            NavigationStack {
-                let storyIndex = stories.firstIndex(where: { $0.id == story.id }) ?? 0
-                AudioPlayerView(
-                    story: story,
-                    allStories: stories,
-                    storyIndex: storyIndex
-                )
-                    .onDisappear {
-                        handleStoryPlayed(story)
-                    }
+            let storyIndex = stories.firstIndex(where: { $0.id == story.id }) ?? 0
+            AudioPlayerView(
+                story: story,
+                allStories: stories,
+                storyIndex: storyIndex
+            )
+            .onDisappear {
+                handleStoryPlayed(story)
             }
             .glassSheet()
         }
@@ -188,29 +186,9 @@ struct HomeContentView: View {
             // Only show section if we have stories
             if !stories.isEmpty {
                 // Header
-                HStack {
-                    Text("Recent Adventures")
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
-                        .foregroundColor(.primary)
-
-                    Spacer()
-
-                    NavigationLink(destination: ImprovedStoryLibraryView()) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "books.vertical.fill")
-                                .font(.system(size: 14))
-                            Text("View All")
-                                .font(.system(size: 14, weight: .medium, design: .rounded))
-                        }
-                        .foregroundColor(.accentColor)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .frame(minHeight: 44)
-                        .liquidGlassCapsule(variant: .tinted(.accentColor))
-                    }
-                    .accessibilityLabel("View all stories")
-                    .accessibilityHint("Open the story library")
-                }
+                Text("Recent Adventures")
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundColor(.primary)
 
                 // Story Cards
                 VStack(spacing: 12) {
@@ -502,16 +480,14 @@ struct ImprovedContentView: View {
                     .glassSheet()
             }
             .sheet(item: $selectedStory) { story in
-                NavigationStack {
-                    let storyIndex = stories.firstIndex(where: { $0.id == story.id }) ?? 0
-                    AudioPlayerView(
-                        story: story,
-                        allStories: stories,
-                        storyIndex: storyIndex
-                    )
-                        .onDisappear {
-                            handleStoryPlayed(story)
-                        }
+                let storyIndex = stories.firstIndex(where: { $0.id == story.id }) ?? 0
+                AudioPlayerView(
+                    story: story,
+                    allStories: stories,
+                    storyIndex: storyIndex
+                )
+                .onDisappear {
+                    handleStoryPlayed(story)
                 }
                 .glassSheet()
             }

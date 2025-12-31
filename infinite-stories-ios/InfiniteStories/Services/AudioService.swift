@@ -61,6 +61,12 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol {
     private let commandCenter = MPRemoteCommandCenter.shared()
     private let nowPlayingInfo = MPNowPlayingInfoCenter.default()
     weak var navigationDelegate: AudioNavigationDelegate?
+
+    // Session tracking - track which story is currently playing
+    private(set) var currentStoryBackendId: String?
+
+    /// Callback fired when playback finishes naturally (reached end)
+    var onPlaybackCompleted: (() -> Void)?
     
     override init() {
         super.init()
@@ -474,6 +480,9 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol {
         currentTime = 0
         stopPlaybackTimer()
         enableIdleTimer()
+
+        // Notify listeners that playback completed naturally
+        onPlaybackCompleted?()
     }
 
     // Convenience method for backward compatibility
@@ -569,5 +578,13 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol {
     private func stopPlaybackTimer() {
         playbackTimer?.invalidate()
         playbackTimer = nil
+    }
+
+    // MARK: - Session Tracking Support
+
+    /// Set the current story backend ID for session tracking
+    /// - Parameter storyId: The backend ID of the story being played
+    func setCurrentStoryId(_ storyId: String?) {
+        currentStoryBackendId = storyId
     }
 }

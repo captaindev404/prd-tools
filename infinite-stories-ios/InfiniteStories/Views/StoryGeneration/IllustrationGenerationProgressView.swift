@@ -209,6 +209,7 @@ struct IllustrationGenerationProgressView: View {
                 // This would show the audio player view with illustrations
                 if let audioFileName = story.audioFileName {
                     AudioPlayerView(story: story)
+                        .glassSheet()
                 }
             }
         }

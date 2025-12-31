@@ -300,3 +300,13 @@ struct RateLimitInfo: Decodable {
     let remaining: Int
     let resetAt: Date
 }
+
+// MARK: - Analytics Response DTOs
+// NOTE: Analytics DTOs are defined in ReadingJourneyRepository.swift to keep
+// domain-specific models with their repository. The types used are:
+// - AnalyticsSummary (summary response)
+// - ListeningActivityResponse (activity response with ActivityDataPoint array)
+// - HeroAnalyticsResponse (hero analytics with HeroAnalytics array)
+// - MilestonesResponse (milestones with MilestoneData array and MilestoneSummary)
+// - InsightsResponse (insights wrapper with Insights data)
+// - ListeningSession (session response from reporting)

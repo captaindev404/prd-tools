@@ -344,3 +344,68 @@ model BackgroundJob {
   @@index([status])
   @@index([createdAt])
 }
+
+// Listening Session model (for Reading Journey analytics)
+model ListeningSession {
+  id String @id @default(cuid())
+  userId String
+  storyId String
+
+  // Session timing
+  startedAt DateTime @default(now())
+  endedAt DateTime?
+  duration Int? // in seconds, capped at 1.5x story audioDuration
+
+  // Completion tracking
+  completed Boolean @default(false)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([storyId])
+  @@index([startedAt])
+  @@index([completed])
+}
+
+// User Analytics Cache model (for pre-computed reading journey stats)
+model UserAnalyticsCache {
+  id String @id @default(cuid())
+  userId String @unique
+
+  // Story listening stats
+  totalStoriesListened Int @default(0)
+  totalListeningTimeSeconds Int @default(0) // total seconds of audio listened
+
+  // Streak tracking
+  currentStreak Int @default(0) // consecutive days with listening activity
+  longestStreak Int @default(0) // all-time longest streak
+  lastListeningDate DateTime? // last date user listened to a story (date only, no time)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([lastListeningDate])
+}
+
+// User Milestone model (for achievement tracking)
+model UserMilestone {
+  id String @id @default(cuid())
+  userId String
+  milestoneId String // e.g., "FIRST_STORY", "STORIES_5", "LISTENING_1H"
+
+  // Unlock tracking
+  unlockedAt DateTime @default(now())
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, milestoneId])
+  @@index([userId])
+  @@index([milestoneId])
+  @@index([unlockedAt])
+}

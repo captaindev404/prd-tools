@@ -57,80 +57,100 @@ struct AudioPlayerView: View {
     }
     
     var body: some View {
-        if currentStory.title.isEmpty && currentStory.content.isEmpty {
-            VStack(spacing: 20) {
-                Image(systemName: "exclamationmark.triangle")
-                    .font(.system(size: 50))
-                    .foregroundColor(.orange)
+        NavigationStack {
+            if currentStory.title.isEmpty && currentStory.content.isEmpty {
+                emptyStoryView
+            } else {
+                mainContentView
+            }
+        }
+    }
 
-                Text("Story data is missing")
-                    .font(.headline)
+    // MARK: - Empty Story View
 
-                Text("This story appears to have no content")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+    @ViewBuilder
+    private var emptyStoryView: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 50))
+                .foregroundColor(.orange)
 
-                Button("Close") {
+            Text("Story data is missing")
+                .font(.headline)
+
+            Text("This story appears to have no content")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+
+            Button("Close") {
+                dismiss()
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding()
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationTitle("Audio Player")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Done") {
                     dismiss()
                 }
-                .buttonStyle(.borderedProminent)
             }
-            .padding()
-        } else {
-            GeometryReader { geometry in
-                let isLandscape = geometry.size.width > geometry.size.height
-                let isCompact = geometry.size.height < 700 || preferCompactLayout
-                let illustrationHeight = isCompact ? geometry.size.height * 0.35 : geometry.size.height * 0.45
+        }
+    }
 
-                // Landscape Layout
-                if isLandscape && showIllustrations && currentStory.hasIllustrations {
-                    HStack(spacing: 0) {
-                        // Left side: Illustrations
-                        ZStack {
-                            // System background
-                            Color(.systemBackground)
+    // MARK: - Main Content View
 
-                            // Illustration Carousel with sync support
-                            IllustrationCarouselView(
-                                illustrations: currentStory.sortedIllustrations,
-                                currentTime: $viewModel.currentTime,
-                                onRetryIllustration: { illustration in
-                                    Task {
-                                        await viewModel.retryFailedIllustration(illustration)
-                                    }
-                                },
-                                onSeekToIllustration: { timestamp in
-                                    // Only seek if audio is loaded and has duration
-                                    if viewModel.duration > 0 {
-                                        viewModel.seek(to: timestamp)
-                                    }
+    @ViewBuilder
+    private var mainContentView: some View {
+        GeometryReader { geometry in
+            let isLandscape = geometry.size.width > geometry.size.height
+            let isCompact = geometry.size.height < 700 || preferCompactLayout
+            // Calculate safe area adjusted height for illustrations
+            // Account for navigation bar height (~44pt standard, may vary on iOS 26)
+            let safeHeight = geometry.size.height - geometry.safeAreaInsets.top - geometry.safeAreaInsets.bottom
+            let illustrationHeight = isCompact ? safeHeight * 0.30 : safeHeight * 0.38
+
+            // Landscape Layout
+            if isLandscape && showIllustrations && currentStory.hasIllustrations {
+                HStack(spacing: 0) {
+                    // Left side: Illustrations
+                    ZStack {
+                        // System background
+                        Color(.systemBackground)
+
+                        // Illustration Carousel with sync support
+                        IllustrationCarouselView(
+                            illustrations: currentStory.sortedIllustrations,
+                            currentTime: $viewModel.currentTime,
+                            onRetryIllustration: { illustration in
+                                Task {
+                                    await viewModel.retryFailedIllustration(illustration)
                                 }
-                            )
-                            .onAppear {
-                                print("🖼️ === iPad IllustrationCarousel appeared ===")
-                                print("🖼️ Current story: '\(currentStory.title)'")
-                                print("🖼️ Total illustrations: \(currentStory.illustrations.count)")
-                                print("🖼️ Sorted illustrations: \(currentStory.sortedIllustrations.count)")
-                                print("🖼️ Generated illustrations: \(currentStory.generatedIllustrations.count)")
-                                print("🖼️ Has illustrations: \(currentStory.hasIllustrations)")
-                                for (idx, ill) in currentStory.sortedIllustrations.enumerated() {
-                                    print("🖼️   [\(idx)] generated: \(ill.isGenerated), path: \(ill.imagePath ?? "nil")")
+                            },
+                            onSeekToIllustration: { timestamp in
+                                // Only seek if audio is loaded and has duration
+                                if viewModel.duration > 0 {
+                                    viewModel.seek(to: timestamp)
                                 }
-                                print("🖼️ ===========================")
                             }
-                        }
-                        .frame(width: geometry.size.width * 0.5)
-                        .clipped()
-
-                        Divider()
-
-                        // Right side: Controls
-                        landscapeControlsView(geometry: geometry, isCompact: true)
-                            .frame(width: geometry.size.width * 0.5)
+                        )
                     }
-                } else {
-                    // Portrait Layout
-                    VStack(spacing: 0) {
+                    .frame(width: geometry.size.width * 0.5)
+                    .clipped()
+
+                    Divider()
+
+                    // Right side: Controls
+                    landscapeControlsView(geometry: geometry, isCompact: true)
+                        .frame(width: geometry.size.width * 0.5)
+                }
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    Color.clear.frame(height: 0)
+                }
+            } else {
+                // Portrait Layout
+                VStack(spacing: 0) {
                     // Illustration Section (if enabled and available)
                     if showIllustrations && currentStory.hasIllustrations {
                         ZStack {
@@ -154,16 +174,7 @@ struct AudioPlayerView: View {
                                 }
                             )
                             .onAppear {
-                                print("🖼️ === iPhone IllustrationCarousel appeared ===")
-                                print("🖼️ Current story: '\(currentStory.title)'")
-                                print("🖼️ Total illustrations: \(currentStory.illustrations.count)")
-                                print("🖼️ Sorted illustrations: \(currentStory.sortedIllustrations.count)")
-                                print("🖼️ Generated illustrations: \(currentStory.generatedIllustrations.count)")
-                                print("🖼️ Has illustrations: \(currentStory.hasIllustrations)")
-                                for (idx, ill) in currentStory.sortedIllustrations.enumerated() {
-                                    print("🖼️   [\(idx)] generated: \(ill.isGenerated), path: \(ill.imagePath ?? "nil")")
-                                }
-                                print("🖼️ ===========================")
+                                print("Illustration Carousel appeared for iPhone")
                             }
                         }
                         .frame(height: illustrationHeight)
@@ -553,14 +564,16 @@ struct AudioPlayerView: View {
                             .padding(.bottom, 8)
                         }
                     }
-                }
-                }
-            }
-            .background(Color(.systemBackground))
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationTitle("Audio Player")
-            .glassNavigation()
-            .toolbar {
+                } // End of VStack(spacing: 0) - Portrait Layout
+            } // End of else (portrait)
+        } // End of GeometryReader
+        .background(Color(.systemBackground))
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationTitle("Audio Player")
+        .toolbarBackground(.visible, for: .navigationBar)
+        .modifier(iOS26SafeAreaModifier())
+        .glassNavigation()
+        .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
                         viewModel.stopAudio()
@@ -684,14 +697,16 @@ struct AudioPlayerView: View {
                     viewModel.currentStory = initialStory
                 }
             }
-            .onDisappear {
-                viewModel.stopAudio()
-                // Ensure idle timer is re-enabled when leaving the player
-                UIApplication.shared.isIdleTimerDisabled = false
-            }
+        .onDisappear {
+            // End listening session and stop audio when leaving the player
+            // Use the sync version since we're in onDisappear
+            viewModel.endListeningSessionSync(completed: false)
+            viewModel.stopAudio(endSession: false) // Session already ended above
+            // Ensure idle timer is re-enabled when leaving the player
+            UIApplication.shared.isIdleTimerDisabled = false
         }
-    }
-    
+    } // End of mainContentView
+
     // MARK: - Helper Views
 
     @ViewBuilder
@@ -1053,6 +1068,22 @@ enum AudioExportError: LocalizedError {
             return "Invalid file name. Please try again."
         case .exportFailed(let reason):
             return "Export failed: \(reason)"
+        }
+    }
+}
+
+// MARK: - iOS 26 Safe Area Modifier
+
+/// Handles safe area adjustments specifically for iOS 26 Liquid Glass design system
+/// Ensures navigation bar doesn't overlap content in sheets
+private struct iOS26SafeAreaModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26, *) {
+            content
+                // Use opaque toolbar background on iOS 26 to prevent content showing through
+                .toolbarBackgroundVisibility(.automatic, for: .navigationBar)
+        } else {
+            content
         }
     }
 }

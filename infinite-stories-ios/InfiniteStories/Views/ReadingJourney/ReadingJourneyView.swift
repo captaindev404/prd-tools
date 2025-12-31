@@ -2,119 +2,51 @@
 //  ReadingJourneyView.swift
 //  InfiniteStories
 //
-//  Comprehensive reading statistics and journey tracking view
+//  Comprehensive reading statistics and journey tracking view - API-only
 //
 
 import SwiftUI
-import SwiftData
 import Charts
 
 // MARK: - Reading Journey Tab Content (for Tab Bar navigation)
 /// This view is used within the Journey tab and removes redundant dismiss button
 /// since navigation is now handled by the tab bar.
 struct ReadingJourneyTabContent: View {
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
-    @Query(sort: \Story.createdAt, order: .reverse) private var stories: [Story]
-    @Query private var heroes: [Hero]
 
+    // API-only state management
+    @State private var summary: AnalyticsSummary?
+    @State private var activityData: ListeningActivityResponse?
+    @State private var heroAnalytics: HeroAnalyticsResponse?
+    @State private var milestones: MilestonesResponse?
+    @State private var insights: InsightsResponse?
+    @State private var recentStories: [Story] = []
+    @State private var favoriteStories: [Story] = []
+
+    // Loading and error states
+    @State private var isLoading = false
+    @State private var error: Error?
+
+    // UI state
     @State private var selectedTimeRange: TimeRange = .week
-    @State private var selectedHero: Hero?
     @State private var showingShareSheet = false
 
-    // Computed statistics
-    private var totalStories: Int {
-        stories.count
-    }
-
-    private var totalListeningTime: TimeInterval {
-        stories.reduce(0) { $0 + ($1.estimatedDuration * Double($1.playCount)) }
-    }
-
-    private var totalPlayCount: Int {
-        stories.reduce(0) { $0 + $1.playCount }
-    }
-
-    private var favoriteStories: [Story] {
-        stories.filter { $0.isFavorite }
-    }
-
-    private var currentStreak: Int {
-        calculateReadingStreak()
-    }
-
-    private var averageStoryLength: TimeInterval {
-        guard !stories.isEmpty else { return 0 }
-        let totalDuration = stories.reduce(0) { $0 + $1.estimatedDuration }
-        return totalDuration / Double(stories.count)
-    }
-
-    private var mostActiveHero: Hero? {
-        heroes.max { $0.stories.count < $1.stories.count }
-    }
-
-    private var listeningDataPoints: [ListeningDataPoint] {
-        generateListeningData()
-    }
-
-    private var heroStoryDistribution: [HeroStoryData] {
-        heroes.compactMap { hero in
-            let storyCount = hero.stories.count
-            guard storyCount > 0 else { return nil }
-            return HeroStoryData(hero: hero, storyCount: storyCount)
-        }.sorted { $0.storyCount > $1.storyCount }
-    }
+    // Repositories
+    private let journeyRepository = ReadingJourneyRepository()
+    private let storyRepository = StoryRepository()
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 25) {
-                    // Header Stats Cards
-                    HeaderStatsSection(
-                        totalStories: totalStories,
-                        totalListeningTime: totalListeningTime,
-                        currentStreak: currentStreak,
-                        favoriteCount: favoriteStories.count
-                    )
-
-                    // Listening Activity Chart
-                    ListeningActivityChart(
-                        dataPoints: listeningDataPoints,
-                        selectedTimeRange: $selectedTimeRange
-                    )
-
-                    // Hero Performance Section
-                    if !heroStoryDistribution.isEmpty {
-                        HeroPerformanceSection(
-                            heroData: heroStoryDistribution,
-                            mostActiveHero: mostActiveHero
-                        )
-                    }
-
-                    // Milestones & Achievements
-                    MilestonesSection(
-                        totalStories: totalStories,
-                        totalListeningTime: totalListeningTime,
-                        currentStreak: currentStreak
-                    )
-
-                    // Recent Activity Timeline
-                    RecentActivitySection(stories: Array(stories.prefix(10)))
-
-                    // Favorite Stories Collection
-                    if !favoriteStories.isEmpty {
-                        FavoriteStoriesSection(favorites: favoriteStories)
-                    }
-
-                    // Reading Insights
-                    ReadingInsightsSection(
-                        stories: stories,
-                        averageStoryLength: averageStoryLength,
-                        totalPlayCount: totalPlayCount
-                    )
+            Group {
+                if isLoading && summary == nil {
+                    LoadingView()
+                } else if let error = error, summary == nil {
+                    ErrorView(error: error, retryAction: {
+                        Task { await loadAllData(forceRefresh: true) }
+                    })
+                } else {
+                    contentView
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 10)
             }
             .background(backgroundGradient)
             .navigationTitle("Reading Journey")
@@ -122,15 +54,79 @@ struct ReadingJourneyTabContent: View {
             .glassNavigation()
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showingShareSheet = true }) {
-                        Image(systemName: "square.and.arrow.up")
-                            .foregroundColor(.accentColor)
+                    HStack(spacing: 16) {
+                        Button(action: {
+                            Task { await loadAllData(forceRefresh: true) }
+                        }) {
+                            Image(systemName: "arrow.clockwise")
+                                .foregroundColor(.accentColor)
+                        }
+                        .disabled(isLoading)
+
+                        Button(action: { showingShareSheet = true }) {
+                            Image(systemName: "square.and.arrow.up")
+                                .foregroundColor(.accentColor)
+                        }
                     }
                 }
             }
         }
         .sheet(isPresented: $showingShareSheet) {
             JourneyShareSheet(items: [generateShareText()])
+        }
+        .task {
+            await loadAllData(forceRefresh: false)
+        }
+        .onChange(of: selectedTimeRange) { _, newRange in
+            Task {
+                await loadActivityData(range: newRange, forceRefresh: true)
+            }
+        }
+    }
+
+    private var contentView: some View {
+        ScrollView {
+            VStack(spacing: 25) {
+                // Header Stats Cards
+                HeaderStatsSection(summary: summary)
+
+                // Listening Activity Chart
+                ListeningActivityChartAPI(
+                    activityData: activityData,
+                    selectedTimeRange: $selectedTimeRange,
+                    isLoading: isLoading
+                )
+
+                // Hero Performance Section
+                if let heroAnalytics = heroAnalytics, !heroAnalytics.heroes.isEmpty {
+                    HeroPerformanceSectionAPI(heroAnalytics: heroAnalytics)
+                }
+
+                // Milestones & Achievements
+                if let milestones = milestones {
+                    MilestonesSectionAPI(milestones: milestones)
+                }
+
+                // Recent Activity Timeline
+                if !recentStories.isEmpty {
+                    RecentActivitySection(stories: recentStories)
+                }
+
+                // Favorite Stories Collection
+                if !favoriteStories.isEmpty {
+                    FavoriteStoriesSection(favorites: favoriteStories)
+                }
+
+                // Reading Insights
+                if let insights = insights {
+                    ReadingInsightsSectionAPI(insights: insights.insights)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+        }
+        .refreshable {
+            await loadAllData(forceRefresh: true)
         }
     }
 
@@ -139,191 +135,180 @@ struct ReadingJourneyTabContent: View {
             .ignoresSafeArea()
     }
 
-    private func calculateReadingStreak() -> Int {
-        let calendar = Calendar.current
-        var streak = 0
-        var currentDate = Date()
+    // MARK: - Data Loading
 
-        for _ in 0..<365 {
-            let dayStories = stories.filter {
-                calendar.isDate($0.createdAt, inSameDayAs: currentDate)
-            }
-
-            if !dayStories.isEmpty {
-                streak += 1
-                currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate) ?? currentDate
-            } else if streak > 0 {
-                // Break in streak
-                break
-            } else {
-                // Haven't found the start of the streak yet
-                currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate) ?? currentDate
-            }
+    private func loadAllData(forceRefresh: Bool) async {
+        guard NetworkMonitor.shared.isConnected else {
+            error = APIError.networkUnavailable
+            return
         }
 
-        return streak
+        isLoading = true
+        error = nil
+
+        // Load all data concurrently
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { await loadSummary(forceRefresh: forceRefresh) }
+            group.addTask { await loadActivityData(range: selectedTimeRange, forceRefresh: forceRefresh) }
+            group.addTask { await loadHeroAnalytics(forceRefresh: forceRefresh) }
+            group.addTask { await loadMilestones(forceRefresh: forceRefresh) }
+            group.addTask { await loadInsights(forceRefresh: forceRefresh) }
+            group.addTask { await loadRecentStories() }
+            group.addTask { await loadFavoriteStories() }
+        }
+
+        isLoading = false
     }
 
-    private func generateListeningData() -> [ListeningDataPoint] {
-        let calendar = Calendar.current
-        var dataPoints: [ListeningDataPoint] = []
-
-        let daysToShow = selectedTimeRange.days
-        for dayOffset in 0..<daysToShow {
-            guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: Date()) else { continue }
-
-            let dayStories = stories.filter {
-                calendar.isDate($0.createdAt, inSameDayAs: date)
+    private func loadSummary(forceRefresh: Bool) async {
+        do {
+            summary = try await journeyRepository.fetchSummary(forceRefresh: forceRefresh)
+            Logger.ui.success("Loaded analytics summary")
+        } catch {
+            if self.error == nil {
+                self.error = error
             }
-
-            let totalMinutes = dayStories.reduce(0) { $0 + ($1.estimatedDuration / 60) }
-            dataPoints.append(ListeningDataPoint(date: date, minutes: totalMinutes))
+            Logger.ui.error("Failed to load summary: \(error.localizedDescription)")
         }
+    }
 
-        return dataPoints.reversed()
+    private func loadActivityData(range: TimeRange, forceRefresh: Bool) async {
+        do {
+            activityData = try await journeyRepository.fetchActivity(range: range, forceRefresh: forceRefresh)
+            Logger.ui.success("Loaded activity data for \(range.rawValue)")
+        } catch {
+            Logger.ui.error("Failed to load activity: \(error.localizedDescription)")
+        }
+    }
+
+    private func loadHeroAnalytics(forceRefresh: Bool) async {
+        do {
+            heroAnalytics = try await journeyRepository.fetchHeroAnalytics(forceRefresh: forceRefresh)
+            Logger.ui.success("Loaded hero analytics")
+        } catch {
+            Logger.ui.error("Failed to load hero analytics: \(error.localizedDescription)")
+        }
+    }
+
+    private func loadMilestones(forceRefresh: Bool) async {
+        do {
+            milestones = try await journeyRepository.fetchMilestones(forceRefresh: forceRefresh)
+            Logger.ui.success("Loaded milestones")
+        } catch {
+            Logger.ui.error("Failed to load milestones: \(error.localizedDescription)")
+        }
+    }
+
+    private func loadInsights(forceRefresh: Bool) async {
+        do {
+            insights = try await journeyRepository.fetchInsights(forceRefresh: forceRefresh)
+            Logger.ui.success("Loaded insights")
+        } catch {
+            Logger.ui.error("Failed to load insights: \(error.localizedDescription)")
+        }
+    }
+
+    private func loadRecentStories() async {
+        do {
+            let stories = try await storyRepository.fetchStories(heroId: nil, limit: 10, offset: 0)
+            recentStories = stories
+            Logger.ui.success("Loaded \(stories.count) recent stories")
+        } catch {
+            Logger.ui.error("Failed to load recent stories: \(error.localizedDescription)")
+        }
+    }
+
+    private func loadFavoriteStories() async {
+        do {
+            // Fetch stories and filter favorites client-side
+            // TODO: Add backend endpoint for favorite stories when available
+            let stories = try await storyRepository.fetchStories(heroId: nil, limit: 50, offset: 0)
+            favoriteStories = stories.filter { $0.isFavorite }
+            Logger.ui.success("Loaded \(favoriteStories.count) favorite stories")
+        } catch {
+            Logger.ui.error("Failed to load favorite stories: \(error.localizedDescription)")
+        }
     }
 
     private func generateShareText() -> String {
-        """
+        let totalStories = summary?.totalStoriesListened ?? 0
+        let listeningTime = summary?.formattedListeningTime ?? "0m"
+        let streak = summary?.currentStreak ?? 0
+        let favorites = summary?.favoriteStoriesCount ?? 0
+        let mostActiveHero = heroAnalytics?.mostActiveHero?.heroName ?? "None yet"
+
+        return """
         My Infinite Stories Reading Journey
 
         Total Stories: \(totalStories)
-        Listening Time: \(formatDuration(totalListeningTime))
-        Current Streak: \(currentStreak) days
-        Favorite Stories: \(favoriteStories.count)
+        Listening Time: \(listeningTime)
+        Current Streak: \(streak) days
+        Favorite Stories: \(favorites)
 
-        Most Active Hero: \(mostActiveHero?.name ?? "None yet")
+        Most Active Hero: \(mostActiveHero)
 
         Created with Infinite Stories - Where magical adventures come to life!
         """
-    }
-
-    private func formatDuration(_ duration: TimeInterval) -> String {
-        let hours = Int(duration) / 3600
-        let minutes = (Int(duration) % 3600) / 60
-
-        if hours > 0 {
-            return "\(hours)h \(minutes)m"
-        } else {
-            return "\(minutes)m"
-        }
     }
 }
 
 // MARK: - Main Reading Journey View (Legacy - for sheet/fullScreenCover presentation)
 struct ReadingJourneyView: View {
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
-    @Query(sort: \Story.createdAt, order: .reverse) private var stories: [Story]
-    @Query private var heroes: [Hero]
 
+    // API-only state management
+    @State private var summary: AnalyticsSummary?
+    @State private var activityData: ListeningActivityResponse?
+    @State private var heroAnalytics: HeroAnalyticsResponse?
+    @State private var milestones: MilestonesResponse?
+    @State private var insights: InsightsResponse?
+    @State private var recentStories: [Story] = []
+    @State private var favoriteStories: [Story] = []
+
+    // Loading and error states
+    @State private var isLoading = false
+    @State private var error: Error?
+
+    // UI state
     @State private var selectedTimeRange: TimeRange = .week
-    @State private var selectedHero: Hero?
     @State private var showingShareSheet = false
 
-    // Computed statistics
-    private var totalStories: Int {
-        stories.count
-    }
-
-    private var totalListeningTime: TimeInterval {
-        stories.reduce(0) { $0 + ($1.estimatedDuration * Double($1.playCount)) }
-    }
-
-    private var totalPlayCount: Int {
-        stories.reduce(0) { $0 + $1.playCount }
-    }
-
-    private var favoriteStories: [Story] {
-        stories.filter { $0.isFavorite }
-    }
-
-    private var currentStreak: Int {
-        calculateReadingStreak()
-    }
-
-    private var averageStoryLength: TimeInterval {
-        guard !stories.isEmpty else { return 0 }
-        let totalDuration = stories.reduce(0) { $0 + $1.estimatedDuration }
-        return totalDuration / Double(stories.count)
-    }
-
-    private var mostActiveHero: Hero? {
-        heroes.max { $0.stories.count < $1.stories.count }
-    }
-
-    private var listeningDataPoints: [ListeningDataPoint] {
-        generateListeningData()
-    }
-
-    private var heroStoryDistribution: [HeroStoryData] {
-        heroes.compactMap { hero in
-            let storyCount = hero.stories.count
-            guard storyCount > 0 else { return nil }
-            return HeroStoryData(hero: hero, storyCount: storyCount)
-        }.sorted { $0.storyCount > $1.storyCount }
-    }
+    // Repositories
+    private let journeyRepository = ReadingJourneyRepository()
+    private let storyRepository = StoryRepository()
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 25) {
-                    // Header Stats Cards
-                    HeaderStatsSection(
-                        totalStories: totalStories,
-                        totalListeningTime: totalListeningTime,
-                        currentStreak: currentStreak,
-                        favoriteCount: favoriteStories.count
-                    )
-
-                    // Listening Activity Chart
-                    ListeningActivityChart(
-                        dataPoints: listeningDataPoints,
-                        selectedTimeRange: $selectedTimeRange
-                    )
-
-                    // Hero Performance Section
-                    if !heroStoryDistribution.isEmpty {
-                        HeroPerformanceSection(
-                            heroData: heroStoryDistribution,
-                            mostActiveHero: mostActiveHero
-                        )
-                    }
-
-                    // Milestones & Achievements
-                    MilestonesSection(
-                        totalStories: totalStories,
-                        totalListeningTime: totalListeningTime,
-                        currentStreak: currentStreak
-                    )
-
-                    // Recent Activity Timeline
-                    RecentActivitySection(stories: Array(stories.prefix(10)))
-
-                    // Favorite Stories Collection
-                    if !favoriteStories.isEmpty {
-                        FavoriteStoriesSection(favorites: favoriteStories)
-                    }
-
-                    // Reading Insights
-                    ReadingInsightsSection(
-                        stories: stories,
-                        averageStoryLength: averageStoryLength,
-                        totalPlayCount: totalPlayCount
-                    )
+            Group {
+                if isLoading && summary == nil {
+                    LoadingView()
+                } else if let error = error, summary == nil {
+                    ErrorView(error: error, retryAction: {
+                        Task { await loadAllData(forceRefresh: true) }
+                    })
+                } else {
+                    contentView
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 10)
             }
             .background(backgroundGradient)
             .navigationTitle("Reading Journey")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showingShareSheet = true }) {
-                        Image(systemName: "square.and.arrow.up")
-                            .foregroundColor(.accentColor)
+                    HStack(spacing: 16) {
+                        Button(action: {
+                            Task { await loadAllData(forceRefresh: true) }
+                        }) {
+                            Image(systemName: "arrow.clockwise")
+                                .foregroundColor(.accentColor)
+                        }
+                        .disabled(isLoading)
+
+                        Button(action: { showingShareSheet = true }) {
+                            Image(systemName: "square.and.arrow.up")
+                                .foregroundColor(.accentColor)
+                        }
                     }
                 }
 
@@ -338,6 +323,60 @@ struct ReadingJourneyView: View {
         .sheet(isPresented: $showingShareSheet) {
             JourneyShareSheet(items: [generateShareText()])
         }
+        .task {
+            await loadAllData(forceRefresh: false)
+        }
+        .onChange(of: selectedTimeRange) { _, newRange in
+            Task {
+                await loadActivityData(range: newRange, forceRefresh: true)
+            }
+        }
+    }
+
+    private var contentView: some View {
+        ScrollView {
+            VStack(spacing: 25) {
+                // Header Stats Cards
+                HeaderStatsSection(summary: summary)
+
+                // Listening Activity Chart
+                ListeningActivityChartAPI(
+                    activityData: activityData,
+                    selectedTimeRange: $selectedTimeRange,
+                    isLoading: isLoading
+                )
+
+                // Hero Performance Section
+                if let heroAnalytics = heroAnalytics, !heroAnalytics.heroes.isEmpty {
+                    HeroPerformanceSectionAPI(heroAnalytics: heroAnalytics)
+                }
+
+                // Milestones & Achievements
+                if let milestones = milestones {
+                    MilestonesSectionAPI(milestones: milestones)
+                }
+
+                // Recent Activity Timeline
+                if !recentStories.isEmpty {
+                    RecentActivitySection(stories: recentStories)
+                }
+
+                // Favorite Stories Collection
+                if !favoriteStories.isEmpty {
+                    FavoriteStoriesSection(favorites: favoriteStories)
+                }
+
+                // Reading Insights
+                if let insights = insights {
+                    ReadingInsightsSectionAPI(insights: insights.insights)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+        }
+        .refreshable {
+            await loadAllData(forceRefresh: true)
+        }
     }
 
     private var backgroundGradient: some View {
@@ -345,83 +384,141 @@ struct ReadingJourneyView: View {
             .ignoresSafeArea()
     }
 
-    private func calculateReadingStreak() -> Int {
-        let calendar = Calendar.current
-        var streak = 0
-        var currentDate = Date()
+    // MARK: - Data Loading
 
-        for _ in 0..<365 {
-            let dayStories = stories.filter {
-                calendar.isDate($0.createdAt, inSameDayAs: currentDate)
-            }
-
-            if !dayStories.isEmpty {
-                streak += 1
-                currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate) ?? currentDate
-            } else if streak > 0 {
-                // Break in streak
-                break
-            } else {
-                // Haven't found the start of the streak yet
-                currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate) ?? currentDate
-            }
+    private func loadAllData(forceRefresh: Bool) async {
+        guard NetworkMonitor.shared.isConnected else {
+            error = APIError.networkUnavailable
+            return
         }
 
-        return streak
+        isLoading = true
+        error = nil
+
+        // Load all data concurrently
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { await loadSummary(forceRefresh: forceRefresh) }
+            group.addTask { await loadActivityData(range: selectedTimeRange, forceRefresh: forceRefresh) }
+            group.addTask { await loadHeroAnalytics(forceRefresh: forceRefresh) }
+            group.addTask { await loadMilestones(forceRefresh: forceRefresh) }
+            group.addTask { await loadInsights(forceRefresh: forceRefresh) }
+            group.addTask { await loadRecentStories() }
+            group.addTask { await loadFavoriteStories() }
+        }
+
+        isLoading = false
     }
 
-    private func generateListeningData() -> [ListeningDataPoint] {
-        let calendar = Calendar.current
-        var dataPoints: [ListeningDataPoint] = []
-
-        let daysToShow = selectedTimeRange.days
-        for dayOffset in 0..<daysToShow {
-            guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: Date()) else { continue }
-
-            let dayStories = stories.filter {
-                calendar.isDate($0.createdAt, inSameDayAs: date)
+    private func loadSummary(forceRefresh: Bool) async {
+        do {
+            summary = try await journeyRepository.fetchSummary(forceRefresh: forceRefresh)
+            Logger.ui.success("Loaded analytics summary")
+        } catch {
+            if self.error == nil {
+                self.error = error
             }
-
-            let totalMinutes = dayStories.reduce(0) { $0 + ($1.estimatedDuration / 60) }
-            dataPoints.append(ListeningDataPoint(date: date, minutes: totalMinutes))
+            Logger.ui.error("Failed to load summary: \(error.localizedDescription)")
         }
+    }
 
-        return dataPoints.reversed()
+    private func loadActivityData(range: TimeRange, forceRefresh: Bool) async {
+        do {
+            activityData = try await journeyRepository.fetchActivity(range: range, forceRefresh: forceRefresh)
+            Logger.ui.success("Loaded activity data for \(range.rawValue)")
+        } catch {
+            Logger.ui.error("Failed to load activity: \(error.localizedDescription)")
+        }
+    }
+
+    private func loadHeroAnalytics(forceRefresh: Bool) async {
+        do {
+            heroAnalytics = try await journeyRepository.fetchHeroAnalytics(forceRefresh: forceRefresh)
+            Logger.ui.success("Loaded hero analytics")
+        } catch {
+            Logger.ui.error("Failed to load hero analytics: \(error.localizedDescription)")
+        }
+    }
+
+    private func loadMilestones(forceRefresh: Bool) async {
+        do {
+            milestones = try await journeyRepository.fetchMilestones(forceRefresh: forceRefresh)
+            Logger.ui.success("Loaded milestones")
+        } catch {
+            Logger.ui.error("Failed to load milestones: \(error.localizedDescription)")
+        }
+    }
+
+    private func loadInsights(forceRefresh: Bool) async {
+        do {
+            insights = try await journeyRepository.fetchInsights(forceRefresh: forceRefresh)
+            Logger.ui.success("Loaded insights")
+        } catch {
+            Logger.ui.error("Failed to load insights: \(error.localizedDescription)")
+        }
+    }
+
+    private func loadRecentStories() async {
+        do {
+            let stories = try await storyRepository.fetchStories(heroId: nil, limit: 10, offset: 0)
+            recentStories = stories
+            Logger.ui.success("Loaded \(stories.count) recent stories")
+        } catch {
+            Logger.ui.error("Failed to load recent stories: \(error.localizedDescription)")
+        }
+    }
+
+    private func loadFavoriteStories() async {
+        do {
+            // Fetch stories and filter favorites client-side
+            // TODO: Add backend endpoint for favorite stories when available
+            let stories = try await storyRepository.fetchStories(heroId: nil, limit: 50, offset: 0)
+            favoriteStories = stories.filter { $0.isFavorite }
+            Logger.ui.success("Loaded \(favoriteStories.count) favorite stories")
+        } catch {
+            Logger.ui.error("Failed to load favorite stories: \(error.localizedDescription)")
+        }
     }
 
     private func generateShareText() -> String {
-        """
+        let totalStories = summary?.totalStoriesListened ?? 0
+        let listeningTime = summary?.formattedListeningTime ?? "0m"
+        let streak = summary?.currentStreak ?? 0
+        let favorites = summary?.favoriteStoriesCount ?? 0
+        let mostActiveHero = heroAnalytics?.mostActiveHero?.heroName ?? "None yet"
+
+        return """
         My Infinite Stories Reading Journey
 
         Total Stories: \(totalStories)
-        Listening Time: \(formatDuration(totalListeningTime))
-        Current Streak: \(currentStreak) days
-        Favorite Stories: \(favoriteStories.count)
+        Listening Time: \(listeningTime)
+        Current Streak: \(streak) days
+        Favorite Stories: \(favorites)
 
-        Most Active Hero: \(mostActiveHero?.name ?? "None yet")
+        Most Active Hero: \(mostActiveHero)
 
         Created with Infinite Stories - Where magical adventures come to life!
         """
     }
+}
 
-    private func formatDuration(_ duration: TimeInterval) -> String {
-        let hours = Int(duration) / 3600
-        let minutes = (Int(duration) % 3600) / 60
+// MARK: - Loading View
+private struct LoadingView: View {
+    var body: some View {
+        VStack(spacing: 20) {
+            ProgressView()
+                .scaleEffect(1.5)
 
-        if hours > 0 {
-            return "\(hours)h \(minutes)m"
-        } else {
-            return "\(minutes)m"
+            Text("Loading your journey...")
+                .font(.headline)
+                .foregroundColor(.secondary)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
-// MARK: - Header Stats Section
+// MARK: - Header Stats Section (Updated for API)
 struct HeaderStatsSection: View {
-    let totalStories: Int
-    let totalListeningTime: TimeInterval
-    let currentStreak: Int
-    let favoriteCount: Int
+    let summary: AnalyticsSummary?
 
     private let columns = [
         GridItem(.flexible()),
@@ -433,7 +530,7 @@ struct HeaderStatsSection: View {
             JourneyStatCard(
                 icon: "book.closed.fill",
                 title: "Total Stories",
-                value: "\(totalStories)",
+                value: "\(summary?.totalStoriesListened ?? 0)",
                 color: .blue,
                 isLarge: false
             )
@@ -441,7 +538,7 @@ struct HeaderStatsSection: View {
             JourneyStatCard(
                 icon: "clock.fill",
                 title: "Listening Time",
-                value: formatDuration(totalListeningTime),
+                value: summary?.formattedListeningTime ?? "0m",
                 color: .green,
                 isLarge: false
             )
@@ -449,7 +546,7 @@ struct HeaderStatsSection: View {
             JourneyStatCard(
                 icon: "flame.fill",
                 title: "Current Streak",
-                value: "\(currentStreak) days",
+                value: "\(summary?.currentStreak ?? 0) days",
                 color: .orange,
                 isLarge: false
             )
@@ -457,21 +554,10 @@ struct HeaderStatsSection: View {
             JourneyStatCard(
                 icon: "heart.fill",
                 title: "Favorites",
-                value: "\(favoriteCount)",
+                value: "\(summary?.favoriteStoriesCount ?? 0)",
                 color: .red,
                 isLarge: false
             )
-        }
-    }
-
-    private func formatDuration(_ duration: TimeInterval) -> String {
-        let hours = Int(duration) / 3600
-        let minutes = (Int(duration) % 3600) / 60
-
-        if hours > 0 {
-            return "\(hours)h \(minutes)m"
-        } else {
-            return "\(minutes) min"
         }
     }
 }
@@ -534,11 +620,20 @@ struct JourneyStatCard: View {
     }
 }
 
-// MARK: - Listening Activity Chart
-struct ListeningActivityChart: View {
-    let dataPoints: [ListeningDataPoint]
+// MARK: - Listening Activity Chart (API Version)
+struct ListeningActivityChartAPI: View {
+    let activityData: ListeningActivityResponse?
     @Binding var selectedTimeRange: TimeRange
+    let isLoading: Bool
     @Environment(\.colorScheme) private var colorScheme
+
+    private var dataPoints: [ListeningDataPoint] {
+        guard let activity = activityData?.activity else { return [] }
+        return activity.compactMap { point in
+            guard let date = point.dateValue else { return nil }
+            return ListeningDataPoint(date: date, minutes: point.minutesDouble)
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
@@ -558,7 +653,14 @@ struct ListeningActivityChart: View {
                 .frame(width: 200)
             }
 
-            if !dataPoints.isEmpty {
+            if isLoading && activityData == nil {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.gray.opacity(0.1))
+                    .frame(height: 200)
+                    .overlay(
+                        ProgressView()
+                    )
+            } else if !dataPoints.isEmpty {
                 Chart(dataPoints) { point in
                     BarMark(
                         x: .value("Date", point.date, unit: .day),
@@ -600,10 +702,9 @@ struct ListeningActivityChart: View {
     }
 }
 
-// MARK: - Hero Performance Section
-struct HeroPerformanceSection: View {
-    let heroData: [HeroStoryData]
-    let mostActiveHero: Hero?
+// MARK: - Hero Performance Section (API Version)
+struct HeroPerformanceSectionAPI: View {
+    let heroAnalytics: HeroAnalyticsResponse
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -612,16 +713,39 @@ struct HeroPerformanceSection: View {
                 .font(.title3)
                 .fontWeight(.bold)
 
-            if let topHero = mostActiveHero {
+            if let topHero = heroAnalytics.mostActiveHero {
                 HStack {
-                    // Use HeroAvatarImageView for consistent avatar display
-                    HeroAvatarImageView(hero: topHero, size: 50)
+                    // Avatar
+                    AsyncImage(url: topHero.avatarUrl.flatMap { URL(string: $0) }) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 50, height: 50)
+                                .clipShape(Circle())
+                        case .failure, .empty:
+                            Circle()
+                                .fill(Color.accentColor.opacity(0.3))
+                                .frame(width: 50, height: 50)
+                                .overlay(
+                                    Text(String(topHero.heroName.prefix(1)))
+                                        .font(.title2)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.accentColor)
+                                )
+                        @unknown default:
+                            Circle()
+                                .fill(Color.gray.opacity(0.3))
+                                .frame(width: 50, height: 50)
+                        }
+                    }
 
                     VStack(alignment: .leading) {
                         Text("Most Active Hero")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        Text(topHero.name)
+                        Text(topHero.heroName)
                             .font(.headline)
                             .foregroundColor(.accentColor)
                     }
@@ -629,7 +753,7 @@ struct HeroPerformanceSection: View {
                     Spacer()
 
                     VStack(alignment: .trailing) {
-                        Text("\(topHero.stories.count)")
+                        Text("\(topHero.storiesCount)")
                             .font(.title2)
                             .fontWeight(.bold)
                         Text("Stories")
@@ -644,9 +768,9 @@ struct HeroPerformanceSection: View {
                 )
             }
 
-            // Hero distribution chart
-            ForEach(heroData) { data in
-                HeroStoryBar(heroData: data, maxCount: heroData.first?.storyCount ?? 1)
+            // Hero distribution bars
+            ForEach(heroAnalytics.heroes) { hero in
+                HeroAnalyticsBar(hero: hero, maxCount: heroAnalytics.heroes.first?.storiesCount ?? 1)
             }
         }
         .padding()
@@ -658,19 +782,19 @@ struct HeroPerformanceSection: View {
     }
 }
 
-// MARK: - Hero Story Bar
-struct HeroStoryBar: View {
-    let heroData: HeroStoryData
+// MARK: - Hero Analytics Bar
+struct HeroAnalyticsBar: View {
+    let hero: HeroAnalytics
     let maxCount: Int
 
     private var barWidth: CGFloat {
-        let ratio = CGFloat(heroData.storyCount) / CGFloat(maxCount)
+        let ratio = CGFloat(hero.storiesCount) / CGFloat(maxCount)
         return max(ratio, 0.1) // Minimum 10% width for visibility
     }
 
     var body: some View {
         HStack(spacing: 10) {
-            Text(heroData.hero.name)
+            Text(hero.heroName)
                 .font(.subheadline)
                 .lineLimit(1)
                 .frame(width: 80, alignment: .leading)
@@ -688,7 +812,7 @@ struct HeroStoryBar: View {
             }
             .frame(height: 30)
 
-            Text("\(heroData.storyCount)")
+            Text("\(hero.storiesCount)")
                 .font(.subheadline)
                 .fontWeight(.medium)
                 .frame(width: 30, alignment: .trailing)
@@ -696,36 +820,34 @@ struct HeroStoryBar: View {
     }
 }
 
-// MARK: - Milestones Section
-struct MilestonesSection: View {
-    let totalStories: Int
-    let totalListeningTime: TimeInterval
-    let currentStreak: Int
+// MARK: - Milestones Section (API Version)
+struct MilestonesSectionAPI: View {
+    let milestones: MilestonesResponse
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var unlockedMilestones: [Milestone] {
-        Milestone.allMilestones.filter { $0.isUnlocked(stories: totalStories, time: totalListeningTime, streak: currentStreak) }
-    }
-
-    private var nextMilestone: Milestone? {
-        Milestone.allMilestones.first { !$0.isUnlocked(stories: totalStories, time: totalListeningTime, streak: currentStreak) }
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
-            Text("Milestones")
-                .font(.title3)
-                .fontWeight(.bold)
+            HStack {
+                Text("Milestones")
+                    .font(.title3)
+                    .fontWeight(.bold)
+
+                Spacer()
+
+                Text("\(milestones.summary.unlockedCount)/\(milestones.summary.totalMilestones)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 15) {
-                    ForEach(unlockedMilestones) { milestone in
-                        MilestoneCard(milestone: milestone, isUnlocked: true)
+                    ForEach(milestones.unlockedMilestones) { milestone in
+                        MilestoneCardAPI(milestone: milestone, isUnlocked: true)
                     }
 
-                    if let next = nextMilestone {
-                        MilestoneCard(milestone: next, isUnlocked: false)
+                    if let next = milestones.nextMilestone {
+                        MilestoneCardAPI(milestone: next, isUnlocked: false)
                             .opacity(0.6)
                     }
                 }
@@ -740,29 +862,57 @@ struct MilestonesSection: View {
     }
 }
 
-// MARK: - Milestone Card
-struct MilestoneCard: View {
-    let milestone: Milestone
+// MARK: - Milestone Card (API Version)
+struct MilestoneCardAPI: View {
+    let milestone: MilestoneData
     let isUnlocked: Bool
+
+    private var color: Color {
+        switch milestone.category {
+        case "stories": return .blue
+        case "listening": return .green
+        case "streak": return .orange
+        default: return .purple
+        }
+    }
 
     var body: some View {
         VStack(spacing: 8) {
             ZStack {
                 Circle()
-                    .fill(isUnlocked ? milestone.color : Color.gray.opacity(0.3))
+                    .fill(isUnlocked ? color : Color.gray.opacity(0.3))
                     .frame(width: 60, height: 60)
 
-                Image(systemName: milestone.icon)
-                    .font(.title2)
-                    .foregroundColor(.white)
+                if let emoji = milestone.emoji {
+                    Text(emoji)
+                        .font(.title2)
+                } else {
+                    Image(systemName: iconForCategory(milestone.category))
+                        .font(.title2)
+                        .foregroundColor(.white)
+                }
             }
 
             Text(milestone.title)
                 .font(.caption)
                 .multilineTextAlignment(.center)
                 .frame(width: 80)
+
+            if !isUnlocked, let percentage = milestone.percentage {
+                ProgressView(value: Double(percentage), total: 100)
+                    .frame(width: 60)
+            }
         }
         .padding(.vertical, 10)
+    }
+
+    private func iconForCategory(_ category: String) -> String {
+        switch category {
+        case "stories": return "book.closed"
+        case "listening": return "clock"
+        case "streak": return "flame"
+        default: return "star"
+        }
     }
 }
 
@@ -814,7 +964,7 @@ struct ActivityRow: View {
                             .foregroundColor(.accentColor)
                     }
 
-                    Text("•")
+                    Text("*")
                         .font(.caption)
                         .foregroundColor(.secondary)
 
@@ -823,7 +973,7 @@ struct ActivityRow: View {
                         .foregroundColor(.secondary)
 
                     if story.playCount > 0 {
-                        Text("•")
+                        Text("*")
                             .font(.caption)
                             .foregroundColor(.secondary)
 
@@ -883,13 +1033,12 @@ struct FavoriteStoriesSection: View {
                 .shadow(color: Color.black.opacity(0.1), radius: 5)
         )
         .sheet(item: $selectedStory) { story in
-            NavigationStack {
-                AudioPlayerView(
-                    story: story,
-                    allStories: favorites,
-                    storyIndex: favorites.firstIndex(where: { $0.id == story.id }) ?? 0
-                )
-            }
+            AudioPlayerView(
+                story: story,
+                allStories: favorites,
+                storyIndex: favorites.firstIndex(where: { $0.id == story.id }) ?? 0
+            )
+            .glassSheet()
         }
     }
 }
@@ -937,38 +1086,11 @@ struct FavoriteStoryCard: View {
     }
 }
 
-// MARK: - Reading Insights Section
-struct ReadingInsightsSection: View {
-    let stories: [Story]
-    let averageStoryLength: TimeInterval
-    let totalPlayCount: Int
+// MARK: - Reading Insights Section (API Version)
+struct ReadingInsightsSectionAPI: View {
+    let insights: Insights
 
     @Environment(\.colorScheme) private var colorScheme
-
-    private var mostListenedStory: Story? {
-        stories.max { $0.playCount < $1.playCount }
-    }
-
-    private var averageListensPerStory: Double {
-        guard !stories.isEmpty else { return 0 }
-        return Double(totalPlayCount) / Double(stories.count)
-    }
-
-    private var preferredListeningTime: String {
-        let calendar = Calendar.current
-        let hours = stories.compactMap { calendar.component(.hour, from: $0.createdAt) }
-
-        guard !hours.isEmpty else { return "No pattern yet" }
-
-        let hourCounts = Dictionary(grouping: hours, by: { $0 })
-        let mostCommonHour = hourCounts.max { $0.value.count < $1.value.count }?.key ?? 0
-
-        let formatter = DateFormatter()
-        formatter.dateFormat = "h a"
-        let date = calendar.date(from: DateComponents(hour: mostCommonHour)) ?? Date()
-
-        return formatter.string(from: date)
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
@@ -977,31 +1099,41 @@ struct ReadingInsightsSection: View {
                 .fontWeight(.bold)
 
             VStack(spacing: 12) {
-                InsightRow(
-                    icon: "clock",
-                    label: "Average Story Length",
-                    value: formatDuration(averageStoryLength)
-                )
+                if let avgLength = insights.averageStoryLengthMinutes {
+                    InsightRow(
+                        icon: "clock",
+                        label: "Average Story Length",
+                        value: "\(Int(avgLength)) min"
+                    )
+                }
 
-                InsightRow(
-                    icon: "play.circle",
-                    label: "Average Listens per Story",
-                    value: String(format: "%.1f", averageListensPerStory)
-                )
+                if let avgListens = insights.averageListensPerStory {
+                    InsightRow(
+                        icon: "play.circle",
+                        label: "Average Listens per Story",
+                        value: String(format: "%.1f", avgListens)
+                    )
+                }
 
                 InsightRow(
                     icon: "moon.stars",
                     label: "Preferred Listening Time",
-                    value: preferredListeningTime
+                    value: insights.formattedPreferredTime
                 )
 
-                if let topStory = mostListenedStory, topStory.playCount > 0 {
+                if let topStory = insights.mostListenedStory {
                     InsightRow(
                         icon: "star.fill",
                         label: "Most Listened Story",
                         value: "\(topStory.title) (\(topStory.playCount) plays)"
                     )
                 }
+
+                InsightRow(
+                    icon: "books.vertical",
+                    label: "Unique Stories Listened",
+                    value: "\(insights.totalUniqueStoriesListened)"
+                )
             }
         }
         .padding()
@@ -1010,11 +1142,6 @@ struct ReadingInsightsSection: View {
                 .fill(colorScheme == .dark ? Color.black.opacity(0.3) : Color.white)
                 .shadow(color: Color.black.opacity(0.1), radius: 5)
         )
-    }
-
-    private func formatDuration(_ duration: TimeInterval) -> String {
-        let minutes = Int(duration) / 60
-        return "\(minutes) min"
     }
 }
 
@@ -1046,69 +1173,12 @@ struct InsightRow: View {
 }
 
 // MARK: - Supporting Types
-enum TimeRange: String, CaseIterable, Identifiable {
-    case week = "Week"
-    case month = "Month"
-    case year = "Year"
-
-    var id: String { rawValue }
-
-    var days: Int {
-        switch self {
-        case .week: return 7
-        case .month: return 30
-        case .year: return 365
-        }
-    }
-}
+// Note: TimeRange enum is defined in ReadingJourneyRepository.swift as the single source of truth
 
 struct ListeningDataPoint: Identifiable {
     let id = UUID()
     let date: Date
     let minutes: Double
-}
-
-struct HeroStoryData: Identifiable {
-    let id = UUID()
-    let hero: Hero
-    let storyCount: Int
-}
-
-struct Milestone: Identifiable {
-    let id = UUID()
-    let title: String
-    let icon: String
-    let color: Color
-    let requirement: MilestoneRequirement
-
-    enum MilestoneRequirement {
-        case stories(Int)
-        case listeningTime(TimeInterval)
-        case streak(Int)
-    }
-
-    func isUnlocked(stories: Int, time: TimeInterval, streak: Int) -> Bool {
-        switch requirement {
-        case .stories(let required):
-            return stories >= required
-        case .listeningTime(let required):
-            return time >= required
-        case .streak(let required):
-            return streak >= required
-        }
-    }
-
-    static let allMilestones: [Milestone] = [
-        Milestone(title: "First Story", icon: "book.closed", color: .blue, requirement: .stories(1)),
-        Milestone(title: "Story Explorer", icon: "map", color: .green, requirement: .stories(5)),
-        Milestone(title: "Story Master", icon: "crown", color: .purple, requirement: .stories(10)),
-        Milestone(title: "Epic Reader", icon: "sparkles", color: .orange, requirement: .stories(25)),
-        Milestone(title: "Legendary", icon: "star.fill", color: .yellow, requirement: .stories(50)),
-        Milestone(title: "First Hour", icon: "clock", color: .blue, requirement: .listeningTime(3600)),
-        Milestone(title: "Five Hours", icon: "headphones", color: .green, requirement: .listeningTime(18000)),
-        Milestone(title: "Week Streak", icon: "flame", color: .orange, requirement: .streak(7)),
-        Milestone(title: "Month Streak", icon: "calendar", color: .red, requirement: .streak(30))
-    ]
 }
 
 // MARK: - Journey Share Sheet
@@ -1154,5 +1224,4 @@ class RelativeDateFormatter {
 // MARK: - Preview
 #Preview {
     ReadingJourneyView()
-        .modelContainer(for: [Hero.self, Story.self], inMemory: true)
 }

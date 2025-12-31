@@ -35,10 +35,20 @@ class NetworkMonitor: ObservableObject {
     private func startMonitoring() {
         monitor.pathUpdateHandler = { [weak self] path in
             Task { @MainActor in
-                self?.isConnected = path.status == .satisfied
-                self?.status = path.status == .satisfied ? .connected : .disconnected
+                let wasConnected = self?.isConnected ?? false
+                let isNowConnected = path.status == .satisfied
+
+                self?.isConnected = isNowConnected
+                self?.status = isNowConnected ? .connected : .disconnected
                 self?.isConnectedToWiFi = path.usesInterfaceType(.wifi)
                 self?.isConnectedToCellular = path.usesInterfaceType(.cellular)
+
+                // Post notification when network status changes
+                NotificationCenter.default.post(
+                    name: .networkStatusChanged,
+                    object: nil,
+                    userInfo: ["isConnected": isNowConnected, "wasConnected": wasConnected]
+                )
             }
         }
         monitor.start(queue: queue)
