@@ -25,7 +25,8 @@ final class Hero: Identifiable {
     var avatarGenerationId: String? // GPT-Image-1 generation ID for multi-turn consistency
 
     @Relationship(deleteRule: .nullify) var stories: [Story] = []
-    @Relationship var visualProfile: HeroVisualProfile?
+    // NOTE: visualProfile is now fetched from API, not stored in SwiftData
+    // Use HeroRepository.getVisualProfile(heroId:) to fetch
 
     init(name: String, primaryTrait: CharacterTrait, secondaryTrait: CharacterTrait, appearance: String = "", specialAbility: String = "", backendId: String? = nil) {
         self.id = UUID()

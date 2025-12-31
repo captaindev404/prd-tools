@@ -160,7 +160,7 @@ final class StoryGenerationViewModel {
 
     /// Generate a complete story with a custom event
     func generateStory(for hero: Hero, customEvent: CustomStoryEvent) async {
-        await generateStory(for: hero, eventTitle: customEvent.title, eventPrompt: customEvent.eventDescription)
+        await generateStory(for: hero, eventTitle: customEvent.title, eventPrompt: customEvent.description)
     }
 
     /// Main generation pipeline

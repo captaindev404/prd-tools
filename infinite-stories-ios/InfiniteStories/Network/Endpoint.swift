@@ -27,6 +27,13 @@ enum Endpoint {
     case deleteHero(id: String)
     case generateAvatar(heroId: String, prompt: String)
 
+    // MARK: - Hero Visual Profile
+    case getVisualProfile(heroId: String)
+    case createVisualProfile(heroId: String, data: VisualProfileCreateRequest)
+    case updateVisualProfile(heroId: String, data: VisualProfileUpdateRequest)
+    case deleteVisualProfile(heroId: String)
+    case extractVisualProfile(heroId: String)
+
     // MARK: - Stories
     case getStories(heroId: String?, limit: Int, offset: Int, includeIllustrations: Bool)
     case getStory(id: String, includeIllustrations: Bool)
@@ -90,6 +97,18 @@ enum Endpoint {
             return "/api/v1/heroes/\(id)"
         case .generateAvatar(let heroId, _):
             return "/api/v1/heroes/\(heroId)/avatar"
+
+        // Hero Visual Profile
+        case .getVisualProfile(let heroId):
+            return "/api/v1/heroes/\(heroId)/visual-profile"
+        case .createVisualProfile(let heroId, _):
+            return "/api/v1/heroes/\(heroId)/visual-profile"
+        case .updateVisualProfile(let heroId, _):
+            return "/api/v1/heroes/\(heroId)/visual-profile"
+        case .deleteVisualProfile(let heroId):
+            return "/api/v1/heroes/\(heroId)/visual-profile"
+        case .extractVisualProfile(let heroId):
+            return "/api/v1/heroes/\(heroId)/visual-profile/extract"
 
         // Stories
         case .getStories:
@@ -158,22 +177,26 @@ enum Endpoint {
              .getCustomEvents, .getCustomEvent, .getUserProfile, .getUserUsage,
              .getIllustrationStatus, .healthCheck,
              .getAnalyticsSummary, .getListeningActivity, .getHeroAnalytics,
-             .getMilestones, .getInsights:
+             .getMilestones, .getInsights,
+             .getVisualProfile:
             return .GET
 
         // POST requests
         case .signIn, .signUp, .refreshSession, .signOut,
              .createHero, .createStory, .createCustomEvent,
              .generateAvatar, .generateAudio, .generateIllustrations,
-             .enhanceCustomEvent, .reportListeningSession:
+             .enhanceCustomEvent, .reportListeningSession,
+             .createVisualProfile, .extractVisualProfile:
             return .POST
 
         // PATCH requests
-        case .updateHero, .updateStory, .updateCustomEvent, .updateUserProfile:
+        case .updateHero, .updateStory, .updateCustomEvent, .updateUserProfile,
+             .updateVisualProfile:
             return .PATCH
 
         // DELETE requests
-        case .deleteHero, .deleteStory, .deleteCustomEvent:
+        case .deleteHero, .deleteStory, .deleteCustomEvent,
+             .deleteVisualProfile:
             return .DELETE
         }
     }
@@ -298,6 +321,12 @@ enum Endpoint {
         case .reportListeningSession(let data):
             return try? encoder.encode(data)
 
+        case .createVisualProfile(_, let data):
+            return try? encoder.encode(data)
+
+        case .updateVisualProfile(_, let data):
+            return try? encoder.encode(data)
+
         default:
             return nil
         }
@@ -367,6 +396,88 @@ struct CustomEventUpdateRequest: Codable {
 struct UserProfileUpdateRequest: Codable {
     let name: String?
     let preferredLanguage: String?
+}
+
+// MARK: - Visual Profile Request DTOs
+
+struct VisualProfileCreateRequest: Codable {
+    let hairStyle: String?
+    let hairColor: String?
+    let hairTexture: String?
+    let eyeColor: String?
+    let eyeShape: String?
+    let skinTone: String?
+    let facialFeatures: String?
+    let bodyType: String?
+    let height: String?
+    let age: Int?
+    let typicalClothing: String?
+    let colorPalette: [String]?
+    let accessories: String?
+    let artStyle: String?
+    let visualKeywords: [String]?
+    let canonicalPrompt: String?
+    let simplifiedPrompt: String?
+
+    init(from profile: HeroVisualProfile) {
+        self.hairStyle = profile.hairStyle
+        self.hairColor = profile.hairColor
+        self.hairTexture = profile.hairTexture
+        self.eyeColor = profile.eyeColor
+        self.eyeShape = profile.eyeShape
+        self.skinTone = profile.skinTone
+        self.facialFeatures = profile.facialFeatures
+        self.bodyType = profile.bodyType
+        self.height = profile.height
+        self.age = profile.age
+        self.typicalClothing = profile.typicalClothing
+        self.colorPalette = profile.colorPalette
+        self.accessories = profile.accessories
+        self.artStyle = profile.artStyle
+        self.visualKeywords = profile.visualKeywords
+        self.canonicalPrompt = profile.canonicalPrompt
+        self.simplifiedPrompt = profile.simplifiedPrompt
+    }
+}
+
+struct VisualProfileUpdateRequest: Codable {
+    let hairStyle: String?
+    let hairColor: String?
+    let hairTexture: String?
+    let eyeColor: String?
+    let eyeShape: String?
+    let skinTone: String?
+    let facialFeatures: String?
+    let bodyType: String?
+    let height: String?
+    let age: Int?
+    let typicalClothing: String?
+    let colorPalette: [String]?
+    let accessories: String?
+    let artStyle: String?
+    let visualKeywords: [String]?
+    let canonicalPrompt: String?
+    let simplifiedPrompt: String?
+
+    init(from profile: HeroVisualProfile) {
+        self.hairStyle = profile.hairStyle
+        self.hairColor = profile.hairColor
+        self.hairTexture = profile.hairTexture
+        self.eyeColor = profile.eyeColor
+        self.eyeShape = profile.eyeShape
+        self.skinTone = profile.skinTone
+        self.facialFeatures = profile.facialFeatures
+        self.bodyType = profile.bodyType
+        self.height = profile.height
+        self.age = profile.age
+        self.typicalClothing = profile.typicalClothing
+        self.colorPalette = profile.colorPalette
+        self.accessories = profile.accessories
+        self.artStyle = profile.artStyle
+        self.visualKeywords = profile.visualKeywords
+        self.canonicalPrompt = profile.canonicalPrompt
+        self.simplifiedPrompt = profile.simplifiedPrompt
+    }
 }
 
 // Note: TimeRange enum and apiValue are defined in ReadingJourneyRepository.swift

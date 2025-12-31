@@ -9,6 +9,23 @@ import Foundation
 import UIKit
 import SwiftUI
 
+/// Style options for pictogram generation
+enum PictogramStyle: String, CaseIterable {
+    case cartoon = "cartoon"
+    case minimal = "minimal"
+    case watercolor = "watercolor"
+    case flat = "flat"
+
+    var displayName: String {
+        switch self {
+        case .cartoon: return "Cartoon"
+        case .minimal: return "Minimal"
+        case .watercolor: return "Watercolor"
+        case .flat: return "Flat"
+        }
+    }
+}
+
 @MainActor
 class EventPictogramGenerator: ObservableObject {
     @Published var isGenerating = false
@@ -34,7 +51,7 @@ class EventPictogramGenerator: ObservableObject {
         generationProgress = 0.3
 
         // Create a simple prompt for pictogram generation
-        let prompt = "Simple icon-style illustration for: \(event.title). \(event.eventDescription). Style: \(style.rawValue), clean, minimalist, child-friendly icon."
+        let prompt = "Simple icon-style illustration for: \(event.title). \(event.description). Style: \(style.rawValue), clean, minimalist, child-friendly icon."
 
         generationProgress = 0.6
         currentOperation = "Calling backend API..."
@@ -156,15 +173,9 @@ class EventPictogramGenerator: ObservableObject {
     }
 
     /// Delete pictogram file for an event
+    /// Note: Pictograms are now managed by the backend API, so local cleanup is no longer needed
     func deletePictogram(for event: CustomStoryEvent) async {
-        guard let pictogramPath = event.pictogramPath else { return }
-
-        let fileManager = FileManager.default
-        let documentsPath = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
-        let fullPath = documentsPath.appendingPathComponent(pictogramPath)
-
-        if fileManager.fileExists(atPath: fullPath.path) {
-            try? fileManager.removeItem(at: fullPath)
-        }
+        // Pictograms are stored in backend/R2, no local file to delete
+        // This method is kept for API compatibility
     }
 }

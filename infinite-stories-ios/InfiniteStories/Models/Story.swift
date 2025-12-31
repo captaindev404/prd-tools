@@ -36,7 +36,8 @@ final class Story: Identifiable {
     
     // Support both built-in and custom events
     var builtInEvent: StoryEvent?
-    @Relationship var customEvent: CustomStoryEvent?
+    var customEventId: String?  // Backend ID for custom event (CustomStoryEvent is API-only)
+    @Transient var customEvent: CustomStoryEvent?  // Not persisted, loaded separately
     
     var createdAt: Date
     var audioFileName: String?
@@ -59,6 +60,7 @@ final class Story: Identifiable {
         self.title = title
         self.content = content
         self.builtInEvent = event
+        self.customEventId = nil
         self.customEvent = nil
         self.hero = hero
         self.createdAt = Date()
@@ -78,6 +80,7 @@ final class Story: Identifiable {
         self.title = title
         self.content = content
         self.builtInEvent = nil
+        self.customEventId = customEvent.id
         self.customEvent = customEvent
         self.hero = hero
         self.createdAt = Date()
@@ -88,9 +91,7 @@ final class Story: Identifiable {
         self.estimatedDuration = 0
         self.audioNeedsRegeneration = false
         self.lastModified = Date()
-
-        // Increment usage count for custom event
-        customEvent.incrementUsage()
+        // Note: Usage count for custom events is tracked by the backend API
     }
     
     // Computed properties for event access
@@ -122,7 +123,7 @@ final class Story: Identifiable {
     }
     
     var isCustomEvent: Bool {
-        return customEvent != nil
+        return customEventId != nil || customEvent != nil
     }
     
     var formattedDate: String {

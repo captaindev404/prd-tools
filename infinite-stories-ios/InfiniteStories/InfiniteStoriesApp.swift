@@ -51,10 +51,9 @@ struct InfiniteStoriesApp: App {
     }
     
     var sharedModelContainer: ModelContainer = {
-        // Minimal SwiftData schema - only for preferences and temporary state
-        // Heroes, Stories, and CustomStoryEvents are fetched from API, not persisted locally
+        // Minimal SwiftData schema - only for temporary state
+        // Heroes, Stories, CustomStoryEvents, and HeroVisualProfiles are fetched from API, not persisted locally
         let schema = Schema([
-            HeroVisualProfile.self,      // Visual preferences for avatar generation
             StoryIllustration.self        // Temporary local references (can be rebuilt from API)
         ])
         

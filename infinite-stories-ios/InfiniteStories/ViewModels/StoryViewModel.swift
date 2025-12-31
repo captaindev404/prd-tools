@@ -370,7 +370,7 @@ class StoryViewModel: ObservableObject {
 
         do {
             // First enhance the custom event if needed
-            if !customEvent.isAIEnhanced {
+            if !customEvent.aiEnhanced {
                 print("📱 ✨ Enhancing custom event...")
                 _ = try await customEventRepository.enhanceEvent(customEvent)
             }

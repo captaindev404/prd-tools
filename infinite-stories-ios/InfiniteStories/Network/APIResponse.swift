@@ -158,15 +158,54 @@ struct HeroCountResponse: Decodable {
 
 /// Hero visual profile response
 struct HeroVisualProfileResponse: Decodable {
-    let id: String?  // Backend uses cuid strings, not UUIDs - can be null
+    let id: String  // Backend uses cuid strings
+    let heroId: String
     let hairStyle: String?
     let hairColor: String?
+    let hairTexture: String?
     let eyeColor: String?
+    let eyeShape: String?
     let skinTone: String?
+    let facialFeatures: String?
+    let bodyType: String?
+    let height: String?
+    let age: Int?
+    let typicalClothing: String?
+    let colorPalette: [String]?
+    let accessories: String?
     let artStyle: String?
+    let visualKeywords: [String]?
     let canonicalPrompt: String?
     let simplifiedPrompt: String?
-    let colorPalette: [String]?
+    let createdAt: Date?
+    let updatedAt: Date?
+
+    /// Convert to HeroVisualProfile model
+    func toModel() -> HeroVisualProfile {
+        HeroVisualProfile(
+            id: id,
+            heroId: heroId,
+            hairStyle: hairStyle,
+            hairColor: hairColor,
+            hairTexture: hairTexture,
+            eyeColor: eyeColor,
+            eyeShape: eyeShape,
+            skinTone: skinTone,
+            facialFeatures: facialFeatures,
+            bodyType: bodyType,
+            height: height,
+            age: age,
+            typicalClothing: typicalClothing,
+            colorPalette: colorPalette,
+            accessories: accessories,
+            artStyle: artStyle,
+            visualKeywords: visualKeywords,
+            canonicalPrompt: canonicalPrompt,
+            simplifiedPrompt: simplifiedPrompt,
+            createdAt: createdAt,
+            updatedAt: updatedAt
+        )
+    }
 }
 
 /// Story response from backend
@@ -267,25 +306,7 @@ struct StoryIllustrationResponse: Decodable {
     let updatedAt: Date
 }
 
-/// Custom event response
-struct CustomEventResponse: Decodable {
-    let id: String  // Backend uses cuid strings, not UUIDs
-    let title: String
-    let description: String
-    let promptSeed: String
-    let category: String
-    let ageRange: String?
-    let tone: String
-    let pictogramEmoji: String?
-    let pictogramSymbols: [String]?
-    let aiEnhanced: Bool
-    let keywords: [String]?
-    let usageCount: Int
-    let isFavorite: Bool
-    let lastUsedAt: Date?
-    let createdAt: Date
-    let updatedAt: Date
-}
+// NOTE: CustomEventResponse is defined in CustomStoryEvent.swift with toCustomStoryEvent() conversion method
 
 /// User usage statistics
 struct UserUsageResponse: Decodable {

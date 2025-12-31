@@ -431,7 +431,7 @@ struct StoryGenerationView: View {
         if let builtIn = selectedBuiltInEvent {
             return builtIn.promptSeed
         } else if let custom = selectedCustomEvent {
-            return custom.eventDescription
+            return custom.description
         }
         return "Choose an adventure type"
     }

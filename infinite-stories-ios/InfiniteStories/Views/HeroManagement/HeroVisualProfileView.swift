@@ -3,26 +3,30 @@
 //  InfiniteStories
 //
 //  View for managing hero visual consistency profiles
+//  NOTE: Uses API-only architecture - no local SwiftData persistence
 //
 
 import SwiftUI
-import SwiftData
 
 struct HeroVisualProfileView: View {
     let hero: Hero
     @State private var visualProfile: HeroVisualProfile?
     @State private var isLoading = false
     @State private var showingEditor = false
-    @State private var showingExtractor = false
     @State private var errorMessage: String?
 
-    @Environment(\.modelContext) private var modelContext
+    private let heroRepository = HeroRepository()
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 // Header
                 headerSection
+
+                // Network status warning
+                if !NetworkMonitor.shared.isConnected {
+                    networkWarning
+                }
 
                 // Visual Profile Status
                 profileStatusSection
@@ -39,7 +43,7 @@ struct HeroVisualProfileView: View {
 
                     // Actions
                     actionsSection(profile)
-                } else {
+                } else if !isLoading {
                     // Create Profile
                     createProfileSection
                 }
@@ -56,19 +60,27 @@ struct HeroVisualProfileView: View {
         }
         .navigationTitle("Visual Profile")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            visualProfile = hero.visualProfile
+        .task {
+            await loadVisualProfile()
         }
         .sheet(isPresented: $showingEditor) {
-            VisualProfileEditorView(
-                profile: visualProfile ?? HeroVisualProfile(
-                    canonicalPrompt: hero.avatarPrompt ?? ""
-                ),
-                hero: hero
-            ) { updatedProfile in
-                visualProfile = updatedProfile
-                hero.visualProfile = updatedProfile
-                try? modelContext.save()
+            if let profile = visualProfile {
+                VisualProfileEditorView(
+                    profile: profile,
+                    hero: hero
+                ) { updatedProfile in
+                    Task {
+                        await saveProfile(updatedProfile)
+                    }
+                }
+            }
+        }
+        .overlay {
+            if isLoading {
+                ProgressView()
+                    .scaleEffect(1.5)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.black.opacity(0.2))
             }
         }
     }
@@ -97,6 +109,19 @@ struct HeroVisualProfileView: View {
         .cornerRadius(12)
     }
 
+    private var networkWarning: some View {
+        HStack {
+            Image(systemName: "wifi.slash")
+                .foregroundColor(.orange)
+            Text("No network connection. Visual profile operations require internet.")
+                .font(.caption)
+                .foregroundColor(.orange)
+        }
+        .padding()
+        .background(Color.orange.opacity(0.1))
+        .cornerRadius(8)
+    }
+
     private var profileStatusSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Label("Visual Consistency Status", systemImage: "eye.circle.fill")
@@ -111,8 +136,8 @@ struct HeroVisualProfileView: View {
 
                 Spacer()
 
-                if let profile = visualProfile {
-                    Text(profile.extractionMethod.capitalized)
+                if visualProfile != nil {
+                    Text("AI Extracted")
                         .font(.caption)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
@@ -172,16 +197,16 @@ struct HeroVisualProfileView: View {
                     Text("Style:")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    Text(profile.artStyle)
+                    Text(profile.artStyle ?? "Not specified")
                         .font(.subheadline)
                 }
 
-                if let palette = profile.colorPalette {
+                if let palette = profile.colorPalette, !palette.isEmpty {
                     HStack {
                         Text("Colors:")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        Text(palette)
+                        Text(palette.joined(separator: ", "))
                             .font(.subheadline)
                     }
                 }
@@ -208,26 +233,30 @@ struct HeroVisualProfileView: View {
                 .font(.headline)
 
             VStack(alignment: .leading, spacing: 12) {
-                VStack(alignment: .leading) {
-                    Text("Canonical Prompt")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text(profile.canonicalPrompt)
-                        .font(.system(.caption, design: .monospaced))
-                        .padding(8)
-                        .background(Color.black.opacity(0.05))
-                        .cornerRadius(6)
+                if let canonicalPrompt = profile.canonicalPrompt {
+                    VStack(alignment: .leading) {
+                        Text("Canonical Prompt")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(canonicalPrompt)
+                            .font(.system(.caption, design: .monospaced))
+                            .padding(8)
+                            .background(Color.black.opacity(0.05))
+                            .cornerRadius(6)
+                    }
                 }
 
-                VStack(alignment: .leading) {
-                    Text("Simplified for Scenes")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text(profile.simplifiedPrompt)
-                        .font(.system(.caption, design: .monospaced))
-                        .padding(8)
-                        .background(Color.black.opacity(0.05))
-                        .cornerRadius(6)
+                if let simplifiedPrompt = profile.simplifiedPrompt {
+                    VStack(alignment: .leading) {
+                        Text("Simplified for Scenes")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(simplifiedPrompt)
+                            .font(.system(.caption, design: .monospaced))
+                            .padding(8)
+                            .background(Color.black.opacity(0.05))
+                            .cornerRadius(6)
+                    }
                 }
             }
         }
@@ -245,6 +274,7 @@ struct HeroVisualProfileView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
+            .disabled(!NetworkMonitor.shared.isConnected)
 
             Button(action: {
                 Task {
@@ -255,16 +285,19 @@ struct HeroVisualProfileView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
-            .disabled(isLoading)
+            .disabled(isLoading || !NetworkMonitor.shared.isConnected || !hero.hasAvatar)
 
             Button(action: {
-                resetProfile()
+                Task {
+                    await resetProfile()
+                }
             }) {
                 Label("Reset Profile", systemImage: "arrow.counterclockwise")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
             .foregroundColor(.red)
+            .disabled(isLoading || !NetworkMonitor.shared.isConnected)
         }
         .padding()
         .background(Color(.systemGray6))
@@ -285,19 +318,21 @@ struct HeroVisualProfileView: View {
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
 
-            Button(action: {
-                Task {
-                    await createProfile()
+            if hero.hasAvatar {
+                Button(action: {
+                    Task {
+                        await extractProfileWithAI()
+                    }
+                }) {
+                    Label("Extract with AI", systemImage: "sparkles")
+                        .frame(maxWidth: .infinity)
                 }
-            }) {
-                Label("Create Profile", systemImage: "plus.circle.fill")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(isLoading)
-
-            if isLoading {
-                ProgressView()
+                .buttonStyle(.borderedProminent)
+                .disabled(isLoading || !NetworkMonitor.shared.isConnected)
+            } else {
+                Text("Generate an avatar first to enable AI extraction")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
         .padding()
@@ -326,31 +361,74 @@ struct HeroVisualProfileView: View {
         return profile.hairColor ?? profile.hairStyle
     }
 
-    // MARK: - Actions
+    // MARK: - API Actions
 
-    private func createProfile() async {
+    private func loadVisualProfile() async {
+        guard let heroId = hero.backendId else {
+            errorMessage = "Hero has no backend ID"
+            return
+        }
+
+        guard NetworkMonitor.shared.isConnected else {
+            errorMessage = "No network connection"
+            return
+        }
+
         isLoading = true
         errorMessage = nil
 
-        // For now, create a basic profile manually
-        // In production, this would be triggered from a view that has access to the AI service
-        let profile = HeroVisualProfile(
-            canonicalPrompt: hero.avatarPrompt ?? hero.appearance,
-            artStyle: "warm watercolor children's book illustration"
-        )
+        do {
+            visualProfile = try await heroRepository.getVisualProfile(heroId: heroId)
+        } catch {
+            errorMessage = "Failed to load profile: \(error.localizedDescription)"
+        }
 
-        // Set basic attributes from hero
-        profile.distinctiveFeatures = hero.appearance
-        profile.ageAppearance = "young child character"
-        profile.extractionMethod = "manual"
+        isLoading = false
+    }
 
-        // Link to hero and save
-        hero.visualProfile = profile
-        modelContext.insert(profile)
+    private func extractProfileWithAI() async {
+        guard let heroId = hero.backendId else {
+            errorMessage = "Hero has no backend ID"
+            return
+        }
+
+        guard NetworkMonitor.shared.isConnected else {
+            errorMessage = "No network connection"
+            return
+        }
+
+        isLoading = true
+        errorMessage = nil
 
         do {
-            try modelContext.save()
-            visualProfile = profile
+            visualProfile = try await heroRepository.extractVisualProfile(heroId: heroId)
+        } catch {
+            errorMessage = "AI extraction failed: \(error.localizedDescription)"
+        }
+
+        isLoading = false
+    }
+
+    private func saveProfile(_ profile: HeroVisualProfile) async {
+        guard let heroId = hero.backendId else {
+            errorMessage = "Hero has no backend ID"
+            return
+        }
+
+        guard NetworkMonitor.shared.isConnected else {
+            errorMessage = "No network connection"
+            return
+        }
+
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            if visualProfile != nil {
+                visualProfile = try await heroRepository.updateVisualProfile(heroId: heroId, profile: profile)
+            } else {
+                visualProfile = try await heroRepository.createVisualProfile(heroId: heroId, profile: profile)
+            }
         } catch {
             errorMessage = "Failed to save profile: \(error.localizedDescription)"
         }
@@ -358,24 +436,28 @@ struct HeroVisualProfileView: View {
         isLoading = false
     }
 
-    private func extractProfileWithAI() async {
+    private func resetProfile() async {
+        guard let heroId = hero.backendId else {
+            errorMessage = "Hero has no backend ID"
+            return
+        }
+
+        guard NetworkMonitor.shared.isConnected else {
+            errorMessage = "No network connection"
+            return
+        }
+
         isLoading = true
         errorMessage = nil
 
-        // This would need to be implemented in a view with AI service access
-        // For now, just show a message
-        errorMessage = "AI extraction requires access to the AI service. Please use the story generation flow to extract visual profiles."
+        do {
+            try await heroRepository.deleteVisualProfile(heroId: heroId)
+            visualProfile = nil
+        } catch {
+            errorMessage = "Failed to delete profile: \(error.localizedDescription)"
+        }
 
         isLoading = false
-    }
-
-    private func resetProfile() {
-        if let profile = visualProfile {
-            modelContext.delete(profile)
-            hero.visualProfile = nil
-            try? modelContext.save()
-            visualProfile = nil
-        }
     }
 }
 
@@ -414,35 +496,28 @@ struct VisualProfileEditorView: View {
                 }
 
                 Section("Clothing") {
-                    TextField("Clothing Style", text: Binding(
-                        get: { profile.clothingStyle ?? "" },
-                        set: { profile.clothingStyle = $0.isEmpty ? nil : $0 }
+                    TextField("Typical Clothing", text: Binding(
+                        get: { profile.typicalClothing ?? "" },
+                        set: { profile.typicalClothing = $0.isEmpty ? nil : $0 }
                     ))
 
-                    TextField("Clothing Colors", text: Binding(
-                        get: { profile.clothingColors ?? "" },
-                        set: { profile.clothingColors = $0.isEmpty ? nil : $0 }
+                    TextField("Accessories", text: Binding(
+                        get: { profile.accessories ?? "" },
+                        set: { profile.accessories = $0.isEmpty ? nil : $0 }
                     ))
                 }
 
                 Section("Art Style") {
-                    TextField("Art Style", text: $profile.artStyle)
-
-                    TextField("Color Palette", text: Binding(
-                        get: { profile.colorPalette ?? "" },
-                        set: { profile.colorPalette = $0.isEmpty ? nil : $0 }
-                    ))
-
-                    TextField("Lighting", text: Binding(
-                        get: { profile.lightingPreference ?? "" },
-                        set: { profile.lightingPreference = $0.isEmpty ? nil : $0 }
+                    TextField("Art Style", text: Binding(
+                        get: { profile.artStyle ?? "" },
+                        set: { profile.artStyle = $0.isEmpty ? nil : $0 }
                     ))
                 }
 
                 Section("Distinctive Features") {
                     TextEditor(text: Binding(
-                        get: { profile.distinctiveFeatures ?? "" },
-                        set: { profile.distinctiveFeatures = $0.isEmpty ? nil : $0 }
+                        get: { profile.facialFeatures ?? "" },
+                        set: { profile.facialFeatures = $0.isEmpty ? nil : $0 }
                     ))
                     .frame(minHeight: 100)
                 }
@@ -458,7 +533,6 @@ struct VisualProfileEditorView: View {
 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
-                        profile.lastUpdated = Date()
                         onSave(profile)
                         dismiss()
                     }
@@ -477,7 +551,8 @@ struct VisualProfileEditorView: View {
                 primaryTrait: .brave,
                 secondaryTrait: .kind,
                 appearance: "Young girl with curly brown hair and bright green eyes",
-                specialAbility: "Can talk to animals"
+                specialAbility: "Can talk to animals",
+                backendId: "preview-hero-id"
             )
         )
     }

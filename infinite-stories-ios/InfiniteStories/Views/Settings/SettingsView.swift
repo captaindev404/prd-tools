@@ -303,11 +303,9 @@ struct SettingsTabContent: View {
 
     private func settingsEraseAllData() {
         do {
-            // 1. Delete all SwiftData models
-            try modelContext.delete(model: Hero.self)
-            try modelContext.delete(model: Story.self)
+            // 1. Delete local SwiftData models (only StoryIllustration remains in SwiftData)
+            // Note: Hero, Story, and CustomStoryEvent are API-only - data is managed on the server
             try modelContext.delete(model: StoryIllustration.self)
-            try modelContext.delete(model: CustomStoryEvent.self)
 
             // Save the deletion
             try modelContext.save()
@@ -682,11 +680,9 @@ struct SettingsView: View {
 
     private func eraseAllData() {
         do {
-            // 1. Delete all SwiftData models
-            try modelContext.delete(model: Hero.self)
-            try modelContext.delete(model: Story.self)
+            // 1. Delete local SwiftData models (only StoryIllustration remains in SwiftData)
+            // Note: Hero, Story, and CustomStoryEvent are API-only - data is managed on the server
             try modelContext.delete(model: StoryIllustration.self)
-            try modelContext.delete(model: CustomStoryEvent.self)
 
             // Save the deletion
             try modelContext.save()

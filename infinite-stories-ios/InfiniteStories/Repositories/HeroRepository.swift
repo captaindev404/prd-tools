@@ -16,6 +16,13 @@ protocol HeroRepositoryProtocol {
     func updateHero(id: String, name: String?, traits: [CharacterTrait]?, specialAbility: String?, appearance: String?) async throws -> Hero
     func deleteHero(id: String) async throws
     func generateAvatar(heroId: String, prompt: String) async throws -> String // Returns avatar URL
+
+    // Visual Profile
+    func getVisualProfile(heroId: String) async throws -> HeroVisualProfile?
+    func createVisualProfile(heroId: String, profile: HeroVisualProfile) async throws -> HeroVisualProfile
+    func updateVisualProfile(heroId: String, profile: HeroVisualProfile) async throws -> HeroVisualProfile
+    func deleteVisualProfile(heroId: String) async throws
+    func extractVisualProfile(heroId: String) async throws -> HeroVisualProfile
 }
 
 // MARK: - Hero Repository Implementation
@@ -215,6 +222,127 @@ class HeroRepository: HeroRepositoryProtocol {
         Logger.api.success("Generated avatar: \(data.avatarUrl)")
 
         return data.avatarUrl
+    }
+
+    // MARK: - Visual Profile Operations
+
+    func getVisualProfile(heroId: String) async throws -> HeroVisualProfile? {
+        guard NetworkMonitor.shared.isConnected else {
+            throw APIError.networkUnavailable
+        }
+
+        Logger.api.info("Fetching visual profile for hero \(heroId)")
+
+        do {
+            let response: APIResponse<HeroVisualProfileResponse> = try await apiClient.request(
+                .getVisualProfile(heroId: heroId)
+            )
+
+            guard let data = response.data else {
+                Logger.api.info("No visual profile found for hero \(heroId)")
+                return nil
+            }
+
+            let profile = data.toModel()
+            Logger.api.success("Fetched visual profile for hero \(heroId)")
+
+            return profile
+        } catch APIError.notFound {
+            // No profile exists, return nil
+            return nil
+        }
+    }
+
+    func createVisualProfile(heroId: String, profile: HeroVisualProfile) async throws -> HeroVisualProfile {
+        guard NetworkMonitor.shared.isConnected else {
+            throw APIError.networkUnavailable
+        }
+
+        Logger.api.info("Creating visual profile for hero \(heroId)")
+
+        let request = VisualProfileCreateRequest(from: profile)
+
+        let response: APIResponse<HeroVisualProfileResponse> = try await apiClient.request(
+            .createVisualProfile(heroId: heroId, data: request)
+        )
+
+        guard let data = response.data else {
+            throw APIError.unknown(NSError(
+                domain: "HeroRepository",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "No data in create visual profile response"]
+            ))
+        }
+
+        let createdProfile = data.toModel()
+        Logger.api.success("Created visual profile for hero \(heroId)")
+
+        return createdProfile
+    }
+
+    func updateVisualProfile(heroId: String, profile: HeroVisualProfile) async throws -> HeroVisualProfile {
+        guard NetworkMonitor.shared.isConnected else {
+            throw APIError.networkUnavailable
+        }
+
+        Logger.api.info("Updating visual profile for hero \(heroId)")
+
+        let request = VisualProfileUpdateRequest(from: profile)
+
+        let response: APIResponse<HeroVisualProfileResponse> = try await apiClient.request(
+            .updateVisualProfile(heroId: heroId, data: request)
+        )
+
+        guard let data = response.data else {
+            throw APIError.unknown(NSError(
+                domain: "HeroRepository",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "No data in update visual profile response"]
+            ))
+        }
+
+        let updatedProfile = data.toModel()
+        Logger.api.success("Updated visual profile for hero \(heroId)")
+
+        return updatedProfile
+    }
+
+    func deleteVisualProfile(heroId: String) async throws {
+        guard NetworkMonitor.shared.isConnected else {
+            throw APIError.networkUnavailable
+        }
+
+        Logger.api.info("Deleting visual profile for hero \(heroId)")
+
+        try await apiClient.requestVoid(.deleteVisualProfile(heroId: heroId))
+
+        Logger.api.success("Deleted visual profile for hero \(heroId)")
+    }
+
+    func extractVisualProfile(heroId: String) async throws -> HeroVisualProfile {
+        guard NetworkMonitor.shared.isConnected else {
+            throw APIError.networkUnavailable
+        }
+
+        Logger.api.info("Extracting visual profile for hero \(heroId) using AI")
+
+        let response: APIResponse<HeroVisualProfileResponse> = try await apiClient.request(
+            .extractVisualProfile(heroId: heroId),
+            retryPolicy: .aggressive // AI extraction is a longer operation
+        )
+
+        guard let data = response.data else {
+            throw APIError.unknown(NSError(
+                domain: "HeroRepository",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "No data in extract visual profile response"]
+            ))
+        }
+
+        let extractedProfile = data.toModel()
+        Logger.api.success("Extracted visual profile for hero \(heroId)")
+
+        return extractedProfile
     }
 
     // MARK: - Helper: Convert API Response to Model
