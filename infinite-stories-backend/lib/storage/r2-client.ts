@@ -28,6 +28,21 @@ export const R2_BUCKET = process.env.R2_BUCKET_NAME || '';
 export const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || `https://${R2_BUCKET}.r2.dev`;
 
 /**
+ * Sanitize metadata values for S3/R2 compatibility.
+ * S3 metadata values must be ASCII-safe; non-ASCII characters cause signature mismatches.
+ */
+function sanitizeMetadata(metadata?: Record<string, string>): Record<string, string> | undefined {
+  if (!metadata) return undefined;
+
+  const sanitized: Record<string, string> = {};
+  for (const [key, value] of Object.entries(metadata)) {
+    // URL-encode the value to make it ASCII-safe
+    sanitized[key] = encodeURIComponent(value);
+  }
+  return sanitized;
+}
+
+/**
  * Upload a file to R2
  */
 export async function uploadToR2(params: {
@@ -45,7 +60,7 @@ export async function uploadToR2(params: {
       Key: key,
       Body: body,
       ContentType: contentType,
-      Metadata: metadata,
+      Metadata: sanitizeMetadata(metadata),
     })
   );
 
