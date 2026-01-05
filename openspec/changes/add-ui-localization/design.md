@@ -55,17 +55,20 @@ InfiniteStories targets international families with children. The app already su
 
 | Category Prefix | Description | Estimated Count |
 |-----------------|-------------|-----------------|
-| `common.*` | Buttons, labels (OK, Cancel, Done, etc.) | ~30 |
-| `home.*` | Home screen, hero section, stories | ~25 |
-| `hero.*` | Hero creation, traits, appearance | ~40 |
-| `story.*` | Story generation, events, playback | ~50 |
-| `audio.*` | Audio player, controls | ~20 |
-| `settings.*` | Settings screen | ~35 |
-| `custom.*` | Custom events creation | ~40 |
-| `journey.*` | Reading journey, stats | ~25 |
-| `auth.*` | Authentication, sign in/up | ~20 |
-| `error.*` | Error messages | ~15 |
-| **Total** | | ~300 |
+| `common.*` | Buttons, labels (OK, Cancel, Done, Loading, etc.) | ~25 |
+| `home.*` | Home screen, hero section, stories (ImprovedContentView) | ~16 |
+| `hero.*` | Hero creation, traits, appearance, visual profile | ~49 |
+| `story.*` | Story generation, events, library, edit | ~45 |
+| `audio.*` | Audio player, controls, regeneration | ~19 |
+| `settings.*` | Settings screen (SettingsView, SettingsTabContent) | ~80 |
+| `custom.*` | Custom events creation, management, pictograms | ~21 |
+| `journey.*` | Reading journey, statistics, charts | ~15 |
+| `auth.*` | Authentication, sign in/up | ~5 |
+| `error.*` | Error messages, network errors | ~17 |
+| `illustration.*` | Illustration loading, placeholders, carousel | ~24 |
+| `tabs.*` | Tab bar titles (Home, Library, Heroes, Journey, Settings) | ~5 |
+| `model.*` | CharacterTrait names/descriptions, StoryEvent names | ~30 |
+| **Total** | | ~330 |
 
 ## Risks / Trade-offs
 

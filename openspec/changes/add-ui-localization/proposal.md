@@ -8,7 +8,7 @@ The app already generates AI story content in 5 languages (English, Spanish, Fre
 
 - Add iOS localization infrastructure with `.lproj` folders for 5 languages
 - Create `Localizable.strings` files with all UI text translations
-- Replace ~300+ hardcoded `Text()` and string literals with `LocalizedStringKey`
+- Replace ~330 hardcoded `Text()` strings across 33 Swift files with `LocalizedStringKey`
 - Add `String.localizedStringKey` extension for dynamic strings
 - Configure Xcode project for localization exports (XLIFF support)
 - Add language override option in Settings to match UI language with story language
@@ -27,18 +27,26 @@ The app already generates AI story content in 5 languages (English, Spanish, Fre
 ## Impact
 
 - Affected specs: `ios-design-system`, `ios-integration`
-- Affected code:
-  - All Views in `Views/` directory (~20 files)
-  - `ImprovedContentView.swift`
-  - `MainTabView.swift`
-  - `InfiniteStoriesApp.swift`
-  - `Models/CharacterTrait.swift`, `StoryEvent.swift` (enum display names)
-  - `Utilities/` (add localization helpers)
-  - Xcode project configuration
+- Affected code (33 Swift files):
+  - `MainTabView.swift` - AppTab enum titles
+  - `ImprovedContentView.swift` - Home screen content
+  - `InfiniteStoriesApp.swift` - Language override at launch
+  - `Views/Components/` - ErrorView, NetworkRequiredView, StoryCard, Illustration views (7 files)
+  - `Views/HeroCreation/` - HeroCreationView (1 file)
+  - `Views/HeroManagement/` - HeroListView, HeroVisualProfileView (2 files)
+  - `Views/HeroDisplay/` - AdaptiveHeroGridView (2 files)
+  - `Views/AvatarGeneration/` - AvatarGenerationView (1 file)
+  - `Views/StoryGeneration/` - StoryGenerationView, EnhancedEventPickerView, etc. (4 files)
+  - `Views/StoryLibrary/` - ImprovedStoryLibraryView (1 file)
+  - `Views/StoryEdit/` - StoryEditView (1 file)
+  - `Views/AudioPlayer/` - AudioPlayerView (1 file)
+  - `Views/AudioRegeneration/` - AudioRegenerationView (1 file)
+  - `Views/CustomEvents/` - CustomEventCreationView, etc. (4 files)
+  - `Views/Settings/` - SettingsView, SettingsTabContent (1 file)
+  - `Views/ReadingJourney/` - ReadingJourneyView (1 file)
+  - `Views/Auth/` - AuthenticationView (1 file)
+  - `Models/CharacterTraits.swift` - CharacterTrait and StoryEvent enums
+  - `Utilities/` - Add String+Localization.swift, LocalizationManager.swift
 - New files:
-  - `en.lproj/Localizable.strings`
-  - `es.lproj/Localizable.strings`
-  - `fr.lproj/Localizable.strings`
-  - `de.lproj/Localizable.strings`
-  - `it.lproj/Localizable.strings`
+  - `en.lproj/Localizable.strings`, `es.lproj/Localizable.strings`, `fr.lproj/Localizable.strings`, `de.lproj/Localizable.strings`, `it.lproj/Localizable.strings`
   - `en.lproj/InfoPlist.strings` (and for each language)
