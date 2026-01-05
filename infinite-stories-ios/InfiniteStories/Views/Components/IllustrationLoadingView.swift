@@ -23,7 +23,7 @@ struct IllustrationLoadingView: View {
                     .foregroundColor(.accentColor)
                     .frame(height: 80)
 
-                Text("Generating Scene \(sceneNumber)")
+                Text("illustration.generating.scene \(sceneNumber)")
                     .font(.headline)
                     .foregroundColor(.primary)
 
@@ -48,7 +48,7 @@ struct IllustrationLoadingView: View {
                         .scaleEffect(1.5)
                 }
 
-                Text("Creating magical illustration...")
+                Text("illustration.creating")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .italic()
@@ -137,11 +137,11 @@ struct IllustrationErrorView: View {
                     .font(.system(size: 50))
                     .foregroundColor(.orange)
 
-                Text("Unable to Load Scene \(sceneNumber)")
+                Text("illustration.error.title \(sceneNumber)")
                     .font(.headline)
                     .foregroundColor(.primary)
 
-                Text("The illustration could not be generated")
+                Text("illustration.error.message")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -149,7 +149,7 @@ struct IllustrationErrorView: View {
                 Button(action: retryAction) {
                     HStack {
                         Image(systemName: "arrow.clockwise")
-                        Text("Retry")
+                        Text("common.retry")
                     }
                     .font(.subheadline)
                     .foregroundColor(.white)
@@ -187,11 +187,11 @@ struct EmptyIllustrationsView: View {
                 }
 
                 VStack(spacing: 8) {
-                    Text("No Illustrations Yet")
+                    Text("illustration.empty.title")
                         .font(.title2)
                         .fontWeight(.semibold)
 
-                    Text("Bring your story to life with beautiful AI-generated illustrations")
+                    Text("illustration.empty.message")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -201,7 +201,7 @@ struct EmptyIllustrationsView: View {
                 Button(action: onGenerateAction) {
                     HStack(spacing: 8) {
                         Image(systemName: "wand.and.stars")
-                        Text("Generate Illustrations")
+                        Text("illustration.generate.button")
                     }
                     .font(.headline)
                     .foregroundColor(.white)

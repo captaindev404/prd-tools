@@ -32,11 +32,11 @@ struct StoryGenerationView: View {
                         .font(.system(size: 50))
                         .foregroundColor(.orange)
                     
-                    Text("Generate New Story")
+                    Text("story.generation.title")
                         .font(.largeTitle)
                         .fontWeight(.bold)
-                    
-                    Text("Create a magical adventure for \(hero.name)!")
+
+                    Text("story.generation.subtitle")
                         .font(.headline)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -48,7 +48,7 @@ struct StoryGenerationView: View {
                 
                 // Event selection
                 VStack(spacing: 15) {
-                    Text("What kind of adventure?")
+                    Text("story.generation.adventure.prompt")
                         .font(.title3)
                         .fontWeight(.semibold)
                     
@@ -84,7 +84,7 @@ struct StoryGenerationView: View {
                         HStack {
                             Image(systemName: "photo.artframe")
                                 .foregroundColor(.purple)
-                            Text("Visual Story Options")
+                            Text("story.generation.visual.options")
                                 .font(.headline)
                             Spacer()
                         }
@@ -94,10 +94,10 @@ struct StoryGenerationView: View {
                                 Image(systemName: viewModel.enableIllustrations ? "sparkles.rectangle.stack.fill" : "rectangle.stack")
                                     .foregroundColor(viewModel.enableIllustrations ? .purple : .secondary)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Generate Illustrations")
+                                    Text("story.generation.illustrations.toggle")
                                         .font(.subheadline)
                                         .fontWeight(.medium)
-                                    Text("Add beautiful AI-generated images to your story")
+                                    Text("story.generation.illustrations.description")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }
@@ -113,7 +113,7 @@ struct StoryGenerationView: View {
                                 Image(systemName: "info.circle")
                                     .font(.caption)
                                     .foregroundColor(.blue)
-                                Text("Illustrations will be generated after the story is created")
+                                Text("story.generation.illustrations.info")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 Spacer()
@@ -142,7 +142,7 @@ struct StoryGenerationView: View {
                         HStack(spacing: 8) {
                             StepIndicator(
                                 step: 1,
-                                label: "Story",
+                                label: String(localized: "story.generation.step.story"),
                                 icon: "doc.text.fill",
                                 isActive: viewModel.generationStage == .generatingStory,
                                 isCompleted: stepCompleted(1)
@@ -152,7 +152,7 @@ struct StoryGenerationView: View {
 
                             StepIndicator(
                                 step: 2,
-                                label: "Audio",
+                                label: String(localized: "story.generation.step.audio"),
                                 icon: "speaker.wave.2.fill",
                                 isActive: viewModel.generationStage == .generatingAudio,
                                 isCompleted: stepCompleted(2)
@@ -163,7 +163,7 @@ struct StoryGenerationView: View {
 
                                 StepIndicator(
                                     step: 3,
-                                    label: "Images",
+                                    label: String(localized: "story.generation.step.images"),
                                     icon: "photo.fill",
                                     isActive: viewModel.generationStage == .generatingIllustrations,
                                     isCompleted: stepCompleted(3)
@@ -179,7 +179,7 @@ struct StoryGenerationView: View {
                                 .frame(width: 220)
                                 .tint(.orange)
 
-                            Text("\(Int(viewModel.overallProgress * 100))% complete")
+                            Text(String(localized: "story.generation.progress.complete", defaultValue: "\(Int(viewModel.overallProgress * 100))% complete"))
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -191,7 +191,7 @@ struct StoryGenerationView: View {
                                 .foregroundColor(.secondary)
                         }
 
-                        Text("Please wait while the magic happens...")
+                        Text("story.generation.progress.wait")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -203,7 +203,7 @@ struct StoryGenerationView: View {
                     // Generate button
                     VStack(spacing: 15) {
                         Button(action: generateStory) {
-                            Label("Generate Story", systemImage: "wand.and.stars")
+                            Label("story.generation.button.generate", systemImage: "wand.and.stars")
                                 .font(.headline)
                                 .foregroundColor(.white)
                                 .padding()
@@ -221,12 +221,12 @@ struct StoryGenerationView: View {
                         HStack {
                             Image(systemName: "exclamationmark.triangle")
                                 .foregroundColor(.orange)
-                            Text("Some illustrations couldn't be generated")
+                            Text("story.generation.illustrations.error.title")
                                 .font(.caption)
                                 .foregroundColor(.orange)
                         }
 
-                        Text("Your story was created successfully, but some images may be missing.")
+                        Text("story.generation.illustrations.error.message")
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
@@ -249,7 +249,7 @@ struct StoryGenerationView: View {
                                 .foregroundColor(.red)
 
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("\(failedStep.displayName) Failed")
+                                Text(String(localized: "story.generation.error.failed", defaultValue: "\(failedStep.displayName) Failed"))
                                     .font(.headline)
                                     .foregroundColor(.red)
 
@@ -268,7 +268,7 @@ struct StoryGenerationView: View {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundColor(.green)
                                     .font(.caption)
-                                Text("Story created successfully")
+                                Text("story.generation.error.story.success")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 Spacer()
@@ -279,7 +279,7 @@ struct StoryGenerationView: View {
                                     Image(systemName: "checkmark.circle.fill")
                                         .foregroundColor(.green)
                                         .font(.caption)
-                                    Text("Audio generated successfully")
+                                    Text("story.generation.error.audio.success")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                     Spacer()
@@ -328,7 +328,7 @@ struct StoryGenerationView: View {
                                         }
                                     }
                                 }) {
-                                    Label("Skip", systemImage: "forward.fill")
+                                    Label("story.generation.button.skip", systemImage: "forward.fill")
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
                                         .padding(.horizontal, 16)
@@ -343,7 +343,7 @@ struct StoryGenerationView: View {
                                 viewModel.clearError()
                                 dismiss()
                             }) {
-                                Text("Cancel")
+                                Text("story.generation.button.cancel")
                                     .font(.subheadline)
                                     .foregroundColor(.red)
                                     .padding(.horizontal, 16)
@@ -424,7 +424,7 @@ struct StoryGenerationView: View {
         } else if let custom = selectedCustomEvent {
             return custom.title
         }
-        return "Select an Event"
+        return String(localized: "story.generation.event.select")
     }
     
     private var eventDescription: String {
@@ -433,16 +433,16 @@ struct StoryGenerationView: View {
         } else if let custom = selectedCustomEvent {
             return custom.description
         }
-        return "Choose an adventure type"
+        return String(localized: "story.generation.event.choose")
     }
 
     private var generationStatusText: String {
         if viewModel.isGeneratingIllustrations {
-            return "Creating illustrations..."
+            return String(localized: "story.generation.status.illustrations")
         } else if viewModel.isGeneratingAudio {
-            return "Creating audio..."
+            return String(localized: "story.generation.status.audio")
         } else {
-            return "Writing your story..."
+            return String(localized: "story.generation.status.story")
         }
     }
 
@@ -535,7 +535,7 @@ struct HeroInfoCard: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Your Hero")
+            Text("story.generation.hero.label")
                 .font(.headline)
                 .foregroundColor(.secondary)
             
@@ -552,7 +552,7 @@ struct HeroInfoCard: View {
                         .foregroundColor(.secondary)
                     
                     if !hero.specialAbility.isEmpty {
-                        Text("Special: \(hero.specialAbility)")
+                        Text(String(localized: "story.generation.hero.special", defaultValue: "Special: \(hero.specialAbility)"))
                             .font(.caption)
                             .foregroundColor(.purple)
                     }
@@ -600,11 +600,11 @@ struct EventPickerView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .navigationTitle("Choose Adventure")
+            .navigationTitle("story.generation.event.title")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
+                    Button("common.done") {
                         dismiss()
                     }
                 }

@@ -28,7 +28,7 @@ struct HeroListView: View {
     var body: some View {
         Group {
             if isLoading {
-                ProgressView("Loading heroes...")
+                ProgressView(String(localized: "hero.list.loading"))
                     .scaleEffect(1.2)
             } else if let error = error {
                 ErrorView(error: error, retryAction: {
@@ -40,7 +40,7 @@ struct HeroListView: View {
                 heroList
             }
         }
-        .navigationTitle("Manage Heroes")
+        .navigationTitle(String(localized: "hero.list.title"))
         .navigationBarTitleDisplayMode(.large)
         .sheet(isPresented: $showingHeroCreation) {
             HeroCreationView(heroToEdit: nil, onSave: { _ in
@@ -53,19 +53,19 @@ struct HeroListView: View {
             })
         }
         .confirmationDialog(
-            "Delete Hero?",
+            String(localized: "hero.list.delete.title"),
             isPresented: $showingDeleteConfirmation,
             titleVisibility: .visible,
             presenting: heroToDelete
         ) { hero in
-            Button("Delete Hero", role: .destructive) {
+            Button(String(localized: "hero.list.delete.button"), role: .destructive) {
                 Task {
                     await deleteHero(hero)
                 }
             }
-            Button("Cancel", role: .cancel) { }
+            Button(String(localized: "hero.creation.button.cancel"), role: .cancel) { }
         } message: { hero in
-            Text("This will permanently delete \(hero.name).")
+            Text(String(localized: "hero.list.delete.message", defaultValue: "This will permanently delete \(hero.name)."))
         }
         .task {
             await loadHeroes()
@@ -80,7 +80,7 @@ struct HeroListView: View {
                     HStack {
                         Image(systemName: "person.crop.circle.badge.plus")
                             .font(.title2)
-                        Text("Create New Hero")
+                        Text(String(localized: "hero.list.button.create"))
                             .font(.headline)
                     }
                     .foregroundColor(.white)
@@ -96,8 +96,8 @@ struct HeroListView: View {
                     )
                     .cornerRadius(15)
                 }
-                .accessibilityLabel("Create New Hero")
-                .accessibilityHint("Opens the hero creation wizard")
+                .accessibilityLabel(String(localized: "hero.list.button.create"))
+                .accessibilityHint(String(localized: "hero.list.accessibility.create.hint"))
                 .padding(.horizontal)
 
                 // Hero List
@@ -273,7 +273,7 @@ struct HeroManagementCard: View {
                             .font(.title2)
                             .fontWeight(.bold)
                             .foregroundColor(.purple)
-                        Text(storyCount == 1 ? "Story" : "Stories")
+                        Text(storyCount == 1 ? String(localized: "hero.list.stat.story.singular") : String(localized: "hero.list.stat.story.plural"))
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }
@@ -287,7 +287,7 @@ struct HeroManagementCard: View {
                 Button(action: onEdit) {
                     HStack {
                         Image(systemName: "pencil")
-                        Text("Edit")
+                        Text(String(localized: "hero.list.button.edit"))
                     }
                     .font(.subheadline)
                     .foregroundColor(.blue)
@@ -295,8 +295,8 @@ struct HeroManagementCard: View {
                     .frame(minHeight: 44)
                     .padding(.vertical, 12)
                 }
-                .accessibilityLabel("Edit \(hero.name)")
-                .accessibilityHint("Opens the hero editor")
+                .accessibilityLabel(String(localized: "hero.list.accessibility.edit", defaultValue: "Edit \(hero.name)"))
+                .accessibilityHint(String(localized: "hero.list.accessibility.edit.hint"))
 
                 Divider()
                     .frame(height: 20)
@@ -308,7 +308,7 @@ struct HeroManagementCard: View {
                     }) {
                         HStack {
                             Image(systemName: "wand.and.stars")
-                            Text("Avatar")
+                            Text(String(localized: "hero.list.button.avatar"))
                         }
                         .font(.subheadline)
                         .foregroundColor(.purple)
@@ -316,8 +316,8 @@ struct HeroManagementCard: View {
                         .frame(minHeight: 44)
                         .padding(.vertical, 12)
                     }
-                    .accessibilityLabel("Generate avatar for \(hero.name)")
-                    .accessibilityHint("Creates an AI-generated avatar")
+                    .accessibilityLabel(String(localized: "hero.list.accessibility.avatar", defaultValue: "Generate avatar for \(hero.name)"))
+                    .accessibilityHint(String(localized: "hero.list.accessibility.avatar.hint"))
 
                     Divider()
                         .frame(height: 20)
@@ -326,7 +326,7 @@ struct HeroManagementCard: View {
                 Button(action: onDelete) {
                     HStack {
                         Image(systemName: "trash")
-                        Text("Delete")
+                        Text(String(localized: "hero.list.button.delete"))
                     }
                     .font(.subheadline)
                     .foregroundColor(.red)
@@ -334,8 +334,8 @@ struct HeroManagementCard: View {
                     .frame(minHeight: 44)
                     .padding(.vertical, 12)
                 }
-                .accessibilityLabel("Delete \(hero.name)")
-                .accessibilityHint("Permanently removes this hero")
+                .accessibilityLabel(String(localized: "hero.list.accessibility.delete", defaultValue: "Delete \(hero.name)"))
+                .accessibilityHint(String(localized: "hero.list.accessibility.delete.hint"))
             }
             .background(Color(.systemGray6).opacity(colorScheme == .dark ? 0.3 : 0.5))
         }
@@ -365,11 +365,11 @@ struct EmptyHeroStateView: View {
                 .font(.system(size: 80))
                 .foregroundColor(.purple.opacity(0.5))
 
-            Text("No Heroes Yet")
+            Text(String(localized: "hero.list.empty.title"))
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            Text("Create your first hero to start generating magical stories!")
+            Text(String(localized: "hero.list.empty.message"))
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)

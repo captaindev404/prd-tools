@@ -41,11 +41,11 @@ struct IllustrationGenerationProgressView: View {
                         value: viewModel.isGeneratingIllustrations
                     )
 
-                    Text("Creating Magical Illustrations")
+                    Text("story.illustration.progress.title")
                         .font(.title2)
                         .fontWeight(.bold)
 
-                    Text("For \"\(story.title)\"")
+                    Text(String(localized: "story.illustration.progress.subtitle", defaultValue: "For \"\(story.title)\""))
                         .font(.headline)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -58,7 +58,7 @@ struct IllustrationGenerationProgressView: View {
                         // Progress indicator
                         VStack(spacing: 10) {
                             ProgressView(value: viewModel.illustrationGenerationProgress) {
-                                Text("\(Int(viewModel.illustrationGenerationProgress * 100))% Complete")
+                                Text(String(localized: "story.illustration.progress.percent", defaultValue: "\(Int(viewModel.illustrationGenerationProgress * 100))% Complete"))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
@@ -84,7 +84,7 @@ struct IllustrationGenerationProgressView: View {
                                 }
                             }
 
-                            Text("\(generatedCount) of \(totalCount) illustrations generated")
+                            Text(String(localized: "story.illustration.progress.count", defaultValue: "\(generatedCount) of \(totalCount) illustrations generated"))
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -95,14 +95,14 @@ struct IllustrationGenerationProgressView: View {
                                 .font(.system(size: 60))
                                 .foregroundColor(.green)
 
-                            Text("Illustrations Complete!")
+                            Text("story.illustration.progress.complete")
                                 .font(.title3)
                                 .fontWeight(.semibold)
 
                             let successCount = story.illustrations.filter { $0.isGenerated }.count
                             let totalCount = story.illustrations.count
 
-                            Text("\(successCount) of \(totalCount) illustrations created successfully")
+                            Text(String(localized: "story.illustration.progress.success", defaultValue: "\(successCount) of \(totalCount) illustrations created successfully"))
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
 
@@ -145,7 +145,7 @@ struct IllustrationGenerationProgressView: View {
                         HStack {
                             Image(systemName: "exclamationmark.triangle")
                                 .foregroundColor(.orange)
-                            Text("Some illustrations couldn't be generated")
+                            Text("story.illustration.progress.error.title")
                                 .font(.caption)
                                 .fontWeight(.medium)
                         }
@@ -171,7 +171,7 @@ struct IllustrationGenerationProgressView: View {
                         Button(action: {
                             showPreview = true
                         }) {
-                            Label("View Story with Illustrations", systemImage: "book.fill")
+                            Label("story.illustration.progress.button.view", systemImage: "book.fill")
                                 .font(.headline)
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
@@ -183,7 +183,7 @@ struct IllustrationGenerationProgressView: View {
                         Button(action: {
                             dismiss()
                         }) {
-                            Text("Done")
+                            Text("common.done")
                                 .font(.headline)
                                 .foregroundColor(.primary)
                                 .frame(maxWidth: .infinity)
@@ -196,7 +196,7 @@ struct IllustrationGenerationProgressView: View {
                             viewModel.cancelIllustrationGeneration()
                             dismiss()
                         }) {
-                            Text("Skip Illustrations")
+                            Text("story.illustration.progress.button.skip")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                         }
@@ -243,18 +243,18 @@ struct FailedIllustrationRow: View {
                 .foregroundColor(.red)
 
             VStack(alignment: .leading) {
-                Text("Illustration #\(illustration.displayOrder + 1)")
+                Text(String(localized: "story.illustration.progress.error.number", defaultValue: "Illustration #\(illustration.displayOrder + 1)"))
                     .font(.caption)
                     .fontWeight(.medium)
 
-                Text("Failed to generate")
+                Text("story.illustration.progress.error.failed")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
 
             Spacer()
 
-            Button("Retry") {
+            Button("common.retry") {
                 onRetry()
             }
             .font(.caption)

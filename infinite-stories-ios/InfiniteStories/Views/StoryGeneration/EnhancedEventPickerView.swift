@@ -33,7 +33,7 @@ struct EnhancedEventPickerView: View {
                     HStack {
                         Image(systemName: "magnifyingglass")
                             .foregroundColor(.secondary)
-                        TextField("Search events...", text: $searchText)
+                        TextField(String(localized: "story.event.search.placeholder"), text: $searchText)
                             .textFieldStyle(.plain)
                     }
                     .padding()
@@ -55,11 +55,11 @@ struct EnhancedEventPickerView: View {
                                 )
 
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("Create Custom Event")
+                                Text("story.event.custom.create")
                                     .font(.headline)
                                     .foregroundColor(.primary)
 
-                                Text("Design your own story scenario")
+                                Text("story.event.custom.subtitle")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
@@ -87,7 +87,7 @@ struct EnhancedEventPickerView: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
                             CategoryFilterChip(
-                                title: "All",
+                                title: String(localized: "story.event.category.all"),
                                 isSelected: selectedCategory == nil,
                                 action: { selectedCategory = nil }
                             )
@@ -106,19 +106,19 @@ struct EnhancedEventPickerView: View {
 
                     // Loading state
                     if isLoading {
-                        ProgressView("Loading custom events...")
+                        ProgressView(String(localized: "story.event.loading"))
                             .padding(.vertical, 20)
                     } else if let error = loadError {
                         VStack(spacing: 12) {
                             Image(systemName: "exclamationmark.triangle")
                                 .font(.title)
                                 .foregroundColor(.orange)
-                            Text("Failed to load custom events")
+                            Text("story.event.error.title")
                                 .font(.headline)
                             Text(error.localizedDescription)
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                            Button("Retry") {
+                            Button("common.retry") {
                                 Task {
                                     await loadCustomEvents()
                                 }
@@ -131,7 +131,7 @@ struct EnhancedEventPickerView: View {
                         if !filteredCustomEvents.isEmpty {
                             VStack(alignment: .leading, spacing: 12) {
                                 HStack {
-                                    Text("Your Custom Events")
+                                    Text("story.event.custom.section")
                                         .font(.headline)
 
                                     Spacer()
@@ -141,7 +141,7 @@ struct EnhancedEventPickerView: View {
                                         HStack(spacing: 4) {
                                             Image(systemName: "square.grid.2x2")
                                                 .font(.caption)
-                                            Text("Manage")
+                                            Text("common.manage")
                                                 .font(.caption)
                                                 .fontWeight(.medium)
                                         }
@@ -186,7 +186,7 @@ struct EnhancedEventPickerView: View {
                     // Built-in Events Section
                     if !filteredBuiltInEvents.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Suggested Events")
+                            Text("story.event.suggested")
                                 .font(.headline)
                                 .padding(.horizontal)
 
@@ -212,12 +212,12 @@ struct EnhancedEventPickerView: View {
                                 .font(.system(size: 50))
                                 .foregroundColor(.secondary)
 
-                            Text("No events found")
+                            Text("story.event.empty.title")
                                 .font(.headline)
                                 .foregroundColor(.secondary)
 
                             if !searchText.isEmpty {
-                                Text("Try a different search term")
+                                Text("story.event.empty.search")
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
                             }
@@ -227,11 +227,11 @@ struct EnhancedEventPickerView: View {
                 }
                 .padding(.vertical)
             }
-            .navigationTitle("Choose Adventure")
+            .navigationTitle("story.event.title")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Cancel") {
+                    Button("common.cancel") {
                         dismiss()
                     }
                 }
@@ -479,7 +479,7 @@ struct CustomEventCard: View {
             Button(action: {
                 showingDetailView = true
             }) {
-                Label("View Details", systemImage: "info.circle")
+                Label("common.view.details", systemImage: "info.circle")
             }
 
             Divider()
@@ -487,7 +487,7 @@ struct CustomEventCard: View {
             Button(role: .destructive, action: {
                 showingDeleteConfirmation = true
             }) {
-                Label("Delete", systemImage: "trash")
+                Label("common.delete", systemImage: "trash")
             }
         }
         .sheet(isPresented: $showingDetailView) {
@@ -496,16 +496,16 @@ struct CustomEventCard: View {
             }
         }
         .confirmationDialog(
-            "Delete Custom Event",
+            String(localized: "story.event.delete.title"),
             isPresented: $showingDeleteConfirmation,
             titleVisibility: .visible
         ) {
-            Button("Delete", role: .destructive) {
+            Button("common.delete", role: .destructive) {
                 onDelete()
             }
-            Button("Cancel", role: .cancel) {}
+            Button("common.cancel", role: .cancel) {}
         } message: {
-            Text("Are you sure you want to delete '\(event.title)'? This action cannot be undone.")
+            Text(String(localized: "story.event.delete.message", defaultValue: "Are you sure you want to delete '\(event.title)'? This action cannot be undone."))
         }
     }
 }

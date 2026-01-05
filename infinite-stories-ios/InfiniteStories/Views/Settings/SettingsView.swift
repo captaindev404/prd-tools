@@ -17,9 +17,11 @@ struct SettingsTabContent: View {
     @State private var settings = AppSettings()
     @EnvironmentObject private var themeSettings: ThemeSettings
     @EnvironmentObject private var authState: AuthStateManager
+    @StateObject private var localizationManager = LocalizationManager.shared
 
     @State private var showingEraseConfirmation = false
     @State private var showingAuthView = false
+    @State private var showingRestartAlert = false
     @State private var debugTestUserEmail = "test@example.com"
     @State private var debugTestUserPassword = "password123"
 
@@ -72,11 +74,39 @@ struct SettingsTabContent: View {
                             .foregroundColor(.secondary)
                     }
                 } header: {
-                    Text("Theme")
+                    Text("settings.theme")
                 } footer: {
-                    Text("Choose your preferred appearance or let it follow your system settings.")
+                    Text("settings.theme.footer")
                         .font(.caption)
                 }
+
+                // UI Language Section
+                Section {
+                    HStack {
+                        Label("settings.uiLanguage", systemImage: "globe")
+                            .foregroundColor(.purple)
+
+                        Spacer()
+
+                        Picker("", selection: $localizationManager.currentLanguage) {
+                            ForEach(LocalizationManager.UILanguage.allCases) { language in
+                                Text(language.displayName)
+                                    .tag(language)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .tint(.purple)
+                    }
+                } header: {
+                    Text("settings.uiLanguage")
+                } footer: {
+                    Text("settings.uiLanguage.footer")
+                        .font(.caption)
+                }
+                .onChange(of: localizationManager.currentLanguage) { _, _ in
+                    showingRestartAlert = localizationManager.needsRestart
+                }
+
                 Section {
                     HStack {
                         Picker("Story Length", selection: $settings.defaultStoryLength) {
@@ -290,13 +320,20 @@ struct SettingsTabContent: View {
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.large)
             .glassNavigation()
-            .confirmationDialog("Erase All Data?", isPresented: $showingEraseConfirmation, titleVisibility: .visible) {
-                Button("Erase Everything & Sign Out", role: .destructive) {
+            .confirmationDialog("settings.eraseAllData.confirm.title", isPresented: $showingEraseConfirmation, titleVisibility: .visible) {
+                Button("settings.eraseAllData.confirm.button", role: .destructive) {
                     settingsEraseAllData()
                 }
-                Button("Cancel", role: .cancel) { }
+                Button("common.cancel", role: .cancel) { }
             } message: {
-                Text("This will permanently delete all heroes, stories, media files, clear your session, and redirect you to sign-up. This action cannot be undone.")
+                Text("settings.eraseAllData.confirm.message")
+            }
+            .alert("settings.restartRequired.title", isPresented: $showingRestartAlert) {
+                Button("common.ok") {
+                    localizationManager.acknowledgeRestartNeeded()
+                }
+            } message: {
+                Text("settings.restartRequired.message")
             }
         }
     }

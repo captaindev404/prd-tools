@@ -62,15 +62,15 @@ struct CustomEventDetailView: View {
         .toolbar {
             toolbarContent
         }
-        .alert("Delete Event", isPresented: $showingDeleteAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Delete", role: .destructive) {
+        .alert("customEvent.detail.deleteAlert.title", isPresented: $showingDeleteAlert) {
+            Button("customEvent.detail.deleteAlert.cancel", role: .cancel) { }
+            Button("customEvent.detail.deleteAlert.delete", role: .destructive) {
                 Task {
                     await deleteEvent()
                 }
             }
         } message: {
-            Text("Are you sure you want to delete this custom event? This action cannot be undone.")
+            Text("customEvent.detail.deleteAlert.message")
         }
         .overlay {
             if isDeleting || isEnhancing {
@@ -79,7 +79,7 @@ struct CustomEventDetailView: View {
                         .ignoresSafeArea()
                     VStack(spacing: 12) {
                         ProgressView()
-                        Text(isDeleting ? "Deleting..." : "Enhancing with AI...")
+                        Text(isDeleting ? String(localized: "customEvent.detail.deleting") : String(localized: "customEvent.detail.enhancing"))
                             .font(.caption)
                             .foregroundColor(.white)
                     }
@@ -181,7 +181,7 @@ struct CustomEventDetailView: View {
         HStack(spacing: 12) {
             if !currentEvent.aiEnhanced {
                 ActionButton(
-                    title: "Enhance",
+                    title: String(localized: "customEvent.detail.actions.enhance"),
                     icon: "sparkles",
                     color: .purple
                 ) {
@@ -192,7 +192,7 @@ struct CustomEventDetailView: View {
             }
 
             ActionButton(
-                title: currentEvent.isFavorite ? "Unfavorite" : "Favorite",
+                title: currentEvent.isFavorite ? String(localized: "customEvent.detail.actions.unfavorite") : String(localized: "customEvent.detail.actions.favorite"),
                 icon: currentEvent.isFavorite ? "star.slash" : "star",
                 color: .yellow
             ) {
@@ -207,29 +207,29 @@ struct CustomEventDetailView: View {
 
     private var eventDetailsSection: some View {
         VStack(spacing: 16) {
-            SectionHeader(title: "Event Details", icon: "info.circle")
+            SectionHeader(title: String(localized: "customEvent.detail.section.eventDetails"), icon: "info.circle")
 
             VStack(spacing: 12) {
                 DetailRow(
-                    label: "Created",
+                    label: String(localized: "customEvent.detail.field.created"),
                     value: currentEvent.createdAt.formatted(date: .abbreviated, time: .shortened)
                 )
 
                 if let lastUsed = currentEvent.lastUsedAt {
                     DetailRow(
-                        label: "Last Used",
+                        label: String(localized: "customEvent.detail.field.lastUsed"),
                         value: lastUsed.formatted(date: .abbreviated, time: .shortened)
                     )
                 }
 
                 DetailRow(
-                    label: "AI Enhanced",
-                    value: currentEvent.aiEnhanced ? "Yes" : "No",
+                    label: String(localized: "customEvent.detail.field.aiEnhanced"),
+                    value: currentEvent.aiEnhanced ? String(localized: "customEvent.detail.field.yes") : String(localized: "customEvent.detail.field.no"),
                     valueColor: currentEvent.aiEnhanced ? .green : .secondary
                 )
 
                 DetailRow(
-                    label: "Last Updated",
+                    label: String(localized: "customEvent.detail.field.lastUpdated"),
                     value: currentEvent.updatedAt.formatted(date: .abbreviated, time: .shortened)
                 )
             }
@@ -243,19 +243,19 @@ struct CustomEventDetailView: View {
 
     private var statisticsSection: some View {
         VStack(spacing: 16) {
-            SectionHeader(title: "Usage Statistics", icon: "chart.bar")
+            SectionHeader(title: String(localized: "customEvent.detail.section.statistics"), icon: "chart.bar")
 
             HStack(spacing: 16) {
                 EventStatCard(
                     value: "\(currentEvent.usageCount)",
-                    label: "Times Used",
+                    label: String(localized: "customEvent.detail.stats.timesUsed"),
                     icon: "book.pages",
                     color: .blue
                 )
 
                 EventStatCard(
                     value: currentEvent.timeSinceCreation,
-                    label: "Age",
+                    label: String(localized: "customEvent.detail.stats.age"),
                     icon: "clock",
                     color: .green
                 )
@@ -267,7 +267,7 @@ struct CustomEventDetailView: View {
 
     private var keywordsSection: some View {
         VStack(spacing: 12) {
-            SectionHeader(title: "Keywords", icon: "tag")
+            SectionHeader(title: String(localized: "customEvent.detail.section.keywords"), icon: "tag")
 
             FlowLayout(spacing: 8) {
                 ForEach(currentEvent.keywords, id: \.self) { keyword in
@@ -281,7 +281,7 @@ struct CustomEventDetailView: View {
 
     private var promptSeedSection: some View {
         VStack(spacing: 12) {
-            SectionHeader(title: "Story Prompt", icon: "text.bubble")
+            SectionHeader(title: String(localized: "customEvent.detail.section.prompt"), icon: "text.bubble")
 
             Text(currentEvent.promptSeed)
                 .font(.body)
@@ -297,7 +297,7 @@ struct CustomEventDetailView: View {
 
     private var dangerZone: some View {
         VStack(spacing: 12) {
-            SectionHeader(title: "Danger Zone", icon: "exclamationmark.triangle")
+            SectionHeader(title: String(localized: "customEvent.detail.section.dangerZone"), icon: "exclamationmark.triangle")
                 .foregroundColor(.red)
 
             Button {
@@ -305,7 +305,7 @@ struct CustomEventDetailView: View {
             } label: {
                 HStack {
                     Image(systemName: "trash")
-                    Text("Delete Event")
+                    Text("customEvent.detail.actions.deleteEvent")
                 }
                 .font(.headline)
                 .foregroundColor(.white)
@@ -328,7 +328,7 @@ struct CustomEventDetailView: View {
                 Button {
                     showingShareSheet = true
                 } label: {
-                    Label("Share", systemImage: "square.and.arrow.up")
+                    Label("customEvent.detail.toolbar.share", systemImage: "square.and.arrow.up")
                 }
             } label: {
                 Image(systemName: "ellipsis.circle")

@@ -9,13 +9,13 @@ import SwiftUI
 
 /// Types of illustration failures
 enum IllustrationErrorType: String {
-    case network = "Network Error"
-    case invalidPrompt = "Invalid Content"
-    case rateLimit = "Rate Limited"
-    case apiError = "Service Error"
-    case timeout = "Timeout"
-    case fileSystem = "Storage Error"
-    case unknown = "Unknown Error"
+    case network = "illustration.error.network.title"
+    case invalidPrompt = "illustration.error.invalidPrompt.title"
+    case rateLimit = "illustration.error.rateLimit.title"
+    case apiError = "illustration.error.apiError.title"
+    case timeout = "illustration.error.timeout.title"
+    case fileSystem = "illustration.error.fileSystem.title"
+    case unknown = "illustration.error.unknown.title"
 
     var icon: String {
         switch self {
@@ -58,38 +58,38 @@ enum IllustrationErrorType: String {
     var userFriendlyMessage: String {
         switch self {
         case .network:
-            return "Connection issue. Check your internet and try again."
+            return String(localized: "illustration.error.network.message")
         case .invalidPrompt:
-            return "Content couldn't be illustrated. We'll improve this."
+            return String(localized: "illustration.error.invalidPrompt.message")
         case .rateLimit:
-            return "Too many requests. Please wait a moment."
+            return String(localized: "illustration.error.rateLimit.message")
         case .apiError:
-            return "Service temporarily unavailable. Try again later."
+            return String(localized: "illustration.error.apiError.message")
         case .timeout:
-            return "Taking too long. Please try again."
+            return String(localized: "illustration.error.timeout.message")
         case .fileSystem:
-            return "Couldn't save illustration. Check storage space."
+            return String(localized: "illustration.error.fileSystem.message")
         case .unknown:
-            return "Something went wrong. Please try again."
+            return String(localized: "illustration.error.unknown.message")
         }
     }
 
     var shortMessage: String {
         switch self {
         case .network:
-            return "No Connection"
+            return String(localized: "illustration.error.network.short")
         case .invalidPrompt:
-            return "Content Issue"
+            return String(localized: "illustration.error.invalidPrompt.short")
         case .rateLimit:
-            return "Please Wait"
+            return String(localized: "illustration.error.rateLimit.short")
         case .apiError:
-            return "Service Issue"
+            return String(localized: "illustration.error.apiError.short")
         case .timeout:
-            return "Timed Out"
+            return String(localized: "illustration.error.timeout.short")
         case .fileSystem:
-            return "Storage Issue"
+            return String(localized: "illustration.error.fileSystem.short")
         case .unknown:
-            return "Error"
+            return String(localized: "illustration.error.unknown.short")
         }
     }
 }
@@ -183,12 +183,12 @@ struct IllustrationPlaceholderView: View {
     @ViewBuilder
     private var sceneIndicator: some View {
         VStack(spacing: 8) {
-            Text("Scene \(sceneNumber)")
+            Text("illustration.placeholder.scene \(sceneNumber)")
                 .font(.headline)
                 .fontWeight(.semibold)
                 .foregroundColor(.primary.opacity(0.9))
 
-            Text("Illustration Placeholder")
+            Text("illustration.placeholder.title")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
@@ -222,7 +222,7 @@ struct IllustrationPlaceholderView: View {
                 Image(systemName: "arrow.clockwise")
                     .font(.system(size: 14, weight: .medium))
 
-                Text("Try Again")
+                Text("illustration.placeholder.retry")
                     .font(.system(size: 14, weight: .semibold))
             }
             .foregroundColor(.white)
@@ -282,7 +282,7 @@ struct CompactIllustrationPlaceholder: View {
                     .font(.system(size: 20))
                     .foregroundColor(errorType.color.opacity(0.6))
 
-                Text("Scene \(sceneNumber)")
+                Text("illustration.placeholder.scene \(sceneNumber)")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }

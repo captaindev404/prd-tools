@@ -75,24 +75,24 @@ struct AudioPlayerView: View {
                 .font(.system(size: 50))
                 .foregroundColor(.orange)
 
-            Text("Story data is missing")
+            Text(String(localized: "audio.player.error.missing.title"))
                 .font(.headline)
 
-            Text("This story appears to have no content")
+            Text(String(localized: "audio.player.error.missing.message"))
                 .font(.subheadline)
                 .foregroundColor(.secondary)
 
-            Button("Close") {
+            Button(String(localized: "audio.player.button.close")) {
                 dismiss()
             }
             .buttonStyle(.borderedProminent)
         }
         .padding()
         .navigationBarTitleDisplayMode(.inline)
-        .navigationTitle("Audio Player")
+        .navigationTitle(String(localized: "audio.player.title"))
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button("Done") {
+                Button(String(localized: "audio.player.button.done")) {
                     dismiss()
                 }
             }
@@ -187,11 +187,11 @@ struct AudioPlayerView: View {
                                 .font(.system(size: 60))
                                 .foregroundColor(.gray.opacity(0.5))
 
-                            Text("No illustrations available")
+                            Text(String(localized: "audio.player.illustrations.none.title"))
                                 .font(.headline)
                                 .foregroundColor(.secondary)
 
-                            Text("Generate illustrations to enhance the story")
+                            Text(String(localized: "audio.player.illustrations.none.message"))
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -213,7 +213,7 @@ struct AudioPlayerView: View {
                                 .fixedSize(horizontal: false, vertical: true)
 
                             if let hero = currentStory.hero {
-                                Text("Featuring \(hero.name)")
+                                Text(String(localized: "audio.player.featuring.\(hero.name)"))
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
                                     .lineLimit(1)
@@ -235,7 +235,7 @@ struct AudioPlayerView: View {
                                     HStack(spacing: 4) {
                                         Image(systemName: showIllustrations ? "photo.fill" : "photo")
                                             .font(.system(size: 14))
-                                        Text(showIllustrations ? "Hide" : "Show")
+                                        Text(showIllustrations ? String(localized: "audio.player.button.hide") : String(localized: "audio.player.button.show"))
                                             .font(.caption)
                                     }
                                     .foregroundColor(showIllustrations ? .orange : .secondary)
@@ -266,7 +266,7 @@ struct AudioPlayerView: View {
                             // Story Info
                             HStack(spacing: 12) {
                                 if !currentStory.content.isEmpty {
-                                    Label("\(wordCount) words", systemImage: "text.word.spacing")
+                                    Label(String(localized: "audio.player.words.\(wordCount)"), systemImage: "text.word.spacing")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }
@@ -340,8 +340,8 @@ struct AudioPlayerView: View {
                                 }
                                 .scaleEffect(previousButtonPressed ? 0.9 : 1.0)
                                 .disabled(!canGoToPrevious && viewModel.duration == 0)
-                                .accessibilityLabel(viewModel.isQueueMode ? "Previous story" : "Restart")
-                                .accessibilityHint(viewModel.isQueueMode ? "Play the previous story in queue" : "Restart the current story from the beginning")
+                                .accessibilityLabel(viewModel.isQueueMode ? String(localized: "audio.player.button.previous") : String(localized: "audio.player.button.restart"))
+                                .accessibilityHint(viewModel.isQueueMode ? String(localized: "audio.player.previous.hint") : String(localized: "audio.player.restart.hint"))
                                 .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
                                     withAnimation(.easeInOut(duration: 0.1)) {
                                         previousButtonPressed = pressing
@@ -361,8 +361,8 @@ struct AudioPlayerView: View {
                                 }
                                 .scaleEffect(skipBackwardPressed ? 0.9 : 1.0)
                                 .disabled(viewModel.duration == 0)
-                                .accessibilityLabel("Skip back 15 seconds")
-                                .accessibilityHint("Rewind the audio by 15 seconds")
+                                .accessibilityLabel(String(localized: "audio.player.skip.back.label"))
+                                .accessibilityHint(String(localized: "audio.player.skip.back.hint"))
                                 .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
                                     withAnimation(.easeInOut(duration: 0.1)) {
                                         skipBackwardPressed = pressing
@@ -388,8 +388,8 @@ struct AudioPlayerView: View {
                                 }
                                 .scaleEffect(playButtonPressed ? 0.95 : 1.0)
                                 .animation(.spring(response: 0.2, dampingFraction: 0.8), value: playButtonPressed)
-                                .accessibilityLabel(viewModel.isPlaying ? "Pause" : "Play")
-                                .accessibilityHint(viewModel.isPlaying ? "Pause the story audio" : "Play the story audio")
+                                .accessibilityLabel(viewModel.isPlaying ? String(localized: "audio.player.button.pause") : String(localized: "audio.player.button.play"))
+                                .accessibilityHint(viewModel.isPlaying ? String(localized: "audio.player.pause.hint") : String(localized: "audio.player.play.hint"))
                                 .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
                                     withAnimation(.easeInOut(duration: 0.1)) {
                                         playButtonPressed = pressing
@@ -411,8 +411,8 @@ struct AudioPlayerView: View {
                                 }
                                 .scaleEffect(skipForwardPressed ? 0.9 : 1.0)
                                 .disabled(viewModel.duration == 0)
-                                .accessibilityLabel("Skip forward 15 seconds")
-                                .accessibilityHint("Fast forward the audio by 15 seconds")
+                                .accessibilityLabel(String(localized: "audio.player.skip.forward.label"))
+                                .accessibilityHint(String(localized: "audio.player.skip.forward.hint"))
                                 .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
                                     withAnimation(.easeInOut(duration: 0.1)) {
                                         skipForwardPressed = pressing
@@ -434,8 +434,8 @@ struct AudioPlayerView: View {
                                 }
                                 .scaleEffect(nextButtonPressed ? 0.9 : 1.0)
                                 .disabled(!canGoToNext)
-                                .accessibilityLabel("Next story")
-                                .accessibilityHint("Play the next story in queue")
+                                .accessibilityLabel(String(localized: "audio.player.button.next"))
+                                .accessibilityHint(String(localized: "audio.player.next.hint"))
                                 .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
                                     withAnimation(.easeInOut(duration: 0.1)) {
                                         nextButtonPressed = pressing
@@ -451,7 +451,7 @@ struct AudioPlayerView: View {
                                     HStack(spacing: 4) {
                                         Image(systemName: "exclamationmark.circle.fill")
                                             .font(.caption)
-                                        Text("Audio outdated")
+                                        Text(String(localized: "audio.player.audio.outdated"))
                                             .font(.caption2)
                                     }
                                     .foregroundColor(.orange)
@@ -492,7 +492,7 @@ struct AudioPlayerView: View {
                                 }) {
                                     HStack(spacing: 4) {
                                         Image(systemName: "stop.fill")
-                                        Text("Stop")
+                                        Text(String(localized: "audio.player.button.stop"))
                                     }
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
@@ -504,8 +504,8 @@ struct AudioPlayerView: View {
                                 }
                                 .opacity((viewModel.isPlaying || viewModel.isPaused) ? 1.0 : 0.5)
                                 .disabled(!(viewModel.isPlaying || viewModel.isPaused))
-                                .accessibilityLabel("Stop playback")
-                                .accessibilityHint("Stop the audio and reset to the beginning")
+                                .accessibilityLabel(String(localized: "audio.player.stop.label"))
+                                .accessibilityHint(String(localized: "audio.player.stop.hint"))
                             }
                             .padding(.horizontal, 20)
 
@@ -515,7 +515,7 @@ struct AudioPlayerView: View {
                                     HStack {
                                         Image(systemName: "text.book.closed")
                                             .font(.caption)
-                                        Text("Story Text")
+                                        Text(String(localized: "audio.player.story.text"))
                                             .font(.caption)
                                             .fontWeight(.medium)
                                         Spacer()
@@ -523,7 +523,7 @@ struct AudioPlayerView: View {
                                             Button(action: {
                                                 showingFullText = true
                                             }) {
-                                                Text("Read Full")
+                                                Text(String(localized: "audio.player.button.read.full"))
                                                     .font(.caption)
                                                     .foregroundColor(.purple)
                                             }
@@ -532,7 +532,7 @@ struct AudioPlayerView: View {
                                     .padding(.horizontal, 20)
 
                                     ScrollView {
-                                        Text(currentStory.content.isEmpty ? "No story content available" : currentStory.content)
+                                        Text(currentStory.content.isEmpty ? String(localized: "audio.player.content.unavailable") : currentStory.content)
                                             .font(.system(.title3, design: .serif))
                                             .lineSpacing(6)
                                             .padding(16)
@@ -550,11 +550,13 @@ struct AudioPlayerView: View {
 
                             // Story metadata
                             HStack {
-                                Text("Created: \(currentStory.formattedDate)")
+                                Text(String(localized: "audio.player.created.\(currentStory.formattedDate)"))
                                     .lineLimit(1)
                                 Spacer()
                                 if currentStory.playCount > 0 {
-                                    Text("Played \(currentStory.playCount) \(currentStory.playCount == 1 ? "time" : "times")")
+                                    Text(currentStory.playCount == 1 ?
+                                         String(localized: "audio.player.played.once") :
+                                         String(localized: "audio.player.played.times.\(currentStory.playCount)"))
                                         .lineLimit(1)
                                 }
                             }
@@ -569,18 +571,18 @@ struct AudioPlayerView: View {
         } // End of GeometryReader
         .background(Color(.systemBackground))
         .navigationBarTitleDisplayMode(.inline)
-        .navigationTitle("Audio Player")
+        .navigationTitle(String(localized: "audio.player.title"))
         .toolbarBackground(.visible, for: .navigationBar)
         .modifier(iOS26SafeAreaModifier())
         .glassNavigation()
         .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
+                    Button(String(localized: "audio.player.button.done")) {
                         viewModel.stopAudio()
                         dismiss()
                     }
-                    .accessibilityLabel("Done")
-                    .accessibilityHint("Stop playback and close the audio player")
+                    .accessibilityLabel(String(localized: "audio.player.done.label"))
+                    .accessibilityHint(String(localized: "audio.player.done.hint"))
                 }
 
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -593,8 +595,8 @@ struct AudioPlayerView: View {
                                 .foregroundColor(currentStory.isFavorite ? .red : .secondary)
                                 .frame(minWidth: 44, minHeight: 44)
                         }
-                        .accessibilityLabel(currentStory.isFavorite ? "Remove from favorites" : "Add to favorites")
-                        .accessibilityHint(currentStory.isFavorite ? "Remove this story from your favorites" : "Add this story to your favorites")
+                        .accessibilityLabel(currentStory.isFavorite ? String(localized: "audio.player.favorite.remove.label") : String(localized: "audio.player.favorite.add.label"))
+                        .accessibilityHint(currentStory.isFavorite ? String(localized: "audio.player.favorite.remove.hint") : String(localized: "audio.player.favorite.add.hint"))
 
                         Button(action: {
                             showingEditView = true
@@ -603,8 +605,8 @@ struct AudioPlayerView: View {
                                 .foregroundColor(.purple)
                                 .frame(minWidth: 44, minHeight: 44)
                         }
-                        .accessibilityLabel("Edit story")
-                        .accessibilityHint("Open the story editor")
+                        .accessibilityLabel(String(localized: "audio.player.edit.label"))
+                        .accessibilityHint(String(localized: "audio.player.edit.hint"))
 
                         // Export Audio Button
                         Button(action: {
@@ -616,8 +618,8 @@ struct AudioPlayerView: View {
                         }
                         .disabled(!currentStory.hasAudio && currentStory.audioFileName == nil)
                         .opacity(currentStory.hasAudio || currentStory.audioFileName != nil ? 1.0 : 0.6)
-                        .accessibilityLabel("Export audio")
-                        .accessibilityHint("Share or save the story audio file")
+                        .accessibilityLabel(String(localized: "audio.player.export.label"))
+                        .accessibilityHint(String(localized: "audio.player.export.hint"))
                     }
                 }
             }
@@ -633,7 +635,7 @@ struct AudioPlayerView: View {
                                 .fontWeight(.bold)
 
                             if let hero = currentStory.hero {
-                                Text("Featuring \(hero.name)")
+                                Text(String(localized: "audio.player.featuring.\(hero.name)"))
                                     .font(.headline)
                                     .foregroundColor(.secondary)
                             }
@@ -647,12 +649,12 @@ struct AudioPlayerView: View {
                         .padding()
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .navigationTitle("Full Story")
+                    .navigationTitle(String(localized: "audio.player.full.story.title"))
                     .navigationBarTitleDisplayMode(.inline)
                     .glassNavigation()
                     .toolbar {
                         ToolbarItem(placement: .navigationBarTrailing) {
-                            Button("Done") {
+                            Button(String(localized: "audio.player.button.done")) {
                                 showingFullText = false
                             }
                         }
@@ -664,8 +666,8 @@ struct AudioPlayerView: View {
                     ShareSheet(activityItems: [audioFileURL])
                 }
             }
-            .alert("Export Error", isPresented: $showingExportError) {
-                Button("OK", role: .cancel) {}
+            .alert(String(localized: "audio.player.export.error.title"), isPresented: $showingExportError) {
+                Button(String(localized: "audio.player.button.ok"), role: .cancel) {}
             } message: {
                 Text(exportErrorMessage)
             }
@@ -723,7 +725,7 @@ struct AudioPlayerView: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let hero = currentStory.hero {
-                    Text("Featuring \(hero.name)")
+                    Text(String(localized: "audio.player.featuring.\(hero.name)"))
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .lineLimit(1)
@@ -892,11 +894,11 @@ struct AudioPlayerView: View {
 
             // Metadata
             HStack {
-                Text("Created: \(currentStory.formattedDate)")
+                Text(String(localized: "audio.player.created.\(currentStory.formattedDate)"))
                     .lineLimit(1)
                 Spacer()
                 if currentStory.playCount > 0 {
-                    Text("\(currentStory.playCount) plays")
+                    Text(String(localized: "audio.player.plays.\(currentStory.playCount)"))
                         .lineLimit(1)
                 }
             }
@@ -944,7 +946,7 @@ struct AudioPlayerView: View {
 
     private func exportAudioFile() {
         guard let audioFileName = currentStory.audioFileName else {
-            exportErrorMessage = "This story doesn't have an audio file yet. Please play the story first to generate audio."
+            exportErrorMessage = String(localized: "audio.player.export.error.no.file")
             showingExportError = true
             return
         }
@@ -1063,11 +1065,11 @@ enum AudioExportError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .fileNotFound:
-            return "Audio file not found. Please play the story to generate audio."
+            return String(localized: "audio.player.error.file.not.found")
         case .invalidFileName:
-            return "Invalid file name. Please try again."
+            return String(localized: "audio.player.error.invalid.filename")
         case .exportFailed(let reason):
-            return "Export failed: \(reason)"
+            return String(localized: "audio.player.error.export.failed.\(reason)")
         }
     }
 }

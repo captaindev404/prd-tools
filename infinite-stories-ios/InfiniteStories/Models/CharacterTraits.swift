@@ -6,10 +6,11 @@
 //
 
 import Foundation
+import SwiftUI
 
 enum CharacterTrait: String, CaseIterable, Codable {
     case brave = "Brave"
-    case kind = "Kind" 
+    case kind = "Kind"
     case curious = "Curious"
     case funny = "Funny"
     case smart = "Smart"
@@ -18,7 +19,40 @@ enum CharacterTrait: String, CaseIterable, Codable {
     case helpful = "Helpful"
     case gentle = "Gentle"
     case magical = "Magical"
-    
+
+    /// Localized display name for the trait
+    var localizedName: String {
+        switch self {
+        case .brave: return String(localized: "model.trait.brave")
+        case .kind: return String(localized: "model.trait.kind")
+        case .curious: return String(localized: "model.trait.curious")
+        case .funny: return String(localized: "model.trait.funny")
+        case .smart: return String(localized: "model.trait.smart")
+        case .adventurous: return String(localized: "model.trait.adventurous")
+        case .creative: return String(localized: "model.trait.creative")
+        case .helpful: return String(localized: "model.trait.helpful")
+        case .gentle: return String(localized: "model.trait.gentle")
+        case .magical: return String(localized: "model.trait.magical")
+        }
+    }
+
+    /// Localized description for the trait
+    var localizedDescription: String {
+        switch self {
+        case .brave: return String(localized: "model.trait.brave.description")
+        case .kind: return String(localized: "model.trait.kind.description")
+        case .curious: return String(localized: "model.trait.curious.description")
+        case .funny: return String(localized: "model.trait.funny.description")
+        case .smart: return String(localized: "model.trait.smart.description")
+        case .adventurous: return String(localized: "model.trait.adventurous.description")
+        case .creative: return String(localized: "model.trait.creative.description")
+        case .helpful: return String(localized: "model.trait.helpful.description")
+        case .gentle: return String(localized: "model.trait.gentle.description")
+        case .magical: return String(localized: "model.trait.magical.description")
+        }
+    }
+
+    /// English description for AI prompts (unchanged, used for story generation)
     var description: String {
         switch self {
         case .brave:
@@ -56,7 +90,24 @@ enum StoryEvent: String, CaseIterable, Codable {
     case learning = "Learning Something New"
     case helping = "Helping Others"
     case holiday = "Holiday Adventure"
-    
+
+    /// Localized display name for the event
+    var localizedName: String {
+        switch self {
+        case .bedtime: return String(localized: "model.event.bedtime")
+        case .schoolDay: return String(localized: "model.event.schoolDay")
+        case .birthday: return String(localized: "model.event.birthday")
+        case .weekend: return String(localized: "model.event.weekend")
+        case .rainyDay: return String(localized: "model.event.rainyDay")
+        case .family: return String(localized: "model.event.family")
+        case .friendship: return String(localized: "model.event.friendship")
+        case .learning: return String(localized: "model.event.learning")
+        case .helping: return String(localized: "model.event.helping")
+        case .holiday: return String(localized: "model.event.holiday")
+        }
+    }
+
+    /// English prompt seed for AI story generation (unchanged)
     var promptSeed: String {
         switch self {
         case .bedtime:
@@ -81,7 +132,7 @@ enum StoryEvent: String, CaseIterable, Codable {
             return "a festive holiday adventure full of joy"
         }
     }
-    
+
     var icon: String {
         switch self {
         case .bedtime:

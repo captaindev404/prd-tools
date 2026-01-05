@@ -124,7 +124,7 @@ struct IllustrationCarouselView: View {
                         HStack {
                             Image(systemName: "hand.tap.fill")
                                 .font(.title2)
-                            Text("Tap any illustration to jump to that part of the story")
+                            Text("illustration.carousel.tapToSeek")
                                 .font(.subheadline)
                         }
                         .foregroundColor(.primary)
@@ -268,7 +268,7 @@ struct IllustrationCarouselView: View {
                         Image(systemName: "speaker.wave.2.fill")
                             .font(.system(size: 40))
                             .foregroundColor(.orange)
-                        Text("Jumping to \(illustration.formattedTimestamp)")
+                        Text("illustration.carousel.jumpingTo \(illustration.formattedTimestamp)")
                             .font(.headline)
                             .foregroundColor(.primary)
                     }
@@ -330,7 +330,7 @@ struct IllustrationCarouselView: View {
     @ViewBuilder
     private func descriptionOverlay(for illustration: StoryIllustration) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Scene \(illustration.displayOrder + 1)")
+            Text("illustration.carousel.scene \(illustration.displayOrder + 1)")
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundColor(.white.opacity(0.8))
@@ -399,7 +399,7 @@ struct IllustrationCarouselView: View {
             .frame(height: 20)
 
             if let current = currentIllustration {
-                Text("Scene \(current.displayOrder + 1) • \(current.formattedTimestamp)")
+                Text("illustration.carousel.scene \(current.displayOrder + 1) • \(current.formattedTimestamp)")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -444,11 +444,11 @@ struct IllustrationCarouselView: View {
                     .font(.system(size: 60))
                     .foregroundColor(.white.opacity(0.8))
 
-                Text("Illustration Coming Soon")
+                Text("illustration.carousel.comingSoon")
                     .font(.headline)
                     .foregroundColor(.white)
 
-                Text("Scene \(illustration.displayOrder + 1)")
+                Text("illustration.carousel.scene \(illustration.displayOrder + 1)")
                     .font(.caption)
                     .foregroundColor(.white.opacity(0.7))
             }
@@ -463,11 +463,11 @@ struct IllustrationCarouselView: View {
                 .font(.system(size: 60))
                 .foregroundColor(.gray.opacity(0.5))
 
-            Text("No Illustrations Available")
+            Text("illustration.carousel.noIllustrations")
                 .font(.headline)
                 .foregroundColor(.secondary)
 
-            Text("Illustrations will appear here once generated")
+            Text("illustration.carousel.willAppear")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)

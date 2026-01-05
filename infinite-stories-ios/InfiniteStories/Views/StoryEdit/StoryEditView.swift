@@ -33,12 +33,12 @@ struct StoryEditView: View {
             VStack(spacing: 0) {
                 // Title field
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Story Title")
+                    Text(String(localized: "story.edit.title.label"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .padding(.horizontal)
-                    
-                    TextField("Enter story title", text: $editedTitle)
+
+                    TextField(String(localized: "story.edit.title.placeholder"), text: $editedTitle)
                         .font(.title3.bold())
                         .padding()
                         .background(Color(.secondarySystemBackground))
@@ -53,19 +53,19 @@ struct StoryEditView: View {
                 // Content editor
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
-                        Text("Story Content")
+                        Text(String(localized: "story.edit.content.label"))
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        
+
                         Spacer()
-                        
+
                         // Character and word count
                         HStack(spacing: 12) {
-                            Label("\(wordCount) words", systemImage: "text.word.spacing")
+                            Label(String(localized: "story.edit.words.count.\(wordCount)"), systemImage: "text.word.spacing")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                            
-                            Label("\(characterCount)/\(maxCharacters)", systemImage: "character.cursor.ibeam")
+
+                            Label(String(localized: "story.edit.characters.count.\(characterCount).\(maxCharacters)"), systemImage: "character.cursor.ibeam")
                                 .font(.caption)
                                 .foregroundColor(characterCount > maxCharacters ? .red : .secondary)
                         }
@@ -98,7 +98,7 @@ struct StoryEditView: View {
                         
                         // Placeholder text
                         if editedContent.isEmpty {
-                            Text("Write your magical story here...")
+                            Text(String(localized: "story.edit.content.placeholder"))
                                 .font(.system(.body, design: .serif))
                                 .foregroundColor(.gray)
                                 .padding(.horizontal, 13)
@@ -115,10 +115,10 @@ struct StoryEditView: View {
                     // Formatting tips
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
-                            FormatTip(icon: "quote.opening", text: "Use quotes for dialogue")
-                            FormatTip(icon: "paragraphsign", text: "Separate paragraphs")
-                            FormatTip(icon: "sparkles", text: "Add descriptive details")
-                            FormatTip(icon: "face.smiling", text: "Keep it engaging")
+                            FormatTip(icon: "quote.opening", text: String(localized: "story.edit.tip.quotes"))
+                            FormatTip(icon: "paragraphsign", text: String(localized: "story.edit.tip.paragraphs"))
+                            FormatTip(icon: "sparkles", text: String(localized: "story.edit.tip.details"))
+                            FormatTip(icon: "face.smiling", text: String(localized: "story.edit.tip.engaging"))
                         }
                         .padding(.horizontal)
                     }
@@ -128,7 +128,7 @@ struct StoryEditView: View {
                     HStack(spacing: 16) {
                         // Auto-format button
                         Button(action: autoFormatContent) {
-                            Label("Auto-Format", systemImage: "wand.and.stars")
+                            Label(String(localized: "story.edit.button.autoformat"), systemImage: "wand.and.stars")
                                 .font(.caption)
                                 .foregroundColor(.purple)
                                 .padding(.horizontal, 12)
@@ -136,14 +136,14 @@ struct StoryEditView: View {
                                 .background(Color.purple.opacity(0.1))
                                 .cornerRadius(8)
                         }
-                        
+
                         Spacer()
-                        
+
                         // Reading time estimate
                         HStack(spacing: 4) {
                             Image(systemName: "clock")
                                 .font(.caption)
-                            Text("\(estimatedReadingTime) min read")
+                            Text(String(localized: "story.edit.reading.time.\(estimatedReadingTime)"))
                                 .font(.caption)
                         }
                         .foregroundColor(.secondary)
@@ -153,11 +153,11 @@ struct StoryEditView: View {
                 .padding(.bottom)
                 .background(Color(.systemBackground))
             }
-            .navigationTitle("Edit Story")
+            .navigationTitle(String(localized: "story.edit.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
+                    Button(String(localized: "story.edit.button.cancel")) {
                         if hasChanges {
                             showingDiscardAlert = true
                         } else {
@@ -169,10 +169,10 @@ struct StoryEditView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
                         Button(action: { saveChanges(regenerateAudio: false) }) {
-                            Label("Save", systemImage: "square.and.arrow.down")
+                            Label(String(localized: "story.edit.button.save"), systemImage: "square.and.arrow.down")
                         }
                         Button(action: { saveChanges(regenerateAudio: true) }) {
-                            Label("Save & Regenerate Audio", systemImage: "waveform")
+                            Label(String(localized: "story.edit.button.save.regenerate"), systemImage: "waveform")
                         }
                     } label: {
                         if isSaving {
@@ -180,23 +180,23 @@ struct StoryEditView: View {
                                 .progressViewStyle(CircularProgressViewStyle())
                                 .scaleEffect(0.8)
                         } else {
-                            Text("Save")
+                            Text(String(localized: "story.edit.button.save"))
                                 .fontWeight(.semibold)
                         }
                     }
                     .disabled(!hasChanges || isSaving || editedTitle.isEmpty || editedContent.isEmpty)
                 }
             }
-            .alert("Discard Changes?", isPresented: $showingDiscardAlert) {
-                Button("Discard", role: .destructive) {
+            .alert(String(localized: "story.edit.alert.discard.title"), isPresented: $showingDiscardAlert) {
+                Button(String(localized: "story.edit.button.discard"), role: .destructive) {
                     dismiss()
                 }
-                Button("Keep Editing", role: .cancel) { }
+                Button(String(localized: "story.edit.button.keep.editing"), role: .cancel) { }
             } message: {
-                Text("You have unsaved changes. Are you sure you want to discard them?")
+                Text(String(localized: "story.edit.alert.discard.message"))
             }
-            .alert("Story Updated", isPresented: $showingSaveConfirmation) {
-                Button("OK") {
+            .alert(String(localized: "story.edit.alert.updated.title"), isPresented: $showingSaveConfirmation) {
+                Button(String(localized: "story.edit.button.ok")) {
                     if shouldRegenerateAudio {
                         showingRegenerationView = true
                     } else {
@@ -205,8 +205,8 @@ struct StoryEditView: View {
                 }
             } message: {
                 Text(shouldRegenerateAudio ?
-                     "Your story has been saved. Audio generation will begin now." :
-                     "Your story has been updated successfully. The audio will be regenerated using OpenAI when you play the story.")
+                     String(localized: "story.edit.alert.updated.message.regenerate") :
+                     String(localized: "story.edit.alert.updated.message.normal"))
             }
             .fullScreenCover(isPresented: $showingRegenerationView) {
                 AudioRegenerationView(story: story) {
@@ -223,7 +223,7 @@ struct StoryEditView: View {
             // Keyboard toolbar
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
-                    Button("Done") {
+                    Button(String(localized: "story.edit.button.done")) {
                         isTextEditorFocused = false
                     }
                 }

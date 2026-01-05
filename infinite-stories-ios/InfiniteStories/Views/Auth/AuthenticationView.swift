@@ -37,12 +37,12 @@ struct AuthenticationView: View {
                             .font(.system(size: 70))
                             .foregroundColor(.accentColor)
 
-                        Text("Infinite Stories")
+                        Text("auth.appTitle")
                             .font(.largeTitle)
                             .fontWeight(.bold)
                             .foregroundColor(.accentColor)
 
-                        Text(isSignUp ? "Create your magical account" : "Welcome back")
+                        Text(isSignUp ? String(localized: "auth.createAccount.subtitle") : String(localized: "auth.signIn.subtitle"))
                             .font(.body)
                             .foregroundColor(.secondary)
                     }
@@ -56,7 +56,7 @@ struct AuthenticationView: View {
                                 clearForm()
                             }
                         }) {
-                            Text("Sign In")
+                            Text("auth.signIn.button")
                                 .font(.headline)
                                 .foregroundColor(isSignUp ? .secondary : .white)
                                 .frame(maxWidth: .infinity)
@@ -71,7 +71,7 @@ struct AuthenticationView: View {
                                 clearForm()
                             }
                         }) {
-                            Text("Sign Up")
+                            Text("auth.signUp.button")
                                 .font(.headline)
                                 .foregroundColor(isSignUp ? .white : .secondary)
                                 .frame(maxWidth: .infinity)
@@ -92,7 +92,7 @@ struct AuthenticationView: View {
                         if isSignUp {
                             MagicalTextField(
                                 icon: "person.fill",
-                                placeholder: "Full Name",
+                                placeholder: String(localized: "auth.field.fullName"),
                                 text: $name,
                                 isSecure: false,
                                 keyboardType: .default
@@ -106,7 +106,7 @@ struct AuthenticationView: View {
 
                         MagicalTextField(
                             icon: "envelope.fill",
-                            placeholder: "Email",
+                            placeholder: String(localized: "auth.field.email"),
                             text: $email,
                             isSecure: false,
                             keyboardType: .emailAddress
@@ -120,7 +120,7 @@ struct AuthenticationView: View {
 
                         MagicalTextField(
                             icon: "lock.fill",
-                            placeholder: "Password",
+                            placeholder: String(localized: "auth.field.password"),
                             text: $password,
                             isSecure: true,
                             keyboardType: .default
@@ -138,7 +138,7 @@ struct AuthenticationView: View {
                         if isSignUp {
                             MagicalTextField(
                                 icon: "lock.rotation",
-                                placeholder: "Confirm Password",
+                                placeholder: String(localized: "auth.field.confirmPassword"),
                                 text: $confirmPassword,
                                 isSecure: true,
                                 keyboardType: .default
@@ -162,7 +162,7 @@ struct AuthenticationView: View {
                                     .frame(height: 22)
                             } else {
                                 HStack {
-                                    Text(isSignUp ? "Create Account" : "Sign In")
+                                    Text(isSignUp ? String(localized: "auth.createAccount.button") : String(localized: "auth.signIn.button"))
                                         .font(.headline)
                                     Image(systemName: "arrow.right.circle.fill")
                                 }
@@ -241,8 +241,8 @@ struct AuthenticationView: View {
             // Default to sign-up for new users, sign-in for returning users
             isSignUp = !authState.hasEverAuthenticated
         }
-        .alert("Authentication Error", isPresented: $showError) {
-            Button("OK", role: .cancel) {
+        .alert(String(localized: "auth.error.title"), isPresented: $showError) {
+            Button(String(localized: "common.ok"), role: .cancel) {
                 errorMessage = ""
             }
         } message: {
@@ -612,15 +612,15 @@ enum AuthenticationError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidCredentials:
-            return "Invalid email or password"
+            return String(localized: "auth.error.invalidCredentials")
         case .networkError:
-            return "Network error. Please check your connection."
+            return String(localized: "auth.error.network")
         case .userAlreadyExists:
-            return "An account with this email already exists. Try logging in instead."
+            return String(localized: "auth.error.userExists")
         case .signUpFailed:
-            return "Failed to create account. Please try again."
+            return String(localized: "auth.error.signUpFailed")
         case .invalidResponse:
-            return "Server response error. Please check console logs."
+            return String(localized: "auth.error.serverResponse")
         }
     }
 }

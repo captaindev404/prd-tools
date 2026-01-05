@@ -18,13 +18,13 @@ enum AudioGenerationStage: Equatable {
     var statusMessage: String {
         switch self {
         case .preparing:
-            return "Preparing story..."
+            return String(localized: "audio.regeneration.status.preparing")
         case .generating:
-            return "Generating audio..."
+            return String(localized: "audio.regeneration.status.generating")
         case .finalizing:
-            return "Finalizing audio file..."
+            return String(localized: "audio.regeneration.status.finalizing")
         case .completed:
-            return "Audio ready!"
+            return String(localized: "audio.regeneration.status.completed")
         case .failed(let error):
             return error
         }
@@ -161,7 +161,7 @@ struct AudioRegenerationView: View {
                         if case .failed = currentStage {
                             // Error state
                         } else if currentStage != .completed {
-                            Text("This may take about 30 seconds")
+                            Text(String(localized: "audio.regeneration.estimated.time"))
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                         }
@@ -184,7 +184,7 @@ struct AudioRegenerationView: View {
                                 onCompletion?()
                                 dismiss()
                             }) {
-                                Label("Play Story", systemImage: "play.fill")
+                                Label(String(localized: "audio.regeneration.button.play.story"), systemImage: "play.fill")
                                     .font(.headline)
                                     .foregroundColor(.white)
                                     .frame(maxWidth: .infinity)
@@ -193,14 +193,14 @@ struct AudioRegenerationView: View {
                                     .cornerRadius(12)
                             }
 
-                            Button("Done") {
+                            Button(String(localized: "audio.regeneration.button.done")) {
                                 dismiss()
                             }
                             .font(.headline)
                             .foregroundColor(.primary)
                         } else if case .failed = currentStage {
                             Button(action: retryGeneration) {
-                                Label("Try Again", systemImage: "arrow.clockwise")
+                                Label(String(localized: "audio.regeneration.button.try.again"), systemImage: "arrow.clockwise")
                                     .font(.headline)
                                     .foregroundColor(.white)
                                     .frame(maxWidth: .infinity)
@@ -209,13 +209,13 @@ struct AudioRegenerationView: View {
                                     .cornerRadius(12)
                             }
 
-                            Button("Cancel") {
+                            Button(String(localized: "audio.regeneration.button.cancel")) {
                                 dismiss()
                             }
                             .font(.headline)
                             .foregroundColor(.primary)
                         } else {
-                            Button("Cancel") {
+                            Button(String(localized: "audio.regeneration.button.cancel")) {
                                 if progress > 0.5 {
                                     showCancelConfirmation = true
                                 } else {
@@ -239,13 +239,13 @@ struct AudioRegenerationView: View {
                     IdleTimerManager.shared.enableIdleTimer(for: "AudioRegeneration")
                 }
             }
-            .alert("Cancel Audio Generation?", isPresented: $showCancelConfirmation) {
-                Button("Continue", role: .cancel) { }
-                Button("Cancel Generation", role: .destructive) {
+            .alert(String(localized: "audio.regeneration.alert.cancel.title"), isPresented: $showCancelConfirmation) {
+                Button(String(localized: "audio.regeneration.button.continue"), role: .cancel) { }
+                Button(String(localized: "audio.regeneration.button.cancel.generation"), role: .destructive) {
                     cancelGeneration()
                 }
             } message: {
-                Text("Audio generation is more than halfway complete. Are you sure you want to cancel?")
+                Text(String(localized: "audio.regeneration.alert.cancel.message"))
             }
         }
     }

@@ -48,20 +48,20 @@ struct HeroCreationView: View {
                 // Navigation buttons
                 HStack {
                     if currentStep > 0 {
-                        Button("Back") {
+                        Button(String(localized: "hero.creation.button.back")) {
                             withAnimation {
                                 currentStep -= 1
                             }
                         }
                         .buttonStyle(.bordered)
                         .frame(minWidth: 44, minHeight: 44)
-                        .accessibilityLabel("Go back")
-                        .accessibilityHint("Return to the previous step")
+                        .accessibilityLabel(String(localized: "hero.creation.accessibility.back"))
+                        .accessibilityHint(String(localized: "hero.creation.accessibility.back.hint"))
                     }
 
                     Spacer()
 
-                    Button(currentStep == totalSteps - 1 ? (heroToEdit != nil ? "Update Hero" : "Create Hero") : "Next") {
+                    Button(currentStep == totalSteps - 1 ? (heroToEdit != nil ? String(localized: "hero.creation.button.update") : String(localized: "hero.creation.button.create")) : String(localized: "hero.creation.button.next")) {
                         withAnimation {
                             if currentStep == totalSteps - 1 {
                                 saveHero()
@@ -73,20 +73,20 @@ struct HeroCreationView: View {
                     .buttonStyle(.borderedProminent)
                     .frame(minWidth: 44, minHeight: 44)
                     .disabled(!canProceed)
-                    .accessibilityLabel(currentStep == totalSteps - 1 ? (heroToEdit != nil ? "Update hero" : "Create hero") : "Next step")
-                    .accessibilityHint(currentStep == totalSteps - 1 ? "Saves your hero" : "Proceed to the next step")
+                    .accessibilityLabel(currentStep == totalSteps - 1 ? (heroToEdit != nil ? String(localized: "hero.creation.accessibility.update") : String(localized: "hero.creation.accessibility.create")) : String(localized: "hero.creation.accessibility.next"))
+                    .accessibilityHint(currentStep == totalSteps - 1 ? String(localized: "hero.creation.accessibility.save.hint") : String(localized: "hero.creation.accessibility.next.hint"))
                 }
                 .padding()
             }
-            .navigationTitle(heroToEdit != nil ? "Edit Hero" : "Create Your Hero")
+            .navigationTitle(heroToEdit != nil ? String(localized: "hero.creation.title.edit") : String(localized: "hero.creation.title.create"))
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Cancel") {
+                    Button(String(localized: "hero.creation.button.cancel")) {
                         dismiss()
                     }
-                    .accessibilityLabel("Cancel")
-                    .accessibilityHint("Discard changes and close")
+                    .accessibilityLabel(String(localized: "hero.creation.button.cancel"))
+                    .accessibilityHint(String(localized: "hero.creation.accessibility.cancel.hint"))
                 }
             }
         }
@@ -127,12 +127,12 @@ struct HeroCreationView: View {
                 .font(.system(size: 60))
                 .foregroundColor(.purple)
             
-            Text("Let's Create Your Story Hero!")
+            Text(String(localized: "hero.creation.header.title"))
                 .font(.title2)
                 .fontWeight(.bold)
                 .multilineTextAlignment(.center)
-            
-            Text("Step \(currentStep + 1) of \(totalSteps)")
+
+            Text(String(localized: "hero.creation.header.step", defaultValue: "Step \(currentStep + 1) of \(totalSteps)"))
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
@@ -157,16 +157,16 @@ struct HeroCreationView: View {
     @ViewBuilder
     private var nameStep: some View {
         VStack(spacing: 20) {
-            Text("What's your hero's name?")
+            Text(String(localized: "hero.creation.name.question"))
                 .font(.title3)
                 .fontWeight(.semibold)
-            
-            TextField("Enter hero name", text: $heroName)
+
+            TextField(String(localized: "hero.creation.name.placeholder"), text: $heroName)
                 .textFieldStyle(.roundedBorder)
                 .font(.title2)
                 .multilineTextAlignment(.center)
-            
-            Text("Choose a name that your child will love to hear in stories!")
+
+            Text(String(localized: "hero.creation.name.hint"))
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -176,7 +176,7 @@ struct HeroCreationView: View {
     @ViewBuilder
     private var primaryTraitStep: some View {
         VStack(spacing: 20) {
-            Text("What's \(heroName)'s main personality?")
+            Text(String(localized: "hero.creation.primarytrait.question", defaultValue: "What's \(heroName)'s main personality?"))
                 .font(.title3)
                 .fontWeight(.semibold)
                 .multilineTextAlignment(.center)
@@ -197,12 +197,12 @@ struct HeroCreationView: View {
     @ViewBuilder
     private var secondaryTraitStep: some View {
         VStack(spacing: 20) {
-            Text("What's \(heroName)'s secondary trait?")
+            Text(String(localized: "hero.creation.secondarytrait.question", defaultValue: "What's \(heroName)'s secondary trait?"))
                 .font(.title3)
                 .fontWeight(.semibold)
                 .multilineTextAlignment(.center)
-            
-            Text("This adds more depth to your hero's personality!")
+
+            Text(String(localized: "hero.creation.secondarytrait.hint"))
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -223,31 +223,31 @@ struct HeroCreationView: View {
     @ViewBuilder
     private var customizationStep: some View {
         VStack(spacing: 25) {
-            Text("Let's add some special details!")
+            Text(String(localized: "hero.creation.customization.title"))
                 .font(.title3)
                 .fontWeight(.semibold)
 
             VStack(alignment: .leading, spacing: 15) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("How does \(heroName) look?")
+                    Text(String(localized: "hero.creation.appearance.question", defaultValue: "How does \(heroName) look?"))
                         .font(.headline)
 
-                    TextField("e.g., has sparkly blue eyes and curly hair", text: $appearance)
+                    TextField(String(localized: "hero.creation.appearance.placeholder"), text: $appearance)
                         .textFieldStyle(.roundedBorder)
 
-                    Text("Optional - helps make stories more vivid")
+                    Text(String(localized: "hero.creation.appearance.hint"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("What's \(heroName)'s special ability?")
+                    Text(String(localized: "hero.creation.specialability.question", defaultValue: "What's \(heroName)'s special ability?"))
                         .font(.headline)
 
-                    TextField("e.g., can talk to animals, creates magical rainbows", text: $specialAbility)
+                    TextField(String(localized: "hero.creation.specialability.placeholder"), text: $specialAbility)
                         .textFieldStyle(.roundedBorder)
 
-                    Text("Optional - adds magical elements to stories")
+                    Text(String(localized: "hero.creation.specialability.hint"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -266,7 +266,7 @@ struct HeroCreationView: View {
             HStack(spacing: 8) {
                 Image(systemName: "info.circle.fill")
                     .foregroundColor(.purple)
-                Text("You can generate an AI avatar after creating your hero")
+                Text(String(localized: "hero.creation.avatar.info"))
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -362,12 +362,12 @@ struct AvatarPromptView: View {
                     .foregroundColor(.purple)
 
                 VStack(spacing: 12) {
-                    Text("Generate Avatar?")
+                    Text(String(localized: "hero.avatar.prompt.title"))
                         .font(.title)
                         .fontWeight(.bold)
 
                     if let heroName = hero?.name {
-                        Text("Create an AI-generated avatar for \(heroName)")
+                        Text(String(localized: "hero.avatar.prompt.subtitle", defaultValue: "Create an AI-generated avatar for \(heroName)"))
                             .font(.body)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
@@ -381,7 +381,7 @@ struct AvatarPromptView: View {
                     } label: {
                         HStack {
                             Image(systemName: "wand.and.stars")
-                            Text("Generate Avatar")
+                            Text(String(localized: "hero.avatar.prompt.button.generate"))
                         }
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 44)
@@ -390,13 +390,13 @@ struct AvatarPromptView: View {
                         .foregroundColor(.white)
                         .cornerRadius(12)
                     }
-                    .accessibilityLabel("Generate Avatar")
-                    .accessibilityHint("Create an AI-generated avatar for your hero")
+                    .accessibilityLabel(String(localized: "hero.avatar.prompt.button.generate"))
+                    .accessibilityHint(String(localized: "hero.avatar.prompt.accessibility.hint"))
 
                     Button {
                         onDismiss()
                     } label: {
-                        Text("Maybe Later")
+                        Text(String(localized: "hero.avatar.prompt.button.later"))
                             .frame(maxWidth: .infinity)
                             .frame(minHeight: 44)
                             .padding()
@@ -404,15 +404,15 @@ struct AvatarPromptView: View {
                             .foregroundColor(.primary)
                             .cornerRadius(12)
                     }
-                    .accessibilityLabel("Skip avatar generation")
-                    .accessibilityHint("Continue without generating an avatar")
+                    .accessibilityLabel(String(localized: "hero.avatar.prompt.accessibility.skip"))
+                    .accessibilityHint(String(localized: "hero.avatar.prompt.accessibility.skip.hint"))
                 }
                 .padding(.horizontal, 40)
 
                 Spacer()
             }
             .padding()
-            .navigationTitle("Your Hero is Ready!")
+            .navigationTitle(String(localized: "hero.avatar.prompt.ready"))
             .navigationBarTitleDisplayMode(.inline)
             .fullScreenCover(isPresented: $showAvatarSheet) {
                 if let hero = hero {
@@ -471,7 +471,7 @@ struct HeroPreviewCard: View {
 
     var body: some View {
         VStack(spacing: 15) {
-            Text("Hero Preview")
+            Text(String(localized: "hero.creation.preview.title"))
                 .font(.headline)
                 .foregroundColor(.secondary)
 
@@ -486,7 +486,7 @@ struct HeroPreviewCard: View {
                             .font(.title2)
                             .fontWeight(.bold)
 
-                        Text("\(primaryTrait.rawValue) and \(secondaryTrait.rawValue)")
+                        Text(String(localized: "hero.creation.preview.traits", defaultValue: "\(primaryTrait.rawValue) and \(secondaryTrait.rawValue)"))
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
@@ -495,13 +495,13 @@ struct HeroPreviewCard: View {
                 }
 
                 if !appearance.isEmpty {
-                    Text("Appearance: \(appearance)")
+                    Text(String(localized: "hero.creation.preview.appearance", defaultValue: "Appearance: \(appearance)"))
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
 
                 if !specialAbility.isEmpty {
-                    Text("Special Ability: \(specialAbility)")
+                    Text(String(localized: "hero.creation.preview.specialability", defaultValue: "Special Ability: \(specialAbility)"))
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }

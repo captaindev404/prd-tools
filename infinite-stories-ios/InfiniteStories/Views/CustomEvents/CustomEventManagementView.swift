@@ -36,6 +36,16 @@ struct CustomEventManagementView: View {
         case mostUsed = "Most Used"
         case alphabetical = "Alphabetical"
         case favorites = "Favorites First"
+
+        var localizedName: String {
+            switch self {
+            case .newest: return String(localized: "customEvent.management.sort.newest")
+            case .oldest: return String(localized: "customEvent.management.sort.oldest")
+            case .mostUsed: return String(localized: "customEvent.management.sort.mostUsed")
+            case .alphabetical: return String(localized: "customEvent.management.sort.alphabetical")
+            case .favorites: return String(localized: "customEvent.management.sort.favorites")
+            }
+        }
     }
 
     private var filteredEvents: [CustomStoryEvent] {
@@ -85,7 +95,7 @@ struct CustomEventManagementView: View {
                     .ignoresSafeArea()
 
                 if isLoading {
-                    ProgressView("Loading events...")
+                    ProgressView("customEvent.management.loading")
                 } else if let error = error {
                     ErrorView(
                         error: error,
@@ -101,26 +111,26 @@ struct CustomEventManagementView: View {
                     mainContentView
                 }
             }
-            .navigationTitle("Custom Events")
+            .navigationTitle("customEvent.management.title")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 toolbarContent
             }
-            .searchable(text: $searchText, prompt: "Search events...")
+            .searchable(text: $searchText, prompt: "customEvent.management.search")
             .sheet(isPresented: $showingCreationSheet) {
                 CustomEventCreationView(onEventCreated: { newEvent in
                     customEvents.insert(newEvent, at: 0)
                 })
             }
-            .alert("Delete Events", isPresented: $showingDeleteConfirmation) {
-                Button("Cancel", role: .cancel) { }
-                Button("Delete", role: .destructive) {
+            .alert("customEvent.management.deleteAlert.title", isPresented: $showingDeleteConfirmation) {
+                Button("customEvent.management.deleteAlert.cancel", role: .cancel) { }
+                Button("customEvent.management.deleteAlert.delete", role: .destructive) {
                     Task {
                         await deleteSelectedEvents()
                     }
                 }
             } message: {
-                Text("Are you sure you want to delete \(selectedEvents.count) selected events?")
+                Text(String(localized: "customEvent.management.deleteAlert.message \(selectedEvents.count)"))
             }
         }
         .task {
@@ -172,7 +182,7 @@ struct CustomEventManagementView: View {
             HStack(spacing: 12) {
                 // All categories
                 CategoryChip(
-                    title: "All",
+                    title: String(localized: "customEvent.management.filter.all"),
                     icon: "square.grid.2x2",
                     isSelected: selectedCategory == nil,
                     color: .blue
@@ -207,25 +217,25 @@ struct CustomEventManagementView: View {
             StatItem(
                 icon: "square.stack.3d.up",
                 value: "\(filteredEvents.count)",
-                label: "Events"
+                label: String(localized: "customEvent.management.stats.events")
             )
 
             StatItem(
                 icon: "sparkles",
                 value: "\(filteredEvents.filter { $0.aiEnhanced }.count)",
-                label: "AI Enhanced"
+                label: String(localized: "customEvent.management.stats.aiEnhanced")
             )
 
             StatItem(
                 icon: "star.fill",
                 value: "\(filteredEvents.filter { $0.isFavorite }.count)",
-                label: "Favorites"
+                label: String(localized: "customEvent.management.stats.favorites")
             )
 
             Spacer()
 
             // View mode toggle
-            Picker("View Mode", selection: $viewMode) {
+            Picker("customEvent.management.viewMode", selection: $viewMode) {
                 Image(systemName: "square.grid.2x2").tag(ViewMode.grid)
                 Image(systemName: "list.bullet").tag(ViewMode.list)
             }
@@ -289,7 +299,7 @@ struct CustomEventManagementView: View {
                             await deleteEvent(event)
                         }
                     } label: {
-                        Label("Delete", systemImage: "trash")
+                        Label("customEvent.management.swipe.delete", systemImage: "trash")
                     }
 
                     Button {
@@ -298,7 +308,7 @@ struct CustomEventManagementView: View {
                         }
                     } label: {
                         Label(
-                            event.isFavorite ? "Unfavorite" : "Favorite",
+                            event.isFavorite ? String(localized: "customEvent.management.swipe.unfavorite") : String(localized: "customEvent.management.swipe.favorite"),
                             systemImage: event.isFavorite ? "star.fill" : "star"
                         )
                     }
@@ -313,7 +323,7 @@ struct CustomEventManagementView: View {
                             }
                         }
                     )) {
-                        Label("Details", systemImage: "info.circle")
+                        Label("customEvent.management.swipe.details", systemImage: "info.circle")
                     }
                     .tint(.blue)
                 }
@@ -337,7 +347,7 @@ struct CustomEventManagementView: View {
                 }
             }
         )) {
-            Label("View Details", systemImage: "info.circle")
+            Label("customEvent.management.context.viewDetails", systemImage: "info.circle")
         }
 
         if !event.aiEnhanced {
@@ -346,7 +356,7 @@ struct CustomEventManagementView: View {
                     await enhanceEvent(event)
                 }
             } label: {
-                Label("Enhance with AI", systemImage: "sparkles")
+                Label("customEvent.management.context.enhance", systemImage: "sparkles")
             }
         }
 
@@ -356,7 +366,7 @@ struct CustomEventManagementView: View {
             }
         } label: {
             Label(
-                event.isFavorite ? "Unfavorite" : "Favorite",
+                event.isFavorite ? String(localized: "customEvent.management.context.unfavorite") : String(localized: "customEvent.management.context.favorite"),
                 systemImage: event.isFavorite ? "star.slash" : "star"
             )
         }
@@ -368,7 +378,7 @@ struct CustomEventManagementView: View {
                 await deleteEvent(event)
             }
         } label: {
-            Label("Delete", systemImage: "trash")
+            Label("customEvent.management.context.delete", systemImage: "trash")
         }
     }
 
@@ -382,11 +392,11 @@ struct CustomEventManagementView: View {
                 .symbolEffect(.pulse)
 
             VStack(spacing: 8) {
-                Text("No Custom Events Yet")
+                Text("customEvent.management.empty.title")
                     .font(.title2)
                     .fontWeight(.semibold)
 
-                Text("Create personalized story scenarios for your little ones")
+                Text("customEvent.management.empty.message")
                     .font(.body)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -396,7 +406,7 @@ struct CustomEventManagementView: View {
             Button {
                 showingCreationSheet = true
             } label: {
-                Label("Create Your First Event", systemImage: "plus.circle.fill")
+                Label("customEvent.management.empty.createFirst", systemImage: "plus.circle.fill")
                     .font(.headline)
                     .foregroundColor(.white)
                     .padding(.horizontal, 24)
@@ -415,14 +425,14 @@ struct CustomEventManagementView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .navigationBarLeading) {
             if isInSelectionMode {
-                Button("Cancel") {
+                Button("customEvent.management.toolbar.cancel") {
                     withAnimation {
                         isInSelectionMode = false
                         selectedEvents.removeAll()
                     }
                 }
             } else {
-                Button("Close") {
+                Button("customEvent.management.toolbar.close") {
                     dismiss()
                 }
             }
@@ -435,7 +445,7 @@ struct CustomEventManagementView: View {
                     Button(role: .destructive) {
                         showingDeleteConfirmation = true
                     } label: {
-                        Label("Delete Selected", systemImage: "trash")
+                        Label("customEvent.management.toolbar.deleteSelected", systemImage: "trash")
                     }
                     .disabled(selectedEvents.isEmpty)
                 } label: {
@@ -451,7 +461,7 @@ struct CustomEventManagementView: View {
                                 sortOption = option
                             } label: {
                                 HStack {
-                                    Text(option.rawValue)
+                                    Text(option.localizedName)
                                     if sortOption == option {
                                         Image(systemName: "checkmark")
                                     }
@@ -459,7 +469,7 @@ struct CustomEventManagementView: View {
                             }
                         }
                     } label: {
-                        Label("Sort", systemImage: "arrow.up.arrow.down")
+                        Label("customEvent.management.toolbar.sort", systemImage: "arrow.up.arrow.down")
                     }
 
                     Button {
@@ -467,7 +477,7 @@ struct CustomEventManagementView: View {
                             isInSelectionMode = true
                         }
                     } label: {
-                        Label("Select", systemImage: "checkmark.circle")
+                        Label("customEvent.management.toolbar.select", systemImage: "checkmark.circle")
                     }
 
                 } label: {

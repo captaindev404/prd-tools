@@ -47,7 +47,7 @@ struct ErrorView: View {
                 Button(action: {
                     authState.signOut()
                 }) {
-                    Label("Sign In Again", systemImage: "arrow.right.circle.fill")
+                    Label("common.signInAgain", systemImage: "arrow.right.circle.fill")
                         .font(.headline)
                         .foregroundStyle(.white)
                         .frame(maxWidth: 200)
@@ -55,12 +55,12 @@ struct ErrorView: View {
                         .padding()
                 }
                 .liquidGlassCard(cornerRadius: 12, variant: .tintedInteractive(.orange))
-                .accessibilityLabel("Sign in again")
-                .accessibilityHint("Your session has expired. Tap to sign in again.")
+                .accessibilityLabel(String(localized: "common.signInAgain"))
+                .accessibilityHint(String(localized: "error.sessionExpired.hint"))
                 .padding(.top, 8)
             } else {
                 Button(action: retryAction) {
-                    Label("Try Again", systemImage: "arrow.clockwise")
+                    Label("common.tryAgain", systemImage: "arrow.clockwise")
                         .font(.headline)
                         .foregroundStyle(.white)
                         .frame(maxWidth: 200)
@@ -68,8 +68,8 @@ struct ErrorView: View {
                         .padding()
                 }
                 .liquidGlassCard(cornerRadius: 12, variant: .tintedInteractive(.blue))
-                .accessibilityLabel("Try again")
-                .accessibilityHint("Retry the failed operation")
+                .accessibilityLabel(String(localized: "common.tryAgain"))
+                .accessibilityHint(String(localized: "error.retry.hint"))
                 .padding(.top, 8)
             }
         }
@@ -139,28 +139,28 @@ struct ErrorView: View {
         if let apiError = error as? APIError {
             switch apiError {
             case .networkUnavailable:
-                return "No Internet Connection"
+                return String(localized: "error.noInternet")
             case .unauthorized:
-                return "Session Expired"
+                return String(localized: "error.sessionExpired")
             case .forbidden:
-                return "Access Denied"
+                return String(localized: "error.accessDenied")
             case .notFound:
-                return "Not Found"
+                return String(localized: "error.notFound")
             case .rateLimitExceeded:
-                return "Rate Limit Exceeded"
+                return String(localized: "error.rateLimitExceeded")
             case .validationError:
-                return "Validation Error"
+                return String(localized: "error.validationError")
             case .serverError:
-                return "Server Error"
+                return String(localized: "error.serverError")
             case .networkError:
-                return "Network Error"
+                return String(localized: "error.networkError")
             case .decodingError:
-                return "Data Error"
+                return String(localized: "error.dataError")
             case .unknown:
-                return "Something Went Wrong"
+                return String(localized: "error.somethingWentWrong")
             }
         }
-        return "Error"
+        return String(localized: "error.generic")
     }
 
     private var errorMessage: String {

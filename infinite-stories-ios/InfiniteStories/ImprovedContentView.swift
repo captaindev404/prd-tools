@@ -52,7 +52,7 @@ struct HomeContentView: View {
 
             // Loading/Error/Content states
             if isLoading && heroes.isEmpty {
-                ProgressView("Loading...")
+                ProgressView(String(localized: "home.loading"))
                     .scaleEffect(1.2)
             } else if let error = loadError {
                 ErrorView(error: error, retryAction: {
@@ -186,7 +186,7 @@ struct HomeContentView: View {
             // Only show section if we have stories
             if !stories.isEmpty {
                 // Header
-                Text("Recent Adventures")
+                Text("home.recentAdventures")
                     .font(.system(size: 18, weight: .bold, design: .rounded))
                     .foregroundColor(.primary)
 
@@ -316,7 +316,7 @@ struct ImprovedContentView: View {
 
                 // Loading/Error/Content states
                 if isLoading && heroes.isEmpty {
-                    ProgressView("Loading...")
+                    ProgressView(String(localized: "home.loading"))
                         .scaleEffect(1.2)
                 } else if let error = loadError {
                     ErrorView(error: error, retryAction: {
@@ -326,7 +326,7 @@ struct ImprovedContentView: View {
                     mainContent
                 }
             }
-            .navigationTitle("InfiniteStories")
+            .navigationTitle(String(localized: "home.title"))
             .navigationBarTitleDisplayMode(.large)
             .glassNavigation()
             .task {
@@ -341,7 +341,7 @@ struct ImprovedContentView: View {
             if !stories.isEmpty {
                 // Header
                 HStack {
-                    Text("Recent Adventures")
+                    Text("home.recentAdventures")
                         .font(.system(size: 18, weight: .bold, design: .rounded))
                         .foregroundColor(.primary)
                 }
@@ -438,8 +438,8 @@ struct ImprovedContentView: View {
                                     streak: currentStreak
                                 )
                             }
-                            .accessibilityLabel("Reading Journey")
-                            .accessibilityHint("View your reading statistics and progress")
+                            .accessibilityLabel(String(localized: "home.readingJourney.accessibility"))
+                            .accessibilityHint(String(localized: "home.readingJourney.hint"))
                         }
 
                         Button(action: { showingSettings = true }) {
@@ -447,8 +447,8 @@ struct ImprovedContentView: View {
                                 .foregroundColor(.primary)
                                 .font(.system(size: 20))
                         }
-                        .accessibilityLabel("Settings")
-                        .accessibilityHint("Open app settings")
+                        .accessibilityLabel(String(localized: "home.settings.accessibility"))
+                        .accessibilityHint(String(localized: "home.settings.hint"))
                     }
                 }
             }
@@ -491,12 +491,12 @@ struct ImprovedContentView: View {
                 }
                 .glassSheet()
             }
-            .alert("Error", isPresented: $showingError) {
-                Button("OK") {
+            .alert(String(localized: "home.error.title"), isPresented: $showingError) {
+                Button(String(localized: "home.error.ok")) {
                     errorMessage = nil
                 }
             } message: {
-                Text(errorMessage ?? "An unexpected error occurred")
+                Text(errorMessage ?? String(localized: "home.error.unexpected"))
             }
             .fullScreenCover(isPresented: $showingFullJourney) {
                 ReadingJourneyView()
@@ -623,7 +623,7 @@ struct HeroSectionView: View {
         VStack(spacing: 15) {
             // Heroes Title Bar
             HStack {
-                Text("Your Heroes")
+                Text("home.yourHeroes")
                     .font(.title2)
                     .fontWeight(.bold)
                     .foregroundColor(.primary)
@@ -632,7 +632,7 @@ struct HeroSectionView: View {
 
                 if !heroes.isEmpty {
                     NavigationLink(destination: HeroListView()) {
-                        Text("Manage heroes")
+                        Text("home.manageHeroes")
                             .font(.subheadline)
                             .foregroundColor(.accentColor)
                             .padding(.horizontal, 10)
@@ -640,8 +640,8 @@ struct HeroSectionView: View {
                             .frame(minHeight: 44)
                             .liquidGlassCapsule(variant: .clear)
                     }
-                    .accessibilityLabel("Manage heroes")
-                    .accessibilityHint("Edit, delete, or create new heroes")
+                    .accessibilityLabel(String(localized: "home.manageHeroes.accessibility"))
+                    .accessibilityHint(String(localized: "home.manageHeroes.hint"))
                 }
             }
 
@@ -695,15 +695,15 @@ struct FloatingCreateStoryButton: View {
                 .foregroundStyle(.white)
         }
         .buttonStyle(.glassFloating(size: 56, tintColor: .orange))
-        .accessibilityLabel("Create new story")
-        .accessibilityHint("Generate a new magical story")
-        .alert("Create a Hero First", isPresented: $showNoHeroAlert) {
-            Button("Create Hero", role: .none) {
+        .accessibilityLabel(String(localized: "home.createStory.accessibility"))
+        .accessibilityHint(String(localized: "home.createStory.hint"))
+        .alert(String(localized: "home.createHeroFirst.title"), isPresented: $showNoHeroAlert) {
+            Button(String(localized: "home.createHeroFirst.action"), role: .none) {
                 showingHeroCreation = true
             }
-            Button("Cancel", role: .cancel) {}
+            Button(String(localized: "home.createHeroFirst.cancel"), role: .cancel) {}
         } message: {
-            Text("You need to create at least one hero before generating stories. Would you like to create a hero now?")
+            Text("home.createHeroFirst.message")
         }
     }
 }
@@ -724,8 +724,8 @@ struct FloatingCustomEventButton: View {
                 .foregroundStyle(.white)
         }
         .buttonStyle(.glassFloating(size: 48, tintColor: .accentColor))
-        .accessibilityLabel("Manage custom events")
-        .accessibilityHint("Open custom event management screen")
+        .accessibilityLabel(String(localized: "home.customEvents.accessibility"))
+        .accessibilityHint(String(localized: "home.customEvents.hint"))
     }
 }
 
@@ -747,7 +747,7 @@ struct ReadingJourneyTopButton: View {
             }
 
             VStack(alignment: .leading, spacing: 1) {
-                Text("Journey")
+                Text("home.journey")
                     .font(.caption2)
                     .fontWeight(.medium)
                     .foregroundColor(.primary)
@@ -756,7 +756,7 @@ struct ReadingJourneyTopButton: View {
                     Image(systemName: "flame.fill")
                         .font(.system(size: 10))
                         .foregroundColor(.orange)
-                    Text("\(streak)d")
+                    Text(String(localized: "home.journey.streak", defaultValue: "\(streak)d"))
                         .font(.caption2)
                         .fontWeight(.bold)
                         .foregroundColor(.orange)
@@ -782,12 +782,12 @@ struct RecentStoriesView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 HStack(spacing: 8) {
-                    Text("Recent Adventures")
+                    Text("home.recentAdventures")
                         .font(headerFont)
                         .foregroundColor(.primary)
 
                     if stories.count > 3 {
-                        Text("\(stories.count) new")
+                        Text(String(localized: "home.recentAdventures.count", defaultValue: "\(stories.count) new"))
                             .font(.caption)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 2)
@@ -805,7 +805,7 @@ struct RecentStoriesView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "books.vertical.fill")
                             .font(.system(size: 14))
-                        Text("Library")
+                        Text("home.library")
                             .font(linkFont)
                     }
                     .foregroundColor(.accentColor)
@@ -879,7 +879,7 @@ struct MiniStoryCard: View {
                                 Image(systemName: "heart.fill")
                                     .font(.caption)
                                     .foregroundColor(.red)
-                                    .accessibilityLabel("Favorite")
+                                    .accessibilityLabel(String(localized: "home.favorite"))
                             }
                         }
 
@@ -939,19 +939,19 @@ struct MiniStoryCard: View {
         .accessibilityLabel(AccessibilityLabelProvider.storyCardLabel(for: story))
         .accessibilityHint(AccessibilityLabelProvider.storyCardHint(for: story))
         .accessibilityAddTraits(.isButton)
-        .accessibilityValue(story.isFavorite ? "Favorite" : "")
+        .accessibilityValue(story.isFavorite ? String(localized: "home.favorite") : "")
         .accessibilityActions {
             if story.isFavorite {
-                Button("Remove from favorites") {
+                Button(String(localized: "home.removeFavorite")) {
                     // Toggle favorite action
                 }
             } else {
-                Button("Add to favorites") {
+                Button(String(localized: "home.addFavorite")) {
                     // Toggle favorite action
                 }
             }
 
-            Button("Share story") {
+            Button(String(localized: "home.shareStory")) {
                 // Share action
             }
         }
@@ -980,11 +980,11 @@ struct EmptyStateView: View {
             }
 
             VStack(spacing: 12) {
-                Text("Begin Your Magical Journey")
+                Text("home.emptyState.title")
                     .font(titleFont)
                     .foregroundColor(.primary)
 
-                Text("Create your first hero and start\nexploring wonderful stories!")
+                Text("home.emptyState.message")
                     .font(bodyFont)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -998,7 +998,7 @@ struct EmptyStateView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "person.crop.circle.badge.plus")
                         .font(.title3)
-                    Text("Create Your Hero")
+                    Text("home.emptyState.button")
                         .font(buttonFont)
                 }
                 .foregroundColor(.white)
@@ -1008,8 +1008,8 @@ struct EmptyStateView: View {
                 .cornerRadius(25)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Create Your Hero")
-            .accessibilityHint("Start your magical journey by creating your first hero")
+            .accessibilityLabel(String(localized: "home.emptyState.button.accessibility"))
+            .accessibilityHint(String(localized: "home.emptyState.button.hint"))
         }
     }
 }
@@ -1024,7 +1024,7 @@ struct AppLogoView: View {
                 .font(.title2)
                 .foregroundColor(.accentColor)
 
-            Text("Infinite")
+            Text("home.logo")
                 .font(logoFont)
                 .foregroundColor(.primary)
         }
@@ -1190,7 +1190,7 @@ struct ImprovedContentView_Preview: View {
                                         }
                                         .padding(.top, 25)
                                     } else {
-                                        Text("No recent stories available")
+                                        Text("home.noRecentStories")
                                             .font(.subheadline)
                                             .foregroundColor(.secondary)
                                             .padding()

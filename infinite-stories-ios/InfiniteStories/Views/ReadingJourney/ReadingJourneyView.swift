@@ -49,7 +49,7 @@ struct ReadingJourneyTabContent: View {
                 }
             }
             .background(backgroundGradient)
-            .navigationTitle("Reading Journey")
+            .navigationTitle(String(localized: "journey.title"))
             .navigationBarTitleDisplayMode(.large)
             .glassNavigation()
             .toolbar {
@@ -235,9 +235,9 @@ struct ReadingJourneyTabContent: View {
         let listeningTime = summary?.formattedListeningTime ?? "0m"
         let streak = summary?.currentStreak ?? 0
         let favorites = summary?.favoriteStoriesCount ?? 0
-        let mostActiveHero = heroAnalytics?.mostActiveHero?.heroName ?? "None yet"
+        let mostActiveHero = heroAnalytics?.mostActiveHero?.heroName ?? String(localized: "journey.share.noneYet")
 
-        return """
+        return String(localized: "journey.share.text", defaultValue: """
         My Infinite Stories Reading Journey
 
         Total Stories: \(totalStories)
@@ -248,7 +248,7 @@ struct ReadingJourneyTabContent: View {
         Most Active Hero: \(mostActiveHero)
 
         Created with Infinite Stories - Where magical adventures come to life!
-        """
+        """)
     }
 }
 
@@ -313,7 +313,7 @@ struct ReadingJourneyView: View {
                 }
 
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Done") {
+                    Button(String(localized: "journey.done")) {
                         dismiss()
                     }
                     .foregroundColor(.accentColor)
@@ -484,9 +484,9 @@ struct ReadingJourneyView: View {
         let listeningTime = summary?.formattedListeningTime ?? "0m"
         let streak = summary?.currentStreak ?? 0
         let favorites = summary?.favoriteStoriesCount ?? 0
-        let mostActiveHero = heroAnalytics?.mostActiveHero?.heroName ?? "None yet"
+        let mostActiveHero = heroAnalytics?.mostActiveHero?.heroName ?? String(localized: "journey.share.noneYet")
 
-        return """
+        return String(localized: "journey.share.text", defaultValue: """
         My Infinite Stories Reading Journey
 
         Total Stories: \(totalStories)
@@ -497,7 +497,7 @@ struct ReadingJourneyView: View {
         Most Active Hero: \(mostActiveHero)
 
         Created with Infinite Stories - Where magical adventures come to life!
-        """
+        """)
     }
 }
 
@@ -508,7 +508,7 @@ private struct LoadingView: View {
             ProgressView()
                 .scaleEffect(1.5)
 
-            Text("Loading your journey...")
+            Text("journey.loading")
                 .font(.headline)
                 .foregroundColor(.secondary)
         }
@@ -529,7 +529,7 @@ struct HeaderStatsSection: View {
         LazyVGrid(columns: columns, spacing: 15) {
             JourneyStatCard(
                 icon: "book.closed.fill",
-                title: "Total Stories",
+                title: String(localized: "journey.totalStories"),
                 value: "\(summary?.totalStoriesListened ?? 0)",
                 color: .blue,
                 isLarge: false
@@ -537,7 +537,7 @@ struct HeaderStatsSection: View {
 
             JourneyStatCard(
                 icon: "clock.fill",
-                title: "Listening Time",
+                title: String(localized: "journey.listeningTime"),
                 value: summary?.formattedListeningTime ?? "0m",
                 color: .green,
                 isLarge: false
@@ -545,15 +545,15 @@ struct HeaderStatsSection: View {
 
             JourneyStatCard(
                 icon: "flame.fill",
-                title: "Current Streak",
-                value: "\(summary?.currentStreak ?? 0) days",
+                title: String(localized: "journey.currentStreak"),
+                value: String(localized: "journey.currentStreak.value", defaultValue: "\(summary?.currentStreak ?? 0) days"),
                 color: .orange,
                 isLarge: false
             )
 
             JourneyStatCard(
                 icon: "heart.fill",
-                title: "Favorites",
+                title: String(localized: "journey.favorites"),
                 value: "\(summary?.favoriteStoriesCount ?? 0)",
                 color: .red,
                 isLarge: false
@@ -638,13 +638,13 @@ struct ListeningActivityChartAPI: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
             HStack {
-                Text("Listening Activity")
+                Text("journey.listeningActivity")
                     .font(.title3)
                     .fontWeight(.bold)
 
                 Spacer()
 
-                Picker("Time Range", selection: $selectedTimeRange) {
+                Picker(String(localized: "journey.timeRange"), selection: $selectedTimeRange) {
                     ForEach(TimeRange.allCases) { range in
                         Text(range.rawValue).tag(range)
                     }
@@ -688,7 +688,7 @@ struct ListeningActivityChartAPI: View {
                     .fill(Color.gray.opacity(0.1))
                     .frame(height: 200)
                     .overlay(
-                        Text("No listening data yet")
+                        Text("journey.noListeningData")
                             .foregroundColor(.secondary)
                     )
             }
@@ -709,7 +709,7 @@ struct HeroPerformanceSectionAPI: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
-            Text("Hero Performance")
+            Text("journey.heroPerformance")
                 .font(.title3)
                 .fontWeight(.bold)
 
@@ -742,7 +742,7 @@ struct HeroPerformanceSectionAPI: View {
                     }
 
                     VStack(alignment: .leading) {
-                        Text("Most Active Hero")
+                        Text("journey.mostActiveHero")
                             .font(.caption)
                             .foregroundColor(.secondary)
                         Text(topHero.heroName)
@@ -756,7 +756,7 @@ struct HeroPerformanceSectionAPI: View {
                         Text("\(topHero.storiesCount)")
                             .font(.title2)
                             .fontWeight(.bold)
-                        Text("Stories")
+                        Text("journey.stories")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -829,7 +829,7 @@ struct MilestonesSectionAPI: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
             HStack {
-                Text("Milestones")
+                Text("journey.milestones")
                     .font(.title3)
                     .fontWeight(.bold)
 
@@ -923,7 +923,7 @@ struct RecentActivitySection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
-            Text("Recent Activity")
+            Text("journey.recentActivity")
                 .font(.title3)
                 .fontWeight(.bold)
 
@@ -1005,7 +1005,7 @@ struct FavoriteStoriesSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
             HStack {
-                Text("Favorite Stories")
+                Text("journey.favoriteStories")
                     .font(.title3)
                     .fontWeight(.bold)
 
@@ -1094,7 +1094,7 @@ struct ReadingInsightsSectionAPI: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
-            Text("Reading Insights")
+            Text("journey.readingInsights")
                 .font(.title3)
                 .fontWeight(.bold)
 
@@ -1102,36 +1102,36 @@ struct ReadingInsightsSectionAPI: View {
                 if let avgLength = insights.averageStoryLengthMinutes {
                     InsightRow(
                         icon: "clock",
-                        label: "Average Story Length",
-                        value: "\(Int(avgLength)) min"
+                        label: String(localized: "journey.insights.averageLength"),
+                        value: String(localized: "journey.insights.averageLength.value", defaultValue: "\(Int(avgLength)) min")
                     )
                 }
 
                 if let avgListens = insights.averageListensPerStory {
                     InsightRow(
                         icon: "play.circle",
-                        label: "Average Listens per Story",
+                        label: String(localized: "journey.insights.averageListens"),
                         value: String(format: "%.1f", avgListens)
                     )
                 }
 
                 InsightRow(
                     icon: "moon.stars",
-                    label: "Preferred Listening Time",
+                    label: String(localized: "journey.insights.preferredTime"),
                     value: insights.formattedPreferredTime
                 )
 
                 if let topStory = insights.mostListenedStory {
                     InsightRow(
                         icon: "star.fill",
-                        label: "Most Listened Story",
-                        value: "\(topStory.title) (\(topStory.playCount) plays)"
+                        label: String(localized: "journey.insights.mostListened"),
+                        value: String(localized: "journey.insights.mostListened.value", defaultValue: "\(topStory.title) (\(topStory.playCount) plays)")
                     )
                 }
 
                 InsightRow(
                     icon: "books.vertical",
-                    label: "Unique Stories Listened",
+                    label: String(localized: "journey.insights.uniqueStories"),
                     value: "\(insights.totalUniqueStoriesListened)"
                 )
             }
@@ -1208,11 +1208,11 @@ class RelativeDateFormatter {
         let now = Date()
 
         if calendar.isDateInToday(date) {
-            return "Today"
+            return String(localized: "journey.date.today")
         } else if calendar.isDateInYesterday(date) {
-            return "Yesterday"
+            return String(localized: "journey.date.yesterday")
         } else if let daysAgo = calendar.dateComponents([.day], from: date, to: now).day, daysAgo < 7 {
-            return "\(daysAgo) days ago"
+            return String(localized: "journey.date.daysAgo", defaultValue: "\(daysAgo) days ago")
         } else {
             return formatter.string(from: date)
         }

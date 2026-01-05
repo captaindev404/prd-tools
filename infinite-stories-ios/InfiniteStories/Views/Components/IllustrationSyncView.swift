@@ -282,7 +282,7 @@ struct TimingBadge: View {
             Image(systemName: isActive ? "play.fill" : "pause.fill")
                 .font(.caption2)
 
-            Text("Scene \(sceneNumber)")
+            Text("illustration.sync.scene \(sceneNumber)")
                 .font(.caption)
                 .fontWeight(.semibold)
 
@@ -331,7 +331,7 @@ struct TransitionProgressBar: View {
 
             // Time remaining
             HStack {
-                Text("Next scene in:")
+                Text("illustration.sync.nextScene")
                     .font(.caption2)
                     .foregroundColor(.secondary)
 

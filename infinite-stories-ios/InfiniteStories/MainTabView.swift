@@ -17,13 +17,24 @@ enum AppTab: Int, CaseIterable, Identifiable {
 
     var id: Int { rawValue }
 
-    var title: String {
+    var title: LocalizedStringKey {
         switch self {
-        case .home: return "Home"
-        case .heroes: return "Heroes"
-        case .library: return "Library"
-        case .journey: return "Journey"
-        case .settings: return "Settings"
+        case .home: return "tabs.home"
+        case .heroes: return "tabs.heroes"
+        case .library: return "tabs.library"
+        case .journey: return "tabs.journey"
+        case .settings: return "tabs.settings"
+        }
+    }
+
+    /// String version for accessibility labels
+    var titleString: String {
+        switch self {
+        case .home: return String(localized: "tabs.home")
+        case .heroes: return String(localized: "tabs.heroes")
+        case .library: return String(localized: "tabs.library")
+        case .journey: return String(localized: "tabs.journey")
+        case .settings: return String(localized: "tabs.settings")
         }
     }
 
@@ -52,7 +63,7 @@ struct MainTabView: View {
             HomeTabView()
                 .tabItem {
                     Label(AppTab.home.title, systemImage: AppTab.home.icon)
-                        .accessibilityLabel("\(AppTab.home.title) tab")
+                        .accessibilityLabel("\(AppTab.home.titleString) tab")
                 }
                 .tag(AppTab.home)
 
@@ -60,7 +71,7 @@ struct MainTabView: View {
             LibraryTabView()
                 .tabItem {
                     Label(AppTab.library.title, systemImage: AppTab.library.icon)
-                        .accessibilityLabel("\(AppTab.library.title) tab")
+                        .accessibilityLabel("\(AppTab.library.titleString) tab")
                 }
                 .tag(AppTab.library)
 
@@ -68,7 +79,7 @@ struct MainTabView: View {
             HeroesTabView()
                 .tabItem {
                     Label(AppTab.heroes.title, systemImage: AppTab.heroes.icon)
-                        .accessibilityLabel("\(AppTab.heroes.title) tab")
+                        .accessibilityLabel("\(AppTab.heroes.titleString) tab")
                 }
                 .tag(AppTab.heroes)
 
@@ -76,7 +87,7 @@ struct MainTabView: View {
             JourneyTabView()
                 .tabItem {
                     Label(AppTab.journey.title, systemImage: AppTab.journey.icon)
-                        .accessibilityLabel("\(AppTab.journey.title) tab")
+                        .accessibilityLabel("\(AppTab.journey.titleString) tab")
                 }
                 .tag(AppTab.journey)
 
@@ -84,7 +95,7 @@ struct MainTabView: View {
             SettingsTabView()
                 .tabItem {
                     Label(AppTab.settings.title, systemImage: AppTab.settings.icon)
-                        .accessibilityLabel("\(AppTab.settings.title) tab")
+                        .accessibilityLabel("\(AppTab.settings.titleString) tab")
                 }
                 .tag(AppTab.settings)
         }

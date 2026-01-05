@@ -209,7 +209,7 @@ struct StoryCard: View {
             if let onToggleFavorite = onToggleFavorite {
                 Button(action: onToggleFavorite) {
                     Label(
-                        story.isFavorite ? "Remove from Favorites" : "Add to Favorites",
+                        story.isFavorite ? String(localized: "story.action.removeFromFavorites") : String(localized: "story.action.addToFavorites"),
                         systemImage: story.isFavorite ? "heart.slash" : "heart"
                     )
                 }
@@ -217,13 +217,13 @@ struct StoryCard: View {
 
             if let onShare = onShare {
                 Button(action: onShare) {
-                    Label("Share Story", systemImage: "square.and.arrow.up")
+                    Label(String(localized: "story.action.share"), systemImage: "square.and.arrow.up")
                 }
             }
 
             if story.hasAudio {
                 Button(action: { /* Download functionality can be added later */ }) {
-                    Label("Download Audio", systemImage: "arrow.down.circle")
+                    Label(String(localized: "story.action.downloadAudio"), systemImage: "arrow.down.circle")
                 }
             }
 
@@ -231,7 +231,7 @@ struct StoryCard: View {
             if hasFailedIllustrations, let onRetryFailedIllustrations = onRetryFailedIllustrations {
                 Button(action: onRetryFailedIllustrations) {
                     Label(
-                        "Retry Failed Illustrations (\(failedIllustrationCount))",
+                        String(localized: "story.action.retryIllustrations \(failedIllustrationCount)"),
                         systemImage: "arrow.clockwise.circle"
                     )
                 }
@@ -239,19 +239,19 @@ struct StoryCard: View {
 
             if story.audioNeedsRegeneration, let onRegenerateAudio = onRegenerateAudio {
                 Button(action: onRegenerateAudio) {
-                    Label("Regenerate Audio", systemImage: "arrow.clockwise")
+                    Label(String(localized: "story.action.regenerateAudio"), systemImage: "arrow.clockwise")
                 }
             }
 
             if let onEdit = onEdit {
                 Button(action: onEdit) {
-                    Label("Edit Story", systemImage: "pencil")
+                    Label(String(localized: "story.action.edit"), systemImage: "pencil")
                 }
             }
 
             if let onDelete = onDelete {
                 Button(role: .destructive, action: onDelete) {
-                    Label("Delete Story", systemImage: "trash")
+                    Label(String(localized: "story.action.delete"), systemImage: "trash")
                 }
             }
         }
@@ -259,28 +259,28 @@ struct StoryCard: View {
         .accessibilityLabel(AccessibilityLabelProvider.storyCardLabel(for: story))
         .accessibilityHint(AccessibilityLabelProvider.storyCardHint(for: story))
         .accessibilityAddTraits(.isButton)
-        .accessibilityValue(story.isFavorite ? "Favorite" : "")
+        .accessibilityValue(story.isFavorite ? String(localized: "common.favorite") : "")
         .accessibilityActions {
             if let onToggleFavorite = onToggleFavorite {
-                Button(story.isFavorite ? "Remove from favorites" : "Add to favorites") {
+                Button(story.isFavorite ? String(localized: "story.action.removeFromFavorites") : String(localized: "story.action.addToFavorites")) {
                     onToggleFavorite()
                 }
             }
 
             if let onShare = onShare {
-                Button("Share story") {
+                Button(String(localized: "story.action.share")) {
                     onShare()
                 }
             }
 
             if story.hasAudio {
-                Button("Download audio") {
+                Button(String(localized: "story.action.downloadAudio")) {
                     // Download action
                 }
             }
 
             if let onDelete = onDelete {
-                Button("Delete story") {
+                Button(String(localized: "story.action.delete")) {
                     onDelete()
                 }
             }
@@ -384,7 +384,7 @@ struct StoryCard: View {
                     .lineLimit(variant == .compact ? 1 : 2)
 
                 if let hero = story.hero {
-                    Text("Hero: \(hero.name)")
+                    Text("story.hero.label \(hero.name)")
                         .font(.caption)
                         .foregroundColor(variant == .compact ? .accentColor : StoryCardDesign.Colors.primaryPurple)
                         .fontWeight(.medium)
@@ -396,7 +396,7 @@ struct StoryCard: View {
             // Right side badges
             VStack(alignment: .trailing, spacing: 4) {
                 if storyStatus == .new {
-                    Text("NEW")
+                    Text("story.badge.new")
                         .font(badgeFont)
                         .foregroundColor(.white)
                         .padding(.horizontal, 6)
@@ -473,8 +473,8 @@ struct StoryCard: View {
                         .frame(minWidth: 44, minHeight: 44)
                 }
                 .buttonStyle(PlainButtonStyle())
-                .accessibilityLabel("Regenerate audio")
-                .accessibilityHint("Create a new audio version of this story")
+                .accessibilityLabel(String(localized: "story.action.regenerateAudio"))
+                .accessibilityHint(String(localized: "story.accessibility.regenerateAudioHint"))
             }
 
             if story.hasAudio && !isRegenerating {
@@ -509,7 +509,7 @@ struct StoryCard: View {
             ProgressView()
                 .progressViewStyle(CircularProgressViewStyle())
                 .scaleEffect(0.7)
-            Text("Regenerating audio...")
+            Text("story.regenerating.audio")
                 .font(.caption)
                 .foregroundColor(.purple)
             Spacer()
@@ -592,18 +592,18 @@ struct StoryCard: View {
             if variant == .compact {
                 let formatter = DateFormatter()
                 formatter.timeStyle = .short
-                return "Today, \(formatter.string(from: date))"
+                return String(localized: "date.today") + ", \(formatter.string(from: date))"
             } else {
-                return "Today"
+                return String(localized: "date.today")
             }
         } else if calendar.isDateInYesterday(date) {
-            return "Yesterday"
+            return String(localized: "date.yesterday")
         } else {
             let days = calendar.dateComponents([.day], from: date, to: now).day ?? 0
             if days < 7 {
-                return "\(days)d ago"
+                return String(localized: "date.daysAgo \(days)")
             } else if days < 30 && variant == .full {
-                return "\(days / 7)w ago"
+                return String(localized: "date.weeksAgo \(days / 7)")
             } else {
                 let formatter = DateFormatter()
                 formatter.dateFormat = "MMM d"

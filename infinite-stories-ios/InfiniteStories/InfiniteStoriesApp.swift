@@ -25,6 +25,9 @@ struct InfiniteStoriesApp: App {
     }
     
     init() {
+        // Apply UI language override before views load
+        LocalizationManager.shared.applyLanguageOverrideAtLaunch()
+
         loadRocketSimConnect()
         // Register background tasks when app launches
         BackgroundTaskManager.shared.registerBackgroundTasks()

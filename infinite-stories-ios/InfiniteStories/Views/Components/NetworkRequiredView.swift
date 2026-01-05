@@ -29,12 +29,12 @@ struct NetworkRequiredView: View {
             .padding(.bottom, 8)
 
             // Title
-            Text("Internet Required")
+            Text("network.internetRequired")
                 .font(.title.bold())
                 .multilineTextAlignment(.center)
 
             // Message
-            Text("InfiniteStories requires an active internet connection. Please connect to WiFi or cellular data to continue.")
+            Text("network.requiresConnection")
                 .font(.body)
                 .multilineTextAlignment(.center)
                 .foregroundColor(.secondary)
@@ -42,14 +42,14 @@ struct NetworkRequiredView: View {
 
             // Network status with glass styling
             if !networkMonitor.isConnected {
-                Label("No Connection", systemImage: "exclamationmark.triangle.fill")
+                Label("network.noConnection", systemImage: "exclamationmark.triangle.fill")
                     .font(.subheadline)
                     .foregroundColor(.red)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .liquidGlassCapsule(variant: .tinted(.red))
             } else {
-                Label("Connected", systemImage: "checkmark.circle.fill")
+                Label("network.connected", systemImage: "checkmark.circle.fill")
                     .font(.subheadline)
                     .foregroundColor(.green)
                     .padding(.horizontal, 16)
@@ -60,7 +60,7 @@ struct NetworkRequiredView: View {
             // Retry button with glass styling
             if let retryAction = retryAction {
                 Button(action: retryAction) {
-                    Label("Try Again", systemImage: "arrow.clockwise")
+                    Label("common.tryAgain", systemImage: "arrow.clockwise")
                         .font(.headline)
                         .foregroundColor(networkMonitor.isConnected ? .white : .secondary)
                         .frame(maxWidth: 200)

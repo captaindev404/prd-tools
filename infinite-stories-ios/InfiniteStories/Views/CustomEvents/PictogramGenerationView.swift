@@ -26,11 +26,11 @@ struct PictogramGenerationView: View {
                         .foregroundColor(.purple.opacity(0.6))
                         .symbolEffect(.pulse)
 
-                    Text("Pictogram Generation")
+                    Text("customEvent.pictogram.title")
                         .font(.title2)
                         .fontWeight(.semibold)
 
-                    Text("Custom pictogram generation for events is coming in a future update!")
+                    Text("customEvent.pictogram.comingSoon")
                         .font(.body)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -72,11 +72,11 @@ struct PictogramGenerationView: View {
                 Spacer()
             }
             .padding()
-            .navigationTitle("Pictogram Generator")
+            .navigationTitle("customEvent.pictogram.navigationTitle")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Close") {
+                    Button("customEvent.pictogram.close") {
                         dismiss()
                     }
                 }

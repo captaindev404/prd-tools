@@ -84,7 +84,7 @@ struct CustomEventCreationView: View {
                         Button(action: {
                             withAnimation { currentStep -= 1 }
                         }) {
-                            Label("Previous", systemImage: "chevron.left")
+                            Label("customEvent.creation.navigation.previous", systemImage: "chevron.left")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)
@@ -95,7 +95,7 @@ struct CustomEventCreationView: View {
                         Button(action: {
                             withAnimation { currentStep += 1 }
                         }) {
-                            Label("Next", systemImage: "chevron.right")
+                            Label("customEvent.creation.navigation.next", systemImage: "chevron.right")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
@@ -108,7 +108,7 @@ struct CustomEventCreationView: View {
                                 ProgressView()
                                     .frame(maxWidth: .infinity)
                             } else {
-                                Label("Save Event", systemImage: "checkmark.circle.fill")
+                                Label("customEvent.creation.navigation.save", systemImage: "checkmark.circle.fill")
                                     .frame(maxWidth: .infinity)
                             }
                         }
@@ -118,18 +118,18 @@ struct CustomEventCreationView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Create Custom Event")
+            .navigationTitle("customEvent.creation.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button("customEvent.creation.cancel") {
                         dismiss()
                     }
                     .disabled(isSaving)
                 }
             }
-            .alert("Error", isPresented: $showingError) {
-                Button("OK") { }
+            .alert("customEvent.creation.error.title", isPresented: $showingError) {
+                Button("customEvent.creation.error.ok") { }
             } message: {
                 Text(errorMessage)
             }
@@ -216,8 +216,8 @@ struct CustomEventCreationView: View {
 
     private func buildPreviewEvent() -> CustomStoryEvent {
         CustomStoryEvent(
-            title: eventTitle.isEmpty ? "New Event" : eventTitle,
-            description: eventDescription.isEmpty ? "Description" : eventDescription,
+            title: eventTitle.isEmpty ? String(localized: "customEvent.creation.preview.newEvent") : eventTitle,
+            description: eventDescription.isEmpty ? String(localized: "customEvent.creation.preview.description") : eventDescription,
             promptSeed: promptSeed.isEmpty ? eventDescription : promptSeed,
             category: selectedCategory,
             ageRange: selectedAgeRange,
@@ -227,7 +227,7 @@ struct CustomEventCreationView: View {
 
     private func saveCustomEvent() {
         guard NetworkMonitor.shared.isConnected else {
-            errorMessage = "No network connection. Please try again when connected."
+            errorMessage = String(localized: "customEvent.creation.error.noNetwork")
             showingError = true
             return
         }
@@ -255,7 +255,7 @@ struct CustomEventCreationView: View {
             } catch {
                 await MainActor.run {
                     isSaving = false
-                    errorMessage = "Failed to save custom event: \(error.localizedDescription)"
+                    errorMessage = String(localized: "customEvent.creation.error.saveFailed") + ": \(error.localizedDescription)"
                     showingError = true
                 }
             }
@@ -270,12 +270,14 @@ struct BasicInfoStepView: View {
     @Binding var description: String
     let onSuggestTitle: () -> Void
 
-    private let exampleDescriptions = [
-        "A story about overcoming fear of the dark",
-        "An adventure about learning to ride a bike",
-        "A tale about sharing toys with siblings",
-        "A journey of trying new foods"
-    ]
+    private var exampleDescriptions: [String] {
+        [
+            String(localized: "customEvent.creation.step1.example1"),
+            String(localized: "customEvent.creation.step1.example2"),
+            String(localized: "customEvent.creation.step1.example3"),
+            String(localized: "customEvent.creation.step1.example4")
+        ]
+    }
 
     var body: some View {
         ScrollView {
@@ -286,7 +288,7 @@ struct BasicInfoStepView: View {
                         .font(.system(size: 60))
                         .foregroundColor(.accentColor)
 
-                    Text("Let's create a special story event!")
+                    Text("customEvent.creation.step1.title")
                         .font(.title2)
                         .fontWeight(.semibold)
                         .multilineTextAlignment(.center)
@@ -295,11 +297,11 @@ struct BasicInfoStepView: View {
 
                 // Title input
                 VStack(alignment: .leading, spacing: 8) {
-                    Label("Event Title", systemImage: "textformat")
+                    Label("customEvent.creation.step1.eventTitle", systemImage: "textformat")
                         .font(.headline)
 
                     HStack {
-                        TextField("e.g., First Day at School", text: $title)
+                        TextField("customEvent.creation.step1.eventTitlePlaceholder", text: $title)
                             .textFieldStyle(.roundedBorder)
 
                         Button(action: onSuggestTitle) {
@@ -310,14 +312,14 @@ struct BasicInfoStepView: View {
                         .disabled(description.isEmpty)
                     }
 
-                    Text("Give your event a memorable name")
+                    Text("customEvent.creation.step1.eventTitleHint")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
 
                 // Description input
                 VStack(alignment: .leading, spacing: 8) {
-                    Label("What's this event about?", systemImage: "text.alignleft")
+                    Label("customEvent.creation.step1.description", systemImage: "text.alignleft")
                         .font(.headline)
 
                     TextEditor(text: $description)
@@ -330,14 +332,14 @@ struct BasicInfoStepView: View {
                                 .stroke(Color(.systemGray4), lineWidth: 1)
                         )
 
-                    Text("Describe the situation or experience for the story")
+                    Text("customEvent.creation.step1.descriptionHint")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
 
                 // Example prompts
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Need inspiration?")
+                    Text("customEvent.creation.step1.inspiration")
                         .font(.subheadline)
                         .fontWeight(.medium)
 
@@ -383,7 +385,7 @@ struct CategorizationStepView: View {
                         .font(.system(size: 60))
                         .foregroundColor(.accentColor)
 
-                    Text("Let's categorize your event")
+                    Text("customEvent.creation.step2.title")
                         .font(.title2)
                         .fontWeight(.semibold)
                         .multilineTextAlignment(.center)
@@ -392,7 +394,7 @@ struct CategorizationStepView: View {
 
                 // Category selection
                 VStack(alignment: .leading, spacing: 12) {
-                    Label("Category", systemImage: "folder")
+                    Label("customEvent.creation.step2.category", systemImage: "folder")
                         .font(.headline)
 
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
@@ -408,7 +410,7 @@ struct CategorizationStepView: View {
 
                 // Age range selection
                 VStack(alignment: .leading, spacing: 12) {
-                    Label("Age Range", systemImage: "person.2")
+                    Label("customEvent.creation.step2.ageRange", systemImage: "person.2")
                         .font(.headline)
 
                     ForEach(AgeRange.allCases, id: \.self) { age in
@@ -422,7 +424,7 @@ struct CategorizationStepView: View {
 
                 // Tone selection
                 VStack(alignment: .leading, spacing: 12) {
-                    Label("Story Tone", systemImage: "waveform")
+                    Label("customEvent.creation.step2.tone", systemImage: "waveform")
                         .font(.headline)
 
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -465,11 +467,11 @@ struct AIEnhancementStepView: View {
                         .font(.system(size: 60))
                         .foregroundColor(.accentColor)
 
-                    Text("Enhance with AI")
+                    Text("customEvent.creation.step3.title")
                         .font(.title2)
                         .fontWeight(.semibold)
 
-                    Text("Let AI help make your event even better")
+                    Text("customEvent.creation.step3.subtitle")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
@@ -478,7 +480,7 @@ struct AIEnhancementStepView: View {
                 // Prompt seed
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Label("Story Prompt", systemImage: "text.bubble")
+                        Label("customEvent.creation.step3.prompt", systemImage: "text.bubble")
                             .font(.headline)
 
                         Spacer()
@@ -488,7 +490,7 @@ struct AIEnhancementStepView: View {
                                 ProgressView()
                                     .scaleEffect(0.8)
                             } else {
-                                Label("Enhance", systemImage: "sparkles")
+                                Label("customEvent.creation.step3.enhance", systemImage: "sparkles")
                                     .font(.caption)
                             }
                         }
@@ -506,7 +508,7 @@ struct AIEnhancementStepView: View {
                                 .stroke(Color(.systemGray4), lineWidth: 1)
                         )
 
-                    Text("This prompt will guide the AI in creating stories")
+                    Text("customEvent.creation.step3.promptHint")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -514,13 +516,13 @@ struct AIEnhancementStepView: View {
                 // Keywords
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Label("Keywords", systemImage: "tag")
+                        Label("customEvent.creation.step3.keywords", systemImage: "tag")
                             .font(.headline)
 
                         Spacer()
 
                         Button(action: onGenerateKeywords) {
-                            Label("Generate", systemImage: "sparkles")
+                            Label("customEvent.creation.step3.generate", systemImage: "sparkles")
                                 .font(.caption)
                         }
                         .buttonStyle(.bordered)
@@ -528,7 +530,7 @@ struct AIEnhancementStepView: View {
 
                     // Keyword input
                     HStack {
-                        TextField("Add keyword", text: $newKeyword)
+                        TextField("customEvent.creation.step3.addKeyword", text: $newKeyword)
                             .textFieldStyle(.roundedBorder)
                             .onSubmit {
                                 if !newKeyword.isEmpty {
@@ -570,7 +572,7 @@ struct AIEnhancementStepView: View {
                             }
                         }
                     } else {
-                        Text("No keywords added yet")
+                        Text("customEvent.creation.step3.noKeywords")
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .frame(maxWidth: .infinity, alignment: .center)
@@ -597,7 +599,7 @@ struct PreviewStepView: View {
                         .font(.system(size: 60))
                         .foregroundColor(.green)
 
-                    Text("Review Your Event")
+                    Text("customEvent.creation.step4.title")
                         .font(.title2)
                         .fontWeight(.semibold)
                 }
@@ -624,31 +626,31 @@ struct PreviewStepView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         CreationDetailRow(
                             icon: "text.alignleft",
-                            label: "Description",
+                            label: String(localized: "customEvent.creation.step4.description"),
                             value: event.description
                         )
 
                         CreationDetailRow(
                             icon: "folder",
-                            label: "Category",
+                            label: String(localized: "customEvent.creation.step4.category"),
                             value: event.eventCategory.displayName
                         )
 
                         CreationDetailRow(
                             icon: "person.2",
-                            label: "Age Range",
-                            value: event.ageRange ?? "All Ages"
+                            label: String(localized: "customEvent.creation.step4.ageRange"),
+                            value: event.ageRange ?? String(localized: "customEvent.creation.step4.allAges")
                         )
 
                         CreationDetailRow(
                             icon: "waveform",
-                            label: "Tone",
+                            label: String(localized: "customEvent.creation.step4.tone"),
                             value: event.storyTone.displayName
                         )
 
                         if !event.keywords.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
-                                Label("Keywords", systemImage: "tag")
+                                Label("customEvent.creation.step4.keywords", systemImage: "tag")
                                     .font(.subheadline)
                                     .fontWeight(.medium)
 
@@ -663,7 +665,7 @@ struct PreviewStepView: View {
 
                     // Prompt preview
                     VStack(alignment: .leading, spacing: 8) {
-                        Label("Story Prompt", systemImage: "text.bubble")
+                        Label("customEvent.creation.step4.prompt", systemImage: "text.bubble")
                             .font(.subheadline)
                             .fontWeight(.medium)
 
@@ -686,10 +688,10 @@ struct PreviewStepView: View {
                         .font(.title)
                         .foregroundColor(.orange)
 
-                    Text("Your custom event is ready!")
+                    Text("customEvent.creation.step4.ready")
                         .font(.headline)
 
-                    Text("You can now use this event to generate personalized stories")
+                    Text("customEvent.creation.step4.readyMessage")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -761,7 +763,7 @@ struct AgeRangeButton: View {
                         .font(.subheadline)
                         .fontWeight(isSelected ? .medium : .regular)
 
-                    Text("Ages \(ageRange.minAge)-\(ageRange.maxAge)")
+                    Text(String(localized: "customEvent.creation.step2.ages \(ageRange.minAge) \(ageRange.maxAge)"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }

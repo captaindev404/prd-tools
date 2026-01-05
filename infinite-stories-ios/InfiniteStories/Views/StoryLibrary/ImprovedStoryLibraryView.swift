@@ -193,11 +193,11 @@ struct ImprovedStoryLibraryView: View {
                 }
             }
         }
-        .navigationTitle("Story Library")
+        .navigationTitle(String(localized: "library.title"))
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button(isEditMode ? "Done" : "Edit") {
+                Button(isEditMode ? String(localized: "library.button.done") : String(localized: "library.button.edit")) {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                         isEditMode.toggle()
                         if !isEditMode {
@@ -225,23 +225,23 @@ struct ImprovedStoryLibraryView: View {
                 selectedStory = story
             }
         }
-        .alert("Delete Story?", isPresented: $showDeleteConfirmation) {
-            Button("Cancel", role: .cancel) { }
-            Button("Delete", role: .destructive) {
+        .alert(String(localized: "library.alert.delete.title"), isPresented: $showDeleteConfirmation) {
+            Button(String(localized: "library.button.cancel"), role: .cancel) { }
+            Button(String(localized: "library.button.delete"), role: .destructive) {
                 if let story = storyToDelete {
                     deleteStory(story)
                 }
             }
         } message: {
-            Text("This action cannot be undone.")
+            Text(String(localized: "library.alert.delete.message"))
         }
-        .alert("Delete \(selectedStories.count) Stories?", isPresented: $showBulkDeleteConfirmation) {
-            Button("Cancel", role: .cancel) { }
-            Button("Delete All", role: .destructive) {
+        .alert(String(localized: "library.alert.bulk.delete.title.\(selectedStories.count)"), isPresented: $showBulkDeleteConfirmation) {
+            Button(String(localized: "library.button.cancel"), role: .cancel) { }
+            Button(String(localized: "library.button.delete.all"), role: .destructive) {
                 deleteSelectedStories()
             }
         } message: {
-            Text("This will permanently delete \(selectedStories.count) stories. This action cannot be undone.")
+            Text(String(localized: "library.alert.bulk.delete.message.\(selectedStories.count)"))
         }
         .task {
             await loadStories()
@@ -284,12 +284,12 @@ struct ImprovedStoryLibraryView: View {
                     .foregroundColor(StoryLibraryDesign.Colors.iconTint)
                     .font(.system(size: 16))
 
-                TextField("Search stories...", text: $searchText)
+                TextField(String(localized: "library.search.placeholder"), text: $searchText)
                     .textFieldStyle(.plain)
                     .foregroundColor(StoryLibraryDesign.Colors.titleText)
                     .font(.system(size: 16))
-                    .accessibilityLabel("Search stories")
-                    .accessibilityHint("Enter text to search through your story library")
+                    .accessibilityLabel(String(localized: "library.search.accessibility.label"))
+                    .accessibilityHint(String(localized: "library.search.accessibility.hint"))
 
                 if !searchText.isEmpty {
                     Button(action: {
@@ -302,8 +302,8 @@ struct ImprovedStoryLibraryView: View {
                             .font(.system(size: 16))
                             .scaleEffect(searchText.isEmpty ? 0 : 1)
                             .animation(.spring(response: 0.3, dampingFraction: 0.8), value: searchText)
-                            .accessibilityLabel("Clear search")
-                            .accessibilityHint("Tap to clear the search text")
+                            .accessibilityLabel(String(localized: "library.search.clear.accessibility.label"))
+                            .accessibilityHint(String(localized: "library.search.clear.accessibility.hint"))
                     }
                     .frame(minWidth: 44, minHeight: 44)
                 }
@@ -319,38 +319,38 @@ struct ImprovedStoryLibraryView: View {
             StatCard(
                 icon: "sparkles",
                 value: "\(newStories.count)",
-                label: "New",
+                label: String(localized: "library.stats.new"),
                 color: StoryLibraryDesign.Colors.newBadge
             )
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(newStories.count) new stories")
-            
+            .accessibilityLabel(String(localized: "library.stats.new.accessibility.\(newStories.count)"))
+
             StatCard(
                 icon: "book.fill",
                 value: "\(inProgressStories.count)",
-                label: "Reading",
+                label: String(localized: "library.stats.reading"),
                 color: StoryLibraryDesign.Colors.inProgressBadge
             )
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(inProgressStories.count) stories in progress")
-            
+            .accessibilityLabel(String(localized: "library.stats.reading.accessibility.\(inProgressStories.count)"))
+
             StatCard(
                 icon: "checkmark.circle.fill",
                 value: "\(completedStories.count)",
-                label: "Completed",
+                label: String(localized: "library.stats.completed"),
                 color: StoryLibraryDesign.Colors.completedBadge
             )
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(completedStories.count) completed stories")
-            
+            .accessibilityLabel(String(localized: "library.stats.completed.accessibility.\(completedStories.count)"))
+
             StatCard(
                 icon: "heart.fill",
                 value: "\(stories.filter { $0.isFavorite }.count)",
-                label: "Favorites",
+                label: String(localized: "library.stats.favorites"),
                 color: Color.red
             )
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(stories.filter { $0.isFavorite }.count) favorite stories")
+            .accessibilityLabel(String(localized: "library.stats.favorites.accessibility.\(stories.filter { $0.isFavorite }.count)"))
         }
     }
     
@@ -417,11 +417,11 @@ struct ImprovedStoryLibraryView: View {
                 .font(.system(size: 60))
                 .foregroundColor(StoryLibraryDesign.Colors.primaryPurple.opacity(0.5))
             
-            Text("No stories found")
+            Text(String(localized: "library.empty.title"))
                 .font(StoryLibraryDesign.Typography.sectionHeader)
                 .foregroundColor(StoryLibraryDesign.Colors.titleText)
-            
-            Text("Try adjusting your filters or search")
+
+            Text(String(localized: "library.empty.message"))
                 .font(StoryLibraryDesign.Typography.cardBody)
                 .foregroundColor(StoryLibraryDesign.Colors.captionText)
         }
@@ -626,8 +626,8 @@ struct FilterPill: View {
                 .liquidGlassCapsule(variant: isSelected ? .tinted(.purple) : .regular)
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
-        .accessibilityLabel("\(title) filter")
-        .accessibilityHint(isSelected ? "Currently selected" : "Tap to filter by \(title.lowercased())")
+        .accessibilityLabel(String(localized: "library.filter.accessibility.label.\(title)"))
+        .accessibilityHint(isSelected ? String(localized: "library.filter.selected.accessibility.hint") : String(localized: "library.filter.accessibility.hint.\(title.lowercased())"))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
@@ -694,7 +694,7 @@ struct LoadMoreView: View {
                         .progressViewStyle(CircularProgressViewStyle(tint: colorScheme == .dark ?
                             StoryLibraryDesign.Colors.primaryPurple.opacity(0.9) :
                             StoryLibraryDesign.Colors.primaryPurple))
-                    Text("Loading more stories...")
+                    Text(String(localized: "library.loading.more"))
                         .font(.system(size: 14, weight: .medium, design: .rounded))
                         .foregroundColor(StoryLibraryDesign.Colors.bodyText)
                 } else {
@@ -703,7 +703,7 @@ struct LoadMoreView: View {
                         .foregroundColor(colorScheme == .dark ?
                             StoryLibraryDesign.Colors.primaryPurple.opacity(0.9) :
                             StoryLibraryDesign.Colors.primaryPurple)
-                    Text("Load More Stories")
+                    Text(String(localized: "library.button.load.more"))
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
                         .foregroundColor(colorScheme == .dark ?
                             StoryLibraryDesign.Colors.primaryPurple.opacity(0.9) :
@@ -717,8 +717,8 @@ struct LoadMoreView: View {
         }
         .disabled(isLoading)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isLoading)
-        .accessibilityLabel(isLoading ? "Loading more stories" : "Load more stories")
-        .accessibilityHint(isLoading ? "Please wait while more stories are loading" : "Tap to load additional stories")
+        .accessibilityLabel(isLoading ? String(localized: "library.loading.accessibility.label") : String(localized: "library.load.more.accessibility.label"))
+        .accessibilityHint(isLoading ? String(localized: "library.loading.accessibility.hint") : String(localized: "library.load.more.accessibility.hint"))
     }
 }
 
@@ -802,7 +802,7 @@ struct IllustrationBadge: View {
         .onAppear {
             isAnimating = true
         }
-        .accessibilityLabel("\(generatedCount) of \(count) illustrations generated")
+        .accessibilityLabel(String(localized: "library.illustrations.accessibility.\(generatedCount).\(count)"))
     }
 }
 
@@ -820,16 +820,16 @@ struct EditModeToolbar: View {
 
             HStack(spacing: 20) {
                 // Selection info
-                Text("\(selectedStories.count) selected")
+                Text(String(localized: "library.selection.count.\(selectedStories.count)"))
                     .font(.subheadline)
                     .foregroundColor(StoryLibraryDesign.Colors.bodyText)
-                    .accessibilityLabel("\(selectedStories.count) stories selected")
+                    .accessibilityLabel(String(localized: "library.selection.accessibility.\(selectedStories.count)"))
 
                 Spacer()
 
                 // Select All/None button with glass styling
                 Button(action: onSelectAll) {
-                    Text(selectedStories.count == totalStories ? "Deselect All" : "Select All")
+                    Text(selectedStories.count == totalStories ? String(localized: "library.button.deselect.all") : String(localized: "library.button.select.all"))
                         .font(.subheadline.weight(.medium))
                         .foregroundColor(colorScheme == .dark ?
                             Color.accentColor.opacity(0.9) :
@@ -839,12 +839,12 @@ struct EditModeToolbar: View {
                         .frame(minHeight: 44)
                         .liquidGlassCapsule(variant: .tinted(.accentColor))
                 }
-                .accessibilityLabel(selectedStories.count == totalStories ? "Deselect all" : "Select all")
-                .accessibilityHint(selectedStories.count == totalStories ? "Remove selection from all stories" : "Select all stories for bulk action")
+                .accessibilityLabel(selectedStories.count == totalStories ? String(localized: "library.deselect.all.accessibility.label") : String(localized: "library.select.all.accessibility.label"))
+                .accessibilityHint(selectedStories.count == totalStories ? String(localized: "library.deselect.all.accessibility.hint") : String(localized: "library.select.all.accessibility.hint"))
 
                 // Delete button with glass styling
                 Button(action: onDelete) {
-                    Label("Delete", systemImage: "trash")
+                    Label(String(localized: "library.button.delete"), systemImage: "trash")
                         .font(.subheadline.weight(.medium))
                         .foregroundColor(selectedStories.isEmpty ?
                             Color.red.opacity(0.5) :
@@ -855,8 +855,8 @@ struct EditModeToolbar: View {
                         .liquidGlassCapsule(variant: .tintedInteractive(.red))
                 }
                 .disabled(selectedStories.isEmpty)
-                .accessibilityLabel("Delete selected stories")
-                .accessibilityHint(selectedStories.isEmpty ? "Select stories to delete" : "Delete \(selectedStories.count) selected stories")
+                .accessibilityLabel(String(localized: "library.delete.accessibility.label"))
+                .accessibilityHint(selectedStories.isEmpty ? String(localized: "library.delete.empty.accessibility.hint") : String(localized: "library.delete.selected.accessibility.hint.\(selectedStories.count)"))
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 15)

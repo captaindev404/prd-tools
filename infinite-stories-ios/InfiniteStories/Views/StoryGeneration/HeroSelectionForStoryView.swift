@@ -29,7 +29,7 @@ struct HeroSelectionForStoryView: View {
         NavigationView {
             Group {
                 if isLoading {
-                    ProgressView("Loading heroes...")
+                    ProgressView(String(localized: "hero.selection.loading"))
                         .scaleEffect(1.2)
                 } else if let error = loadError {
                     ErrorView(error: error, retryAction: {
@@ -39,11 +39,11 @@ struct HeroSelectionForStoryView: View {
                     heroSelectionContent
                 }
             }
-            .navigationTitle("Select Hero")
+            .navigationTitle("hero.selection.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
+                    Button("common.cancel") {
                         dismiss()
                     }
                 }
@@ -71,11 +71,11 @@ struct HeroSelectionForStoryView: View {
                         .font(.system(size: 50))
                         .foregroundColor(.purple)
 
-                    Text("Choose Your Hero")
+                    Text("hero.selection.header")
                         .font(.title2)
                         .fontWeight(.bold)
 
-                    Text("Select which hero will star in this story")
+                    Text("hero.selection.subtitle")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -165,7 +165,7 @@ struct HeroSelectionCard: View {
                     HStack(spacing: 4) {
                         Image(systemName: "book.fill")
                             .font(.caption2)
-                        Text("\(storyCount) \(storyCount == 1 ? "story" : "stories")")
+                        Text(storyCount == 1 ? String(localized: "hero.selection.story.singular") : String(localized: "hero.selection.story.plural", defaultValue: "\(storyCount) stories"))
                             .font(.caption)
                     }
                     .foregroundColor(.secondary)
