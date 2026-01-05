@@ -2,112 +2,202 @@
 
 ## Phase 1: Technical Requirements
 
-### Task 1.1: Create Privacy Manifest file
-- [ ] Create `PrivacyInfo.xcprivacy` in the Xcode project
-- [ ] Declare `NSPrivacyAccessedAPICategoryUserDefaults` with reason `CA92.1`
-- [ ] Review codebase for other privacy-sensitive APIs (file timestamps, disk space)
-- [ ] Add any additional API declarations needed
+### Task 1.1: Create Privacy Manifest file ⚡ HIGH PRIORITY
+- [ ] Create `PrivacyInfo.xcprivacy` in the InfiniteStories Xcode project root
+- [ ] Declare `NSPrivacyAccessedAPICategoryUserDefaults` with reason `CA92.1` (app-specific data)
+- [ ] Review codebase for other privacy-sensitive APIs:
+  - File timestamp APIs (URLCache for media) - Reason `DDA9.1` if accessing modification dates
+  - System boot time (Logger) - Reason `35F9.1` if measuring time intervals
+  - Disk space APIs (cache management) - Reason `E174.1` if checking available space
+- [ ] Add any additional required API declarations
 - [ ] Set `NSPrivacyTracking` to `false`
-- **Validation**: Build succeeds, no privacy manifest warnings
+- [ ] Set `NSPrivacyTrackingDomains` to empty array
+- [ ] Set `NSPrivacyCollectedDataTypes` appropriately (email, usage data)
+- **Validation**: Build succeeds, no privacy manifest warnings in Xcode
 
 ### Task 1.2: Configure Launch Screen
-- [ ] Add background color to `UILaunchScreen` in Info.plist
-- [ ] Optionally add launch screen image to Assets
-- [ ] Test launch screen on multiple device sizes
+- [ ] Add background color to `UILaunchScreen` in Info.plist (use brand color from ColorTheme)
+- [ ] Add app icon image to `UILaunchScreen` configuration
+- [ ] Test launch screen on multiple device sizes (iPhone SE, iPhone 16 Pro Max, iPad)
 - **Validation**: App shows branded launch screen on cold start
 
 ### Task 1.3: Review and fix build warnings
-- [ ] Build in Release configuration
+- [ ] Build in Release configuration (`xcodebuild -configuration Release`)
 - [ ] Address all compiler warnings
-- [ ] Remove any debug-only code paths
-- [ ] Ensure no TODO/FIXME in critical paths
+- [ ] Remove any debug-only code paths or print statements
+- [ ] Review TODO/FIXME comments - ensure none in critical paths
 - **Validation**: Build completes with zero warnings
 
-### Task 1.4: Verify app icons
-- [ ] Confirm 1024x1024 icon exists for App Store
-- [ ] Verify all icon sizes have correct dimensions
-- [ ] Check icon has no transparency (not allowed)
-- [ ] Ensure icon has no rounded corners (system adds them)
-- **Validation**: `xcrun altool --validate-app` passes
+### Task 1.4: Verify app icons ✅ COMPLETED
+- [x] Confirm 1024x1024 icon exists for App Store (appicon_1024x1024.png ✓)
+- [x] Verify all icon sizes have correct dimensions (all sizes present ✓)
+- [x] Check icon has no transparency (PNG format ✓)
+- [x] Ensure icon has no rounded corners (system adds them ✓)
+- **Validation**: Icons verified in Assets.xcassets/AppIcon.appiconset/
 
 ---
 
 ## Phase 2: App Store Connect Setup
 
 ### Task 2.1: Create App Store Connect record
-- [ ] Log into App Store Connect
+- [ ] Log into App Store Connect (https://appstoreconnect.apple.com)
+- [ ] Navigate to "My Apps" and click "+" to create new app
 - [ ] Create new app with bundle ID `com.captaindev.InfiniteStories`
-- [ ] Select primary language
-- [ ] Choose primary and secondary categories (Entertainment, Kids)
+- [ ] Select primary language: English (U.S.)
+- [ ] Configure localized info for all 5 supported languages (en, es, fr, de, it)
+- [ ] Choose primary category: **Entertainment** (or Education)
+- [ ] Choose secondary category: **Kids** (consider carefully - stricter requirements)
 - **Validation**: App record created and visible in dashboard
 
-### Task 2.2: Configure app information
-- [ ] Set app name (max 30 characters)
-- [ ] Set subtitle (max 30 characters)
-- [ ] Write promotional text (max 170 characters)
-- [ ] Write full description (max 4000 characters)
-- [ ] Add keywords (max 100 characters, comma-separated)
-- **Validation**: All text fields populated and within limits
+### Task 2.2: Configure app information (all 5 languages)
+- [ ] **App Name** (max 30 chars): "InfiniteStories" or "Infinite Stories"
+- [ ] **Subtitle** (max 30 chars): "AI Bedtime Stories for Kids" or similar
+- [ ] **Promotional Text** (max 170 chars): Highlight key features - personalized heroes, AI stories, audio playback
+- [ ] **Description** (max 4000 chars): Full feature list:
+  - Create custom heroes with personality traits
+  - AI-generated personalized bedtime stories
+  - Professional audio narration in 5 languages
+  - Beautiful AI-illustrated scenes
+  - Reading Journey statistics
+  - Custom story events
+- [ ] **Keywords** (max 100 chars): bedtime,stories,kids,children,AI,audio,personalized,heroes,fairytales,reading
+- [ ] **Support URL**: Add support email or website
+- [ ] **Marketing URL** (optional): App website or landing page
+- **Validation**: All text fields populated for all 5 languages and within limits
 
-### Task 2.3: Complete age rating questionnaire
-- [ ] Answer all content rating questions
-- [ ] Select "Made for Kids" if targeting Kids Category
-- [ ] Review generated age rating (target: 4+)
-- **Validation**: Age rating displays as expected
+### Task 2.3: Complete age rating questionnaire ⚡ IMPORTANT
+- [ ] Navigate to Age Rating section in App Store Connect
+- [ ] Answer all content rating questions honestly:
+  - Violence: None (bedtime stories are child-safe)
+  - Sexual Content: None
+  - Profanity: None (content filtered)
+  - Medical/Treatment Info: None
+  - Realistic Violence: None
+  - Mature/Suggestive Themes: None
+  - Horror/Fear Themes: None (bedtime stories only)
+  - Gambling: None
+  - Unrestricted Web Access: None
+  - User-Generated Content: **YES** (custom heroes, events)
+- [ ] Review generated age rating (target: **4+** or **9+**)
+- [ ] Consider Kids Category requirements if targeting children
+- **Validation**: Age rating displays as expected (4+ or 9+)
 
-### Task 2.4: Create and upload screenshots
-- [ ] Take screenshots on iPhone 16 Pro Max (6.9")
-- [ ] Take screenshots on iPhone 15 Pro Max (6.7")
-- [ ] Take screenshots on iPad Pro 12.9" (if iPad supported)
-- [ ] Create at least 3 screenshots per device size
-- [ ] Add optional promotional text to screenshots
-- **Validation**: All required screenshot slots filled
+### Task 2.4: Create and upload screenshots ⚡ HIGH PRIORITY
+Required device sizes:
+- [ ] **6.9" iPhone (2868 x 1320 px or 1320 x 2868 px)** - iPhone 16 Pro Max
+- [ ] **6.7" iPhone (2796 x 1290 px or 1290 x 2796 px)** - iPhone 15 Pro Max
+- [ ] **5.5" iPhone (2208 x 1242 px or 1242 x 2208 px)** - iPhone 8 Plus (if supporting older devices)
+- [ ] **12.9" iPad Pro (2732 x 2048 px or 2048 x 2732 px)** - if iPad supported
 
-### Task 2.5: Create app preview video (optional)
-- [ ] Record 15-30 second app preview
-- [ ] Show key features: hero creation, story generation, audio playback
-- [ ] Export in required format and resolution
-- [ ] Upload to App Store Connect
+Screenshot content (5-10 screenshots per device):
+1. Hero creation flow with personality traits
+2. Story event selection screen
+3. Story generation with AI-illustrated scenes
+4. Audio player with lock screen controls
+5. Story library with saved stories
+6. Reading Journey statistics dashboard
+7. Custom event creation (optional)
+
+- [ ] Capture screenshots in all 5 languages (or at least English, Spanish, French)
+- [ ] Add optional promotional text overlays
+- [ ] Ensure screenshots show diverse content and features
+- **Validation**: All required screenshot slots filled for primary device sizes
+
+### Task 2.5: Create app preview video (optional but recommended)
+- [ ] Record 15-30 second app preview video showing:
+  - Hero creation: User creates a brave princess character
+  - Story generation: App generates a personalized bedtime story
+  - Audio playback: User plays the story with audio and illustrations
+- [ ] Export in required format: H.264 or HEVC, resolution matching device
+- [ ] Add to App Store Connect for primary device size
+- [ ] Consider creating previews for multiple languages
 - **Validation**: Preview plays correctly in App Store listing preview
 
 ---
 
-## Phase 3: Legal & Compliance
+## Phase 3: Legal & Compliance ⚡ CRITICAL
 
-### Task 3.1: Create Privacy Policy
-- [ ] Draft privacy policy covering:
-  - Data collected (email, usage data, AI-generated content)
-  - How data is used
-  - Data sharing practices (OpenAI API)
-  - Data retention policy
-  - User rights (deletion, access)
-- [ ] Host privacy policy on public URL
-- [ ] Add URL to App Store Connect
-- [ ] Add URL to app Settings screen
-- **Validation**: URL accessible and content complete
+### Task 3.1: Create Privacy Policy ⚡ REQUIRED
+- [ ] Draft comprehensive privacy policy covering:
+  - **Data Collected**:
+    - Account: Email address, Sign in with Apple ID (if implemented)
+    - User-Generated Content: Hero characters (name, traits, appearance)
+    - Usage Data: Story generation preferences, reading statistics
+    - Technical Data: Device type, iOS version, app version
+    - AI-Generated Content: Stories, audio files, illustrations
+  - **How Data is Used**:
+    - Provide core app functionality (story generation)
+    - Improve personalization and recommendations
+    - Analytics and app improvement
+  - **Data Sharing**:
+    - OpenAI API: Story text, hero descriptions sent for generation (no personal data)
+    - Cloudflare R2: Media storage (illustrations, audio)
+    - Backend API: User data stored securely
+  - **Data Retention**: User data retained until account deletion
+  - **User Rights**: Access, deletion, export (GDPR compliance)
+  - **Children's Privacy**: COPPA compliance statement
+  - **Security Measures**: Encryption, secure storage
+  - **Third-Party Services**: List all services (OpenAI, Cloudflare)
+- [ ] Host privacy policy on public URL (GitHub Pages, Vercel, or dedicated domain)
+- [ ] Add privacy policy URL to App Store Connect > App Privacy section
+- [ ] Add "Privacy Policy" link in app Settings screen
+- [ ] Translate privacy policy for all 5 supported languages (or link to English version)
+- **Validation**: URL accessible, content complete, legally reviewed (recommended)
 
-### Task 3.2: Create Terms of Service
-- [ ] Draft terms covering:
-  - Acceptable use
-  - Content ownership (user-generated heroes, AI-generated stories)
-  - Service limitations
-  - Liability disclaimers
+### Task 3.2: Create Terms of Service ⚡ REQUIRED
+- [ ] Draft terms of service covering:
+  - **Account Requirements**: Age restrictions (13+ or with parental consent)
+  - **Acceptable Use**: No abuse, harassment, or harmful content generation attempts
+  - **Content Ownership**:
+    - User owns custom heroes and events
+    - AI-generated stories: Joint ownership (user + app)
+    - OpenAI usage rights apply to AI content
+  - **Service Limitations**: No guarantee of uptime, content quality
+  - **Liability Disclaimers**: Not responsible for AI-generated content accuracy
+  - **Termination**: Right to terminate accounts for TOS violations
+  - **Changes to Terms**: Right to update terms with notice
+  - **Governing Law**: Jurisdiction and dispute resolution
 - [ ] Host terms on public URL
-- [ ] Add URL to App Store Connect
-- **Validation**: URL accessible and content complete
+- [ ] Add terms URL to App Store Connect
+- [ ] Add "Terms of Service" link in app Settings screen
+- [ ] Require acceptance of terms during first-time signup
+- **Validation**: URL accessible, content complete, legally reviewed (recommended)
 
-### Task 3.3: Review COPPA compliance
-- [ ] Verify no personal data collected from children without consent
-- [ ] Review parental consent flow if required
-- [ ] Ensure no behavioral advertising
-- [ ] Document compliance measures
-- **Validation**: Compliance checklist completed
+### Task 3.3: Review COPPA Compliance (Children's Online Privacy Protection Act)
+- [ ] **Age Gate**: Verify app requires parent/guardian supervision for children under 13
+- [ ] **Parental Consent**: Implement parental consent mechanism if collecting personal data from kids
+- [ ] **Data Collection**: Review what data is collected from children:
+  - Email: Only from parent/guardian account
+  - Usage data: Anonymized and aggregated
+  - No location data, photos, or contacts
+- [ ] **No Behavioral Advertising**: Confirm no ads or behavioral tracking
+- [ ] **Third-Party Services**: Ensure OpenAI doesn't use child data for training
+- [ ] **Data Deletion**: Easy process for parents to delete child data
+- [ ] **Security**: Strong encryption for all user data
+- [ ] Document COPPA compliance measures for App Review notes
+- **Validation**: Compliance checklist completed and documented
 
-### Task 3.4: Review content guidelines
-- [ ] Verify content filtering is active for AI-generated content
-- [ ] Test content policy with edge cases
-- [ ] Document content moderation approach
-- **Validation**: No inappropriate content can be generated
+### Task 3.4: Review Content Guidelines & Content Filtering
+- [ ] Verify `ContentPolicyFilter` is active for all AI-generated content (stories, events)
+- [ ] Test content filtering with edge cases:
+  - Violence-related prompts
+  - Inappropriate language
+  - Scary/horror themes
+  - Sexual content
+  - Discriminatory content
+- [ ] Review multi-language content filtering (all 5 languages)
+- [ ] Test custom event AI enhancement filtering
+- [ ] Document content moderation approach for App Review
+- [ ] Prepare content moderation policy for App Store Connect
+- **Validation**: No inappropriate content can be generated; all edge cases blocked
+
+### Task 3.5: Export Compliance & Encryption Declaration
+- [ ] Answer export compliance questions in App Store Connect:
+  - Does app use encryption? **YES** (HTTPS, TLS for API calls)
+  - Does app use standard encryption? **YES** (iOS-provided encryption APIs)
+  - Is encryption exempt? **YES** (using Apple's built-in encryption, no custom crypto)
+- [ ] If not exempt, provide export compliance documentation
+- **Validation**: Export compliance section completed
 
 ---
 
@@ -152,47 +242,115 @@
 
 ---
 
-## Phase 5: Submission
+## Phase 5: Submission ⚡ FINAL PHASE
 
-### Task 5.1: Configure signing for distribution
-- [ ] Select Apple Developer Team in Xcode
-- [ ] Enable automatic signing for Release
-- [ ] Verify App ID has required capabilities
-- [ ] Generate distribution certificate if needed
-- **Validation**: Signing identity valid for distribution
+### Task 5.1: Configure signing for distribution ⚡ CRITICAL
+- [ ] Open Xcode project settings (select project in navigator)
+- [ ] Select **InfiniteStories** target > Signing & Capabilities tab
+- [ ] Select Apple Developer Team (personal or organization)
+- [ ] Enable **Automatically manage signing** (recommended)
+- [ ] Verify Bundle Identifier: `com.captaindev.InfiniteStories`
+- [ ] Verify App ID has required capabilities:
+  - Sign in with Apple (if implemented)
+  - Background Modes (audio, processing, fetch)
+  - Push Notifications (if used)
+- [ ] If manual signing: Download and install Distribution Certificate and Provisioning Profile
+- [ ] Test signing by archiving (Product > Archive)
+- **Validation**: Signing identity valid, archive succeeds without signing errors
 
-### Task 5.2: Increment version numbers
-- [ ] Set `MARKETING_VERSION` (e.g., 1.0.0)
-- [ ] Set `CURRENT_PROJECT_VERSION` (e.g., 1)
-- [ ] Update version in App Store Connect
-- **Validation**: Version numbers match across project and App Store Connect
+### Task 5.2: Set version numbers for release
+- [ ] Open Xcode project settings > InfiniteStories target > General tab
+- [ ] Set **Version** (`MARKETING_VERSION`): `1.0` or `1.0.0` (semantic versioning)
+- [ ] Set **Build** (`CURRENT_PROJECT_VERSION`): `1` (increment for each submission)
+- [ ] Ensure version is consistent across all build configurations (Debug, Beta, Release)
+- [ ] Update version in App Store Connect to match
+- **Validation**: Version numbers consistent across Xcode and App Store Connect
 
-### Task 5.3: Build and archive
-- [ ] Select "Any iOS Device (arm64)" destination
-- [ ] Clean build folder
-- [ ] Archive (Product > Archive)
-- [ ] Validate archive in Organizer
-- **Validation**: Archive validates without errors
+### Task 5.3: Build and archive release version
+- [ ] Select scheme: **InfiniteStories**
+- [ ] Select destination: **Any iOS Device (arm64)**
+- [ ] Select **Release** configuration (or use Product > Archive which auto-selects Release)
+- [ ] Clean build folder: Product > Clean Build Folder (⇧⌘K)
+- [ ] Archive: Product > Archive (⌃⇧⌘A)
+- [ ] Wait for archive to complete (may take 2-5 minutes)
+- [ ] Organizer window opens automatically with new archive
+- [ ] Click **Validate App** button to run pre-flight checks:
+  - App size validation
+  - Privacy manifest validation
+  - Icon validation
+  - Capability validation
+- [ ] Fix any validation errors before proceeding
+- **Validation**: Archive validates without errors, ready for distribution
 
 ### Task 5.4: Upload to App Store Connect
-- [ ] Distribute archive to App Store Connect
-- [ ] Wait for processing to complete
-- [ ] Verify build appears in App Store Connect
-- **Validation**: Build visible and ready for submission
+- [ ] In Organizer, select the validated archive
+- [ ] Click **Distribute App** button
+- [ ] Select **App Store Connect** as distribution method
+- [ ] Select **Upload** (not Export)
+- [ ] Choose distribution options:
+  - Strip Swift symbols: **YES** (reduces size)
+  - Upload symbols: **YES** (for crash reports)
+  - Manage version and build number: **Automatically** (recommended)
+- [ ] Click **Upload**
+- [ ] Wait for upload to complete (may take 5-15 minutes depending on size)
+- [ ] Receive email notification when processing completes (up to 30 minutes)
+- [ ] Log into App Store Connect > My Apps > InfiniteStories
+- [ ] Verify build appears under **TestFlight** > **iOS Builds**
+- [ ] Wait for build to finish processing (status changes to "Ready to Submit")
+- **Validation**: Build visible in App Store Connect with status "Ready to Submit"
 
-### Task 5.5: Submit for review
-- [ ] Select build for submission
-- [ ] Add review notes (test account credentials if needed)
-- [ ] Answer export compliance questions
-- [ ] Answer content rights questions
-- [ ] Submit for App Review
-- **Validation**: Status changes to "Waiting for Review"
+### Task 5.5: Submit for App Review ⚡ FINAL STEP
+- [ ] In App Store Connect, navigate to InfiniteStories > App Store tab
+- [ ] Click **+ Version** or select existing version (1.0)
+- [ ] Fill in "What's New in This Version" (release notes):
+  - First release: "Welcome to InfiniteStories! Create personalized AI bedtime stories for kids."
+- [ ] Click **Build** and select the uploaded build
+- [ ] Fill in **App Review Information**:
+  - **Sign-in required**: YES (provide test account)
+    - Demo email: demo@infinitestories.app
+    - Demo password: [create test account password]
+  - **Contact Information**: Your email and phone
+  - **Notes**: Provide context for reviewers:
+    - "App generates AI-powered bedtime stories using OpenAI API"
+    - "Content is filtered for child safety using ContentPolicyFilter"
+    - "Test account has sample heroes and stories"
+    - "Audio playback works in background with lock screen controls"
+- [ ] Upload demo account credentials or instructions
+- [ ] Answer **Export Compliance**: YES, uses standard encryption (iOS built-in)
+- [ ] Answer **Content Rights**: You own or have rights to all content
+- [ ] Answer **Advertising Identifier**: NO (not using ads)
+- [ ] Review all information for accuracy
+- [ ] Click **Submit for Review**
+- [ ] Confirm submission in dialog
+- **Validation**: App status changes to "Waiting for Review"
 
-### Task 5.6: Monitor and respond to review
-- [ ] Check status daily for updates
-- [ ] Respond promptly to any reviewer questions
-- [ ] If rejected, address issues and resubmit
-- **Validation**: App status changes to "Ready for Sale"
+### Task 5.6: Monitor review process and respond
+- [ ] Check App Store Connect daily for status updates:
+  - "Waiting for Review" → "In Review" → "Pending Developer Release" or "Ready for Sale"
+- [ ] Respond to Apple emails within 24 hours if reviewer contacts you
+- [ ] If status changes to **"Metadata Rejected"** or **"Rejected"**:
+  - Read rejection reason carefully in Resolution Center
+  - Address all issues mentioned (metadata, content, functionality)
+  - Update metadata or submit new build if code changes needed
+  - Respond to reviewer with explanation of fixes
+  - Resubmit for review
+- [ ] If status changes to **"Pending Developer Release"**:
+  - Review is approved! App is ready to go live
+  - Click **Release This Version** to make live immediately
+  - Or schedule release for specific date/time
+- [ ] If status changes to **"Ready for Sale"**:
+  - Congratulations! App is live on the App Store
+  - Monitor user reviews and ratings
+  - Prepare for post-launch support
+- **Validation**: App status "Ready for Sale" and visible in App Store
+
+### Task 5.7: Post-Submission Checklist
+- [ ] Set up App Store Connect notifications (email alerts for status changes)
+- [ ] Prepare customer support channels (email, website)
+- [ ] Monitor crash reports in Xcode Organizer and App Store Connect
+- [ ] Plan for first update based on user feedback
+- [ ] Consider submitting to Product Hunt, tech blogs for launch publicity
+- **Validation**: Support infrastructure in place
 
 ---
 
