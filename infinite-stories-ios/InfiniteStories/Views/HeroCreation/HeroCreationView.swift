@@ -161,10 +161,18 @@ struct HeroCreationView: View {
                 .font(.title3)
                 .fontWeight(.semibold)
 
-            TextField(String(localized: "hero.creation.name.placeholder"), text: $heroName)
-                .textFieldStyle(.roundedBorder)
-                .font(.title2)
-                .multilineTextAlignment(.center)
+            if #available(iOS 18.0, *) {
+                TextField(String(localized: "hero.creation.name.placeholder"), text: $heroName)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.title2)
+                    .multilineTextAlignment(.center)
+                    .writingToolsBehavior(.disabled)
+            } else {
+                TextField(String(localized: "hero.creation.name.placeholder"), text: $heroName)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.title2)
+                    .multilineTextAlignment(.center)
+            }
 
             Text(String(localized: "hero.creation.name.hint"))
                 .font(.subheadline)
@@ -232,8 +240,14 @@ struct HeroCreationView: View {
                     Text(String(localized: "hero.creation.appearance.question", defaultValue: "How does \(heroName) look?"))
                         .font(.headline)
 
-                    TextField(String(localized: "hero.creation.appearance.placeholder"), text: $appearance)
-                        .textFieldStyle(.roundedBorder)
+                    if #available(iOS 18.0, *) {
+                        TextField(String(localized: "hero.creation.appearance.placeholder"), text: $appearance)
+                            .textFieldStyle(.roundedBorder)
+                            .writingToolsBehavior(.disabled)
+                    } else {
+                        TextField(String(localized: "hero.creation.appearance.placeholder"), text: $appearance)
+                            .textFieldStyle(.roundedBorder)
+                    }
 
                     Text(String(localized: "hero.creation.appearance.hint"))
                         .font(.caption)
@@ -244,8 +258,14 @@ struct HeroCreationView: View {
                     Text(String(localized: "hero.creation.specialability.question", defaultValue: "What's \(heroName)'s special ability?"))
                         .font(.headline)
 
-                    TextField(String(localized: "hero.creation.specialability.placeholder"), text: $specialAbility)
-                        .textFieldStyle(.roundedBorder)
+                    if #available(iOS 18.0, *) {
+                        TextField(String(localized: "hero.creation.specialability.placeholder"), text: $specialAbility)
+                            .textFieldStyle(.roundedBorder)
+                            .writingToolsBehavior(.disabled)
+                    } else {
+                        TextField(String(localized: "hero.creation.specialability.placeholder"), text: $specialAbility)
+                            .textFieldStyle(.roundedBorder)
+                    }
 
                     Text(String(localized: "hero.creation.specialability.hint"))
                         .font(.caption)

@@ -515,11 +515,20 @@ struct VisualProfileEditorView: View {
                 }
 
                 Section("Distinctive Features") {
-                    TextEditor(text: Binding(
-                        get: { profile.facialFeatures ?? "" },
-                        set: { profile.facialFeatures = $0.isEmpty ? nil : $0 }
-                    ))
-                    .frame(minHeight: 100)
+                    if #available(iOS 18.0, *) {
+                        TextEditor(text: Binding(
+                            get: { profile.facialFeatures ?? "" },
+                            set: { profile.facialFeatures = $0.isEmpty ? nil : $0 }
+                        ))
+                        .frame(minHeight: 100)
+                        .writingToolsBehavior(.complete)
+                    } else {
+                        TextEditor(text: Binding(
+                            get: { profile.facialFeatures ?? "" },
+                            set: { profile.facialFeatures = $0.isEmpty ? nil : $0 }
+                        ))
+                        .frame(minHeight: 100)
+                    }
                 }
             }
             .navigationTitle("Edit Visual Profile")

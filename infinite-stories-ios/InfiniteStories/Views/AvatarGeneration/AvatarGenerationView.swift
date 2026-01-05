@@ -133,15 +133,28 @@ struct AvatarGenerationView: View {
                 .disabled(customPrompt.isEmpty)
             }
 
-            TextEditor(text: $customPrompt)
-                .frame(minHeight: 100)
-                .padding(12)
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.purple.opacity(0.3), lineWidth: 1)
-                )
+            if #available(iOS 18.0, *) {
+                TextEditor(text: $customPrompt)
+                    .frame(minHeight: 100)
+                    .padding(12)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(12)
+                    .writingToolsBehavior(.complete)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.purple.opacity(0.3), lineWidth: 1)
+                    )
+            } else {
+                TextEditor(text: $customPrompt)
+                    .frame(minHeight: 100)
+                    .padding(12)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.purple.opacity(0.3), lineWidth: 1)
+                    )
+            }
 
             Text("Tip: Describe additional details, clothing, accessories, or magical elements")
                 .font(.caption)

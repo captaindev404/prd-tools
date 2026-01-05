@@ -301,8 +301,14 @@ struct BasicInfoStepView: View {
                         .font(.headline)
 
                     HStack {
-                        TextField("customEvent.creation.step1.eventTitlePlaceholder", text: $title)
-                            .textFieldStyle(.roundedBorder)
+                        if #available(iOS 18.0, *) {
+                            TextField("customEvent.creation.step1.eventTitlePlaceholder", text: $title)
+                                .textFieldStyle(.roundedBorder)
+                                .writingToolsBehavior(.disabled)
+                        } else {
+                            TextField("customEvent.creation.step1.eventTitlePlaceholder", text: $title)
+                                .textFieldStyle(.roundedBorder)
+                        }
 
                         Button(action: onSuggestTitle) {
                             Image(systemName: "sparkles")
@@ -322,15 +328,28 @@ struct BasicInfoStepView: View {
                     Label("customEvent.creation.step1.description", systemImage: "text.alignleft")
                         .font(.headline)
 
-                    TextEditor(text: $description)
-                        .frame(minHeight: 120)
-                        .padding(8)
-                        .background(Color(.systemGray6))
-                        .cornerRadius(12)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color(.systemGray4), lineWidth: 1)
-                        )
+                    if #available(iOS 18.0, *) {
+                        TextEditor(text: $description)
+                            .frame(minHeight: 120)
+                            .padding(8)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
+                            .writingToolsBehavior(.complete)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color(.systemGray4), lineWidth: 1)
+                            )
+                    } else {
+                        TextEditor(text: $description)
+                            .frame(minHeight: 120)
+                            .padding(8)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color(.systemGray4), lineWidth: 1)
+                            )
+                    }
 
                     Text("customEvent.creation.step1.descriptionHint")
                         .font(.caption)
@@ -498,15 +517,28 @@ struct AIEnhancementStepView: View {
                         .disabled(isEnhancing)
                     }
 
-                    TextEditor(text: $promptSeed)
-                        .frame(minHeight: 100)
-                        .padding(8)
-                        .background(Color(.systemGray6))
-                        .cornerRadius(12)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color(.systemGray4), lineWidth: 1)
-                        )
+                    if #available(iOS 18.0, *) {
+                        TextEditor(text: $promptSeed)
+                            .frame(minHeight: 100)
+                            .padding(8)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
+                            .writingToolsBehavior(.complete)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color(.systemGray4), lineWidth: 1)
+                            )
+                    } else {
+                        TextEditor(text: $promptSeed)
+                            .frame(minHeight: 100)
+                            .padding(8)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color(.systemGray4), lineWidth: 1)
+                            )
+                    }
 
                     Text("customEvent.creation.step3.promptHint")
                         .font(.caption)
@@ -530,16 +562,30 @@ struct AIEnhancementStepView: View {
 
                     // Keyword input
                     HStack {
-                        TextField("customEvent.creation.step3.addKeyword", text: $newKeyword)
-                            .textFieldStyle(.roundedBorder)
-                            .onSubmit {
-                                if !newKeyword.isEmpty {
-                                    withAnimation {
-                                        keywords.append(newKeyword)
-                                        newKeyword = ""
+                        if #available(iOS 18.0, *) {
+                            TextField("customEvent.creation.step3.addKeyword", text: $newKeyword)
+                                .textFieldStyle(.roundedBorder)
+                                .writingToolsBehavior(.disabled)
+                                .onSubmit {
+                                    if !newKeyword.isEmpty {
+                                        withAnimation {
+                                            keywords.append(newKeyword)
+                                            newKeyword = ""
+                                        }
                                     }
                                 }
-                            }
+                        } else {
+                            TextField("customEvent.creation.step3.addKeyword", text: $newKeyword)
+                                .textFieldStyle(.roundedBorder)
+                                .onSubmit {
+                                    if !newKeyword.isEmpty {
+                                        withAnimation {
+                                            keywords.append(newKeyword)
+                                            newKeyword = ""
+                                        }
+                                    }
+                                }
+                        }
 
                         Button(action: {
                             if !newKeyword.isEmpty {

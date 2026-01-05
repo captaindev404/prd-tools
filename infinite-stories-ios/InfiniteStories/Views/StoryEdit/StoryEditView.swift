@@ -74,27 +74,52 @@ struct StoryEditView: View {
                     
                     // Text editor with enhanced UI
                     ZStack(alignment: .topLeading) {
-                        TextEditor(text: $editedContent)
-                            .font(.system(.body, design: .serif))
-                            .lineSpacing(4)
-                            .padding(8)
-                            .focused($isTextEditorFocused)
-                            .scrollContentBackground(.hidden)
-                            .background(Color(.secondarySystemBackground))
-                            .cornerRadius(12)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(isTextEditorFocused ? Color.purple : Color.clear, lineWidth: 2)
-                            )
-                            .onChange(of: editedContent) { _, newValue in
-                                hasChanges = true
-                                updateCounts()
-                                
-                                // Limit characters
-                                if newValue.count > maxCharacters {
-                                    editedContent = String(newValue.prefix(maxCharacters))
+                        if #available(iOS 18.0, *) {
+                            TextEditor(text: $editedContent)
+                                .font(.system(.body, design: .serif))
+                                .lineSpacing(4)
+                                .padding(8)
+                                .focused($isTextEditorFocused)
+                                .scrollContentBackground(.hidden)
+                                .background(Color(.secondarySystemBackground))
+                                .cornerRadius(12)
+                                .writingToolsBehavior(.complete)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(isTextEditorFocused ? Color.purple : Color.clear, lineWidth: 2)
+                                )
+                                .onChange(of: editedContent) { _, newValue in
+                                    hasChanges = true
+                                    updateCounts()
+
+                                    // Limit characters
+                                    if newValue.count > maxCharacters {
+                                        editedContent = String(newValue.prefix(maxCharacters))
+                                    }
                                 }
-                            }
+                        } else {
+                            TextEditor(text: $editedContent)
+                                .font(.system(.body, design: .serif))
+                                .lineSpacing(4)
+                                .padding(8)
+                                .focused($isTextEditorFocused)
+                                .scrollContentBackground(.hidden)
+                                .background(Color(.secondarySystemBackground))
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(isTextEditorFocused ? Color.purple : Color.clear, lineWidth: 2)
+                                )
+                                .onChange(of: editedContent) { _, newValue in
+                                    hasChanges = true
+                                    updateCounts()
+
+                                    // Limit characters
+                                    if newValue.count > maxCharacters {
+                                        editedContent = String(newValue.prefix(maxCharacters))
+                                    }
+                                }
+                        }
                         
                         // Placeholder text
                         if editedContent.isEmpty {

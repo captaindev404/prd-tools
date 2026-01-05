@@ -24,18 +24,37 @@ struct MagicalTextField: View {
                 .frame(width: 25)
 
             if isSecure {
-                SecureField(placeholder, text: $text)
-                    .textFieldStyle(PlainTextFieldStyle())
-                    .onTapGesture {
-                        isEditing = true
-                    }
+                if #available(iOS 18.0, *) {
+                    SecureField(placeholder, text: $text)
+                        .textFieldStyle(PlainTextFieldStyle())
+                        .writingToolsBehavior(.disabled)
+                        .onTapGesture {
+                            isEditing = true
+                        }
+                } else {
+                    SecureField(placeholder, text: $text)
+                        .textFieldStyle(PlainTextFieldStyle())
+                        .onTapGesture {
+                            isEditing = true
+                        }
+                }
             } else {
-                TextField(placeholder, text: $text)
-                    .textFieldStyle(PlainTextFieldStyle())
-                    .keyboardType(keyboardType)
-                    .onTapGesture {
-                        isEditing = true
-                    }
+                if #available(iOS 18.0, *) {
+                    TextField(placeholder, text: $text)
+                        .textFieldStyle(PlainTextFieldStyle())
+                        .keyboardType(keyboardType)
+                        .writingToolsBehavior(.disabled)
+                        .onTapGesture {
+                            isEditing = true
+                        }
+                } else {
+                    TextField(placeholder, text: $text)
+                        .textFieldStyle(PlainTextFieldStyle())
+                        .keyboardType(keyboardType)
+                        .onTapGesture {
+                            isEditing = true
+                        }
+                }
             }
         }
         .padding()
