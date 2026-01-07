@@ -1,194 +1,263 @@
-<!-- OPENSPEC:START -->
-# OpenSpec Instructions
-
-These instructions are for AI assistants working in this project.
-
-Always open `@/openspec/AGENTS.md` when the request:
-- Mentions planning or proposals (words like proposal, spec, change, plan)
-- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
-- Sounds ambiguous and you need the authoritative spec before coding
-
-Use `@/openspec/AGENTS.md` to learn:
-- How to create and apply change proposals
-- Spec format and conventions
-- Project structure and guidelines
-
-Keep this managed block so 'openspec update' can refresh the instructions.
-
-<!-- OPENSPEC:END -->
-
 # CLAUDE.md
 
-This file provides guidance to Claude Code when working with this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
-**InfiniteStories** is a SwiftUI iOS/macOS app that generates personalized AI-powered audio bedtime stories for children. Parents create hero characters with customizable traits, then generate stories for different events or custom scenarios. Stories are converted to high-quality audio with AI-generated illustrations.
+PRD Tool is a Rust-based CLI for managing tasks, agents, and dependencies across development teams and AI agents. It provides human-readable IDs (#1, A1), epic grouping, task dependencies, acceptance criteria, progress tracking, and real-time monitoring.
 
-## ⚠️ API-Only Architecture
+## Build & Run Commands
 
-**CRITICAL**: App requires active internet connection. Hero/Story data are NOT persisted locally.
+### Building
+```bash
+# Release build (recommended)
+cargo build --release
+# Or use convenience script
+./build.sh
 
-### Key Principles
-1. **No Local Persistence**: Hero/Story data fetched from backend API only
-2. **Network Required**: App blocks usage when offline
-3. **URLCache for Media**: Images/audio cached automatically by iOS
-4. **Loading States**: Show loading indicators, not optimistic updates
-5. **Error Handling**: Network errors block actions until connection restored
+# Development build
+cargo build
 
-### Data Flow
-```
-User Action → Repository → APIClient → Backend API → Update View State
-                ↑ Network Error? → Show Error → Block Usage ↓
-```
-
-## Architecture
-
-### Core Data Models
-
-**SwiftData Usage:**
-- **Hero/Story/CustomStoryEvent**: NOT persisted - transient objects from API (managed via repositories)
-- **Local-only SwiftData**: HeroVisualProfile, StoryIllustration (preferences/cache)
-
-**Key Models:**
-- **Hero**: Character with traits, appearance, AI-generated avatar (via HeroRepository)
-- **Story**: Content with illustrations, audio sync (via StoryRepository)
-- **StoryIllustration**: Audio-synced visuals with timestamps, DALL-E prompts
-- **HeroVisualProfile**: Character consistency for illustrations
-- **CustomStoryEvent**: User-defined scenarios with AI enhancement
-- **CharacterTrait/StoryEvent**: Enums for personality and story contexts
-
-### Services & Repositories
-
-**Repository Layer (API-only):**
-- **HeroRepository**: CRUD operations, avatar generation via backend
-- **StoryRepository**: Story/audio/illustration generation (GPT-4o, gpt-4o-mini-tts)
-- **CustomEventRepository**: CRUD operations, AI enhancement via backend
-
-**Network & Error Handling:**
-- **NetworkMonitor**: Real-time connectivity status, blocks offline operations
-- **APIClient**: HTTP client with retry logic, auth injection, rate limit handling
-- **RetryPolicy**: Exponential backoff (default: 3 retries, 1s base delay)
-- **ErrorView**: User-friendly error display with retry
-- **NetworkRequiredView**: Shown when offline
-
-**AI Services:**
-- **IllustrationGenerator**: Multi-scene generation with audio sync
-- **HeroVisualConsistencyService**: Character appearance consistency
-- **ContentPolicyFilter**: Child-safe content filtering (multi-language)
-- **AudioService**: MP3 playback with lock screen controls, speed control
-- **IllustrationSyncManager**: Real-time audio-illustration sync
-- **CustomEventAIAssistant**: AI-powered event enhancement
-- **EventPictogramGenerator**: Visual pictogram creation
-- **Logger**: Structured logging with categories and levels
-
-**System Services:**
-- **IdleTimerManager**: Screen sleep prevention during playback
-- **BackgroundTaskManager**: iOS background task management
-- **ThemeSettings**: Dark/light/system theme
-
-### Views & ViewModels
-
-**Main Views:**
-- **ImprovedContentView**: Magical UI with FAB (floating action button), Reading Journey button
-- **HeroCreationView**: Multi-step wizard for heroes
-- **StoryGenerationView**: Event selection, story generation
-- **AudioPlayerView**: Lock screen controls, playback speed, queue navigation
-- **ReadingJourneyView**: Statistics, charts, analytics
-- **CustomEventCreationView**: Custom scenarios with AI enhancement
-
-**Illustration Components:**
-- **IllustrationCarouselView**: Ken Burns effect visual display
-- **IllustrationSyncView**: Audio-synced viewer with timeline
-- **IllustrationLoadingView/PlaceholderView**: Progress and error handling
-
-**ViewModels:**
-- **StoryViewModel**: Business logic, story/audio coordination, queue management
-
-**Utilities:**
-- **KeychainHelper**: Secure storage
-- **PromptLocalizer**: Multi-language support
-- **AccessibilityEnhancements**: WCAG AA, VoiceOver, Dynamic Type
-- **ColorTheme**: Light/dark mode definitions
-
-## Key Features
-
-1. **AI Story Generation**: GPT-4o stories with multi-turn illustration consistency
-2. **Audio Playback**: MP3 synthesis (gpt-4o-mini-tts) with lock screen controls
-3. **Visual Storytelling**: Audio-synced illustrations with character consistency
-4. **Custom Events**: User-defined scenarios with AI enhancement and pictograms
-5. **Multi-Language**: 5 languages with localized prompts/voices
-6. **Content Safety**: Child-safe filtering (multi-language)
-7. **Reading Journey**: Statistics dashboard with charts
-8. **Accessibility**: VoiceOver, Dynamic Type (WCAG AA)
-9. **Theme Support**: Light/dark/system modes
-
-## Technical Details
-
-**OpenAI Integration:** See `docs/OPENAI_INTEGRATION.md` for API details, cost optimization, and multi-turn image generation.
-
-**Development Guide:** See `docs/DEVELOPMENT.md` for build commands, configuration, and best practices.
-
-**Task Management:** See `docs/PRD_TOOLS.md` for PRD CLI tool usage (always use PRD Skills first).
-
-## Key Technologies
-
-SwiftUI, SwiftData, AVFoundation, MediaPlayer, BackgroundTasks, Combine, URLSession, Network, Security (Keychain), Charts
-
-## File Structure
-
-```
-infinite-stories-ios/InfiniteStories/
-├── Models/           # Hero, Story, StoryIllustration, HeroVisualProfile, CustomStoryEvent
-├── Views/            # HeroCreation, StoryGeneration, AudioPlayer, ReadingJourney, CustomEvents
-├── Services/         # AI, Audio, Network, Illustration, Logger
-├── Repositories/     # Hero, Story, CustomEvent (API-only)
-├── Network/          # APIClient, Endpoint, APIError, RetryPolicy
-├── ViewModels/       # StoryViewModel
-├── Utilities/        # KeychainHelper, PromptLocalizer, Accessibility
-└── Theme/            # ColorTheme
+# Run tests
+cargo test
 ```
 
-See code for detailed structure.
+### Running
+```bash
+# Main CLI
+./target/release/prd <command>
 
-## Critical Development Rules
+# Dashboard
+./target/release/prd-dashboard [db_path] [refresh_seconds]
+```
 
-**Architecture:**
-- **API-Only**: Hero/Story NOT persisted locally - use repositories only
-- **SwiftData**: Only for preferences (CustomStoryEvent, HeroVisualProfile, StoryIllustration)
-- **Network**: Check `NetworkMonitor.shared.isConnected` before API calls
-- **Error Handling**: Show ErrorView with retry for all API failures
-- **Loading States**: Use `@State` with loading/error/data, not optimistic updates
-- **No Mocks**: Backend API only, never mock services
-- **Security**: API keys in Keychain, never hardcode
+### Common Development Commands
+```bash
+# Initialize database
+prd init [--force]
 
-**Task Management:**
-- **Always** use PRD Skills first (not direct Bash commands)
-- Database: `tools/prd.db`
+# Run migrations
+prd migrate latest
+prd migrate status
 
-**Best Practices:**
-- URLCache handles media caching automatically
-- Disable idle timer during audio playback
-- 44pt minimum touch targets
-- VoiceOver and Dynamic Type support
-- Test offline error handling
+# Create sample data
+cargo run --example populate_migration_tasks
+cargo run --example multi_agent_workflow
+```
 
-**General:**
-- Do what was asked; nothing more, nothing less
-- NEVER create files unless absolutely necessary
-- ALWAYS prefer editing existing files
-- NEVER proactively create documentation files
+### Testing
+```bash
+# Run all tests
+cargo test
 
-<!-- nx configuration start-->
-<!-- Leave the start & end comments to automatically receive updates. -->
+# Test specific module
+cargo test db::
+cargo test suggestions::
+cargo test watcher::
 
-# General Guidelines for working with Nx
+# Run with output
+cargo test -- --nocapture
+```
 
-- When running tasks (for example build, lint, test, e2e, etc.), always prefer running the task through `nx` (i.e. `nx run`, `nx run-many`, `nx affected`) instead of using the underlying tooling directly
-- You have access to the Nx MCP server and its tools, use them to help the user
-- When answering questions about the repository, use the `nx_workspace` tool first to gain an understanding of the workspace architecture where applicable.
-- When working in individual projects, use the `nx_project_details` mcp tool to analyze and understand the specific project structure and dependencies
-- For questions around nx configuration, best practices or if you're unsure, use the `nx_docs` tool to get relevant, up-to-date docs. Always use this instead of assuming things about nx configuration
-- If the user needs help with an Nx configuration or project graph error, use the `nx_workspace` tool to get any errors
+## Code Architecture
 
-<!-- nx configuration end-->
+### Core Modules
+
+**`src/db.rs`** (42K lines) - Central database layer
+- Defines `Database` struct with SQLite connection
+- Core types: `Task`, `Agent`, `TaskStatus`, `Priority`, `AgentStatus`
+- All CRUD operations for tasks, agents, logs, and statistics
+- Extensions in `db_extensions.rs`: `DependencyOps`, `AcceptanceCriteriaOps`
+
+**`src/main.rs`** (74K lines) - CLI entry point
+- Uses `clap` for command parsing with `Commands` enum
+- All user-facing commands: create, list, show, assign, sync, complete, etc.
+- Formatting helpers: `format_status()`, `format_priority()`, `format_agent_status()`
+- Calls into `Database` methods for all operations
+
+**`src/lib.rs`** - Public API for programmatic access
+- `PRDClient` wrapper around `Database` for external use
+- High-level methods: `sync_agent()`, `get_next_task()`, `complete_task()`
+- Used by examples and agent integrations
+
+**`src/resolver.rs`** - ID resolution system
+- Converts human-readable IDs (#42, A5) to UUIDs
+- `resolve_task_id()`, `resolve_agent_id()` - accept multiple formats
+- `format_task_id()`, `format_agent_id()` - display formatting
+
+### Feature Modules
+
+**`src/dashboard/`** - Real-time TUI dashboard
+- `ui.rs`: Terminal UI using `ratatui` and `crossterm`
+- `state.rs`: Dashboard state management
+- Displays active tasks, blocked tasks, agent activity, logs
+
+**`src/watcher/`** - File watching automation (Phase 3)
+- `file_watcher.rs`: Watches docs/tasks for completion documents
+- `daemon.rs`: Background daemon management (start/stop/status)
+- Uses `notify` crate for filesystem events
+
+**`src/sync/`** - Document synchronization
+- `doc_scanner.rs`: Scans for YAML completion documents
+- `sync_engine.rs`: Processes completion documents to update DB
+- `reconcile.rs`: Detects and fixes DB/filesystem inconsistencies
+
+**`src/git/`** - Git integration (Phase 3)
+- `sync.rs`: Scans commit history for task completions
+- `hooks.rs`: Git hook management (post-commit auto-completion)
+- Parses commit messages for task IDs and completion markers
+
+**`src/hooks/`** - Custom hook system
+- `config.rs`: Loads hooks from `.prd-hooks.toml`
+- `executor.rs`: Executes shell commands on events
+- Events: `on_task_complete`, `on_task_error`, `on_milestone_reached`
+
+**`src/suggestions/`** - Agent-task matching (Phase 4)
+- `agent_matcher.rs`: 4-factor weighted scoring system
+  - Specialization match, task history, current load, priority weighting
+  - Returns ranked `AgentRecommendation` list
+- Used for `prd suggest <task-id>` command
+
+**`src/notifications/`** - Desktop notifications (Phase 2)
+- `notifier.rs`: System notifications using `notify-rust`
+- `config.rs`: Notification settings and filters
+- Triggers on: task completion, errors, milestones, blocked tasks
+
+**`src/visualization/`** - Progress visualizations (Phase 4)
+- `timeline.rs`: ASCII sprint timelines and burndown charts
+- Renders task progress over time periods
+- Used by `prd stats --visual` and `prd visualize`
+
+**`src/errors/`** - Error handling (Phase 4)
+- `context.rs`: Contextual error messages with suggestions
+- Fuzzy matching for typos (e.g., "prd asign" → "Did you mean 'assign'?")
+- Helpful error messages for common mistakes
+
+**`src/batch/`** - Batch operations
+- `complete.rs`: Bulk task completion from CLI, JSON, or CSV
+- Parses task-agent mappings for batch updates
+- Used by `prd complete-batch` command
+
+**`src/migrations/`** - Database migrations
+- `runner.rs`: Migration execution and rollback
+- SQL files in `/migrations/`: 001-007 applied sequentially
+- Track schema version in `migrations` table
+
+### Database Schema
+
+**Key tables:**
+- `tasks`: Core task data with `display_id`, `title`, `status`, `priority`, `epic_name`, `parent_id`, `assigned_agent`
+- `agents`: Agent registry with `display_id`, `name`, `status`, `current_task_id`, `specializations`
+- `task_dependencies`: Links tasks with `task_display_id`, `depends_on_display_id`, `dependency_type`
+- `acceptance_criteria`: Per-task checklists with `completed` flag
+- `task_logs`: Audit trail of all task actions
+- `agent_progress`: Progress reports with timestamp, percentage, message
+- `agent_metrics`: Performance tracking (completion rate, success rate)
+- `migrations`: Schema version tracking
+
+**Migration files** in `/migrations/`:
+1. `001_add_display_ids.sql` - Human-readable IDs
+2. `002_add_dependencies.sql` - Task dependencies with circular detection
+3. `003_add_acceptance_criteria.sql` - Checklists
+4. `004_add_completion_fields.sql` - Duration tracking
+5. `005_add_agent_progress.sql` - Real-time progress reporting
+6. `006_add_agent_intelligence.sql` - Specializations and metrics
+7. `007_add_sprints.sql` - Sprint support
+
+## Key Patterns & Conventions
+
+### ID System
+- **Tasks**: Display ID `#1, #2` (stored as `display_id` i32), internal UUID
+- **Agents**: Display ID `A1, A2` (stored as `display_id` i32), internal UUID
+- All commands accept: `#42`, `42`, full UUID
+- Use `resolver.rs` functions for conversion
+
+### Status Flow
+- Tasks: `pending` → `in_progress` → `review` → `completed`
+  - Alternative: → `blocked` or → `cancelled`
+- Agents: `idle` → `working` → `idle`
+  - Alternative: → `blocked` or → `offline`
+
+### Sync Operation
+When `prd sync A1 "#42"`:
+1. Agent status → `working`, set `current_task_id`
+2. Task status → `in_progress`, set `assigned_agent`
+3. Create task log entry
+4. Update agent `last_active` timestamp
+
+### Dependency System
+- Uses display IDs (not UUIDs) for dependencies
+- Circular dependency detection in `get_ready_tasks()` via recursive CTE
+- `prd ready` shows tasks with all dependencies completed
+- Supports `--on` (this depends on) and `--blocks` (this blocks) syntax
+
+### Extension Traits
+The codebase extends `rusqlite::Connection` with custom operations:
+- `DependencyOps`: `add_dependency()`, `get_dependencies()`, `get_blocking_tasks()`, `get_ready_tasks()`
+- `AcceptanceCriteriaOps`: `add_criterion()`, `list_criteria()`, `check_criterion()`, `uncheck_criterion()`
+
+These are defined in `db_extensions.rs` and used throughout.
+
+### Library vs CLI
+- **Library**: `src/lib.rs` exports `PRDClient`, `Database`, types for programmatic use
+- **CLI**: `src/main.rs` handles argument parsing and user interaction
+- Examples use library interface (see `/examples/`)
+
+## Adding New Features
+
+### Adding a Command
+1. Add variant to `Commands` enum in `main.rs`
+2. Implement handler in `match cli.command` block
+3. Add DB method in `db.rs` if needed
+4. Update resolver if working with IDs
+5. Add tests in relevant module
+
+### Adding a Migration
+1. Create `migrations/00X_description.sql`
+2. Include both `CREATE/ALTER` and corresponding `DROP` statements
+3. Test with `prd migrate latest` and `prd migrate rollback`
+4. Migration runner auto-detects new files by number
+
+### Adding Agent Features
+1. Extend `Agent` struct in `db.rs`
+2. Update `create_agent()` and `get_agent()` queries
+3. Add migration for schema change
+4. Update `AgentRow` display struct in `main.rs`
+5. Consider impact on `PRDClient` API
+
+### Adding Task Fields
+1. Extend `Task` struct in `db.rs`
+2. Update `create_task()`, `update_task_status()` queries
+3. Add migration for schema change
+4. Update `TaskRow` display struct and JSON serialization
+5. Update `prd show` command formatting
+
+## Testing Strategy
+
+- Unit tests: inline `#[cfg(test)]` modules in each file
+- Integration tests: `/examples/` for end-to-end workflows
+- Use `:memory:` databases for isolated tests
+- Test database operations with `tempfile` crate
+- Dashboard/watcher tests in respective module test subdirectories
+
+## Common Gotchas
+
+1. **Display IDs vs UUIDs**: Always use resolver functions, never assume format
+2. **Database handles**: Main CLI uses `Database` struct, library uses `PRDClient`
+3. **Connection lifetimes**: Extensions borrow `&Connection`, don't store references
+4. **Circular deps**: `get_ready_tasks()` uses recursive CTE, don't reimplement
+5. **Migration order**: Numbers must be sequential, no gaps allowed
+6. **Status transitions**: Some transitions may have side effects (e.g., completing task updates agent)
+
+## Examples
+
+Example agent implementations in `/examples/`:
+- `simple_agent.rs`: Basic agent loop (get task, work, complete)
+- `multi_agent_workflow.rs`: Coordinated multi-agent scenario
+- `populate_migration_tasks.rs`: Generates test data for migrations
+
+Run with:
+```bash
+cargo run --example simple_agent
+cargo run --example multi_agent_workflow
+```
