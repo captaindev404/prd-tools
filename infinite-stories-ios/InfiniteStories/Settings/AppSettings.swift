@@ -48,7 +48,17 @@ final class AppSettings {
         // Load language setting with system language as default
         let systemLanguage = Locale.current.language.languageCode?.identifier ?? "en"
         let defaultLanguage = Self.languageCodeToSupported(systemLanguage)
-        self.preferredLanguage = UserDefaults.standard.string(forKey: "preferredLanguage") ?? defaultLanguage
+        let storedLanguage = UserDefaults.standard.string(forKey: "preferredLanguage")
+
+        // Migrate users with non-released language preferences (e.g., Spanish, German, Italian)
+        // to English. This handles existing users who had selected languages that are
+        // now hidden in v1.0. Translations are preserved for future releases.
+        if let stored = storedLanguage, !Self.releasedLanguageNames.contains(stored) {
+            self.preferredLanguage = "English"
+            UserDefaults.standard.set("English", forKey: "preferredLanguage")
+        } else {
+            self.preferredLanguage = storedLanguage ?? defaultLanguage
+        }
     }
 
     // MARK: - Static Voice Definitions
@@ -67,6 +77,9 @@ final class AppSettings {
     // MARK: - Static Language Definitions
 
     /// Available languages for story generation
+    /// Note: All 5 languages are fully translated in the codebase (String Catalogs, PromptLocalizer, backend).
+    /// For phased release, we limit visible languages via `releasedLanguages`.
+    /// To enable a language: add its name to `releasedLanguageNames` below.
     static let availableLanguages: [(id: String, name: String, nativeName: String)] = [
         ("English", "English", "English"),
         ("Spanish", "Spanish", "Espanol"),
@@ -75,17 +88,34 @@ final class AppSettings {
         ("Italian", "Italian", "Italiano")
     ]
 
+    // MARK: - Released Languages (v1.0)
+
+    /// Language codes enabled for the current release.
+    /// Spanish (es), German (de), Italian (it) translations are preserved and can be enabled in future versions.
+    static let releasedLanguageCodes: Set<String> = ["en", "fr"]
+
+    /// Language names enabled for the current release.
+    static let releasedLanguageNames: Set<String> = ["English", "French"]
+
+    /// Filtered list of languages available for the current release.
+    static var releasedLanguages: [(id: String, name: String, nativeName: String)] {
+        availableLanguages.filter { releasedLanguageNames.contains($0.name) }
+    }
+
     // MARK: - Helper Methods
 
-    /// Map system language code to supported language
+    /// Map system language code to a released language.
+    /// For v1.0, only English and French are released. Spanish, German, and Italian
+    /// users are mapped to English. When those languages are enabled, add their
+    /// codes to `releasedLanguageCodes` and update this method.
     static func languageCodeToSupported(_ code: String) -> String {
         switch code {
-        case "es": return "Spanish"
         case "fr": return "French"
-        case "de": return "German"
-        case "it": return "Italian"
         case "en": return "English"
-        default: return "English"  // Default to English for unsupported languages
+        // Unreleased languages map to English for v1.0
+        // Translations are preserved in codebase for future release
+        case "es", "de", "it": return "English"
+        default: return "English"
         }
     }
 

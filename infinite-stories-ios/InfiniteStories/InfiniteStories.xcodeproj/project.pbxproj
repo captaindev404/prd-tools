@@ -28,6 +28,7 @@
 		CE3AA1C82E71C97E00236398 /* InfiniteStoriesTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = InfiniteStoriesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE3AA1D22E71C97E00236398 /* InfiniteStoriesUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = InfiniteStoriesUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE7C466B2F054B8E00F8AC99 /* InfiniteStories.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = InfiniteStories.xcodeproj; sourceTree = "<group>"; };
+		CEA9792F2F0BFD6F00D633CE /* InfiniteStories.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = InfiniteStories.xcodeproj; sourceTree = "<group>"; };
 		CEDCB6CC2EF602C100E28EB7 /* InfiniteStories.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = InfiniteStories.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -113,6 +114,11 @@
 			sourceTree = "<group>";
 		};
 		CE7C466F2F054B8E00F8AC99 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		CEA979352F0BFD6F00D633CE /* Products */ = {
 			isa = PBXGroup;
 			name = Products;
 			sourceTree = "<group>";
@@ -233,6 +239,10 @@
 			productRefGroup = CE3AA1BA2E71C97D00236398 /* Products */;
 			projectDirPath = "";
 			projectReferences = (
+				{
+					ProductGroup = CEA979352F0BFD6F00D633CE /* Products */;
+					ProjectRef = CEA9792F2F0BFD6F00D633CE /* InfiniteStories.xcodeproj */;
+				},
 				{
 					ProductGroup = CEDCB6D02EF602C100E28EB7 /* Products */;
 					ProjectRef = CEDCB6CC2EF602C100E28EB7 /* InfiniteStories.xcodeproj */;
@@ -457,7 +467,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.captaindev.InfiniteStories;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -489,7 +499,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.captaindev.InfiniteStories;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -506,7 +516,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = captaindev.InfiniteStoriesTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -524,7 +534,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = captaindev.InfiniteStoriesTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -540,7 +550,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = captaindev.InfiniteStoriesUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -556,7 +566,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = captaindev.InfiniteStoriesUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;

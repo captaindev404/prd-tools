@@ -35,9 +35,9 @@ struct SettingsTabContent: View {
                             .font(.title2)
 
                         VStack(alignment: .leading) {
-                            Text("InfiniteStories Settings")
+                            Text("settings.header.title")
                                 .font(.headline)
-                            Text("Configure AI story generation")
+                            Text("settings.header.subtitle")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -48,7 +48,7 @@ struct SettingsTabContent: View {
                 // Theme Settings Section
                 Section {
                     HStack {
-                        Label("Appearance", systemImage: "moon.circle.fill")
+                        Label("settings.appearance", systemImage: "moon.circle.fill")
                             .foregroundColor(.purple)
 
                         Spacer()
@@ -57,7 +57,7 @@ struct SettingsTabContent: View {
                             ForEach(["system", "light", "dark"], id: \.self) { theme in
                                 HStack {
                                     Image(systemName: settingsThemeIcon(for: theme))
-                                    Text(theme.capitalized)
+                                    Text(LocalizedStringKey("settings.theme.\(theme)"))
                                 }
                                 .tag(theme)
                             }
@@ -68,9 +68,9 @@ struct SettingsTabContent: View {
 
                     // Visual indicator showing current theme
                     HStack {
-                        Text("Current Mode:")
+                        Text("settings.currentMode")
                         Spacer()
-                        Text(colorScheme == .dark ? "Dark" : "Light")
+                        Text(colorScheme == .dark ? String(localized: "settings.theme.dark") : String(localized: "settings.theme.light"))
                             .foregroundColor(.secondary)
                     }
                 } header: {
@@ -89,7 +89,7 @@ struct SettingsTabContent: View {
                         Spacer()
 
                         Picker("", selection: $localizationManager.currentLanguage) {
-                            ForEach(LocalizationManager.UILanguage.allCases) { language in
+                            ForEach(LocalizationManager.releasedUILanguages) { language in
                                 Text(language.displayName)
                                     .tag(language)
                             }
@@ -109,17 +109,17 @@ struct SettingsTabContent: View {
 
                 Section {
                     HStack {
-                        Picker("Story Length", selection: $settings.defaultStoryLength) {
-                            Text("5 minutes").tag(5)
-                            Text("7 minutes").tag(7)
-                            Text("10 minutes").tag(10)
+                        Picker(String(localized: "settings.storyLength"), selection: $settings.defaultStoryLength) {
+                            Text("settings.storyLength.5").tag(5)
+                            Text("settings.storyLength.7").tag(7)
+                            Text("settings.storyLength.10").tag(10)
                         }
                         .pickerStyle(.menu)
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Picker("Voice", selection: $settings.preferredVoice) {
+                            Picker(String(localized: "settings.voice"), selection: $settings.preferredVoice) {
                                 ForEach(AppSettings.availableVoices, id: \.id) { voice in
                                     Text(voice.name).tag(voice.id)
                                 }
@@ -136,8 +136,8 @@ struct SettingsTabContent: View {
 
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Picker("Language", selection: $settings.preferredLanguage) {
-                                ForEach(AppSettings.availableLanguages, id: \.id) { language in
+                            Picker(String(localized: "settings.language"), selection: $settings.preferredLanguage) {
+                                ForEach(AppSettings.releasedLanguages, id: \.id) { language in
                                     HStack {
                                         Text(language.name)
                                         Text(language.nativeName)
@@ -149,39 +149,39 @@ struct SettingsTabContent: View {
                             .pickerStyle(.menu)
                         }
 
-                        Text("Stories will be generated in the selected language")
+                        Text("settings.storyLanguage.footer")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
                 } header: {
-                    Text("Story Preferences")
+                    Text("settings.storyPreferences")
                 } footer: {
-                    Text("Voice selection uses OpenAI's enhanced text-to-speech with storytelling instructions. Coral and Fable are recommended for bedtime stories.")
+                    Text("settings.storyPreferences.footer")
                         .font(.caption)
                 }
 
                 if AppConfiguration.enableStoryIllustrations {
                     Section {
-                        Toggle("Auto-Generate Illustrations", isOn: Binding(
+                        Toggle(String(localized: "settings.autoGenerateIllustrations"), isOn: Binding(
                             get: { UserDefaults.standard.bool(forKey: "autoGenerateIllustrations") },
                             set: { UserDefaults.standard.set($0, forKey: "autoGenerateIllustrations") }
                         ))
 
-                        Toggle("Continue on Illustration Failures", isOn: Binding(
+                        Toggle(String(localized: "settings.continueOnFailures"), isOn: Binding(
                             get: { UserDefaults.standard.bool(forKey: "allowIllustrationFailures") },
                             set: { UserDefaults.standard.set($0, forKey: "allowIllustrationFailures") }
                         ))
 
-                        Toggle("Show Error Details", isOn: Binding(
+                        Toggle(String(localized: "settings.showErrorDetails"), isOn: Binding(
                             get: { UserDefaults.standard.bool(forKey: "showIllustrationErrors") },
                             set: { UserDefaults.standard.set($0, forKey: "showIllustrationErrors") }
                         ))
 
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Text("Max Retry Attempts")
+                                Text("settings.maxRetryAttempts")
                                 Spacer()
-                                Picker("Retries", selection: Binding(
+                                Picker(String(localized: "settings.maxRetryAttempts"), selection: Binding(
                                     get: {
                                         let value = UserDefaults.standard.integer(forKey: "maxIllustrationRetries")
                                         return value > 0 ? value : 3
@@ -196,15 +196,15 @@ struct SettingsTabContent: View {
                                 .pickerStyle(.menu)
                             }
 
-                            Text("Number of automatic retry attempts for failed illustrations")
+                            Text("settings.maxRetryAttempts.footer")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
 
                         HStack {
-                            Text("Max Illustrations Per Story")
+                            Text("settings.maxIllustrationsPerStory")
                             Spacer()
-                            Picker("Max", selection: Binding(
+                            Picker(String(localized: "settings.maxIllustrationsPerStory"), selection: Binding(
                                 get: {
                                     let value = UserDefaults.standard.integer(forKey: "maxIllustrationsPerStory")
                                     return value > 0 ? value : 6
@@ -219,9 +219,9 @@ struct SettingsTabContent: View {
                             .pickerStyle(.menu)
                         }
                     } header: {
-                        Text("Illustrations")
+                        Text("settings.illustrations")
                     } footer: {
-                        Text("Illustrations enhance stories with AI-generated visuals. If generation fails, placeholders will be shown. You can retry failed illustrations later.")
+                        Text("settings.illustrations.footer")
                             .font(.caption)
                     }
                 }
@@ -285,39 +285,39 @@ struct SettingsTabContent: View {
                     Button(action: { showingEraseConfirmation = true }) {
                         HStack {
                             Image(systemName: "exclamationmark.triangle.fill")
-                            Text("Erase All Data & Sign Out")
+                            Text("settings.eraseAllData")
                         }
                         .foregroundColor(.red)
                     }
                 } header: {
-                    Text("Advanced")
+                    Text("settings.advanced")
                 } footer: {
-                    Text("Erasing all data will permanently delete all heroes, stories, files, and sign you out. You will be redirected to the sign-up screen.")
+                    Text("settings.eraseAllData.footer")
                         .font(.caption)
                 }
 
                 Section {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("About InfiniteStories")
+                        Text("settings.about.title")
                             .font(.headline)
 
-                        Text("Generate personalized bedtime stories for children using AI. Create heroes with unique traits and enjoy magical adventures every night.")
+                        Text("settings.about.description")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
 
                         HStack {
-                            Text("Version")
+                            Text("settings.version")
                             Spacer()
-                            Text("1.0.0")
+                            Text("1.0.1")
                                 .foregroundColor(.secondary)
                         }
                     }
                     .padding(.vertical, 8)
                 } header: {
-                    Text("App Info")
+                    Text("settings.appInfo")
                 }
             }
-            .navigationTitle("Settings")
+            .navigationTitle(String(localized: "settings.title"))
             .navigationBarTitleDisplayMode(.large)
             .glassNavigation()
             .confirmationDialog("settings.eraseAllData.confirm.title", isPresented: $showingEraseConfirmation, titleVisibility: .visible) {
@@ -435,31 +435,31 @@ struct SettingsView: View {
                         Image(systemName: "gear.circle.fill")
                             .foregroundColor(.purple)
                             .font(.title2)
-                        
+
                         VStack(alignment: .leading) {
-                            Text("InfiniteStories Settings")
+                            Text("settings.header.title")
                                 .font(.headline)
-                            Text("Configure AI story generation")
+                            Text("settings.header.subtitle")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
                     }
                     .padding(.vertical, 8)
                 }
-                
+
                 // Theme Settings Section
                 Section {
                     HStack {
-                        Label("Appearance", systemImage: "moon.circle.fill")
+                        Label("settings.appearance", systemImage: "moon.circle.fill")
                             .foregroundColor(.purple)
-                        
+
                         Spacer()
-                        
+
                         Picker("", selection: $themeSettings.themePreferenceString) {
                             ForEach(["system", "light", "dark"], id: \.self) { theme in
                                 HStack {
                                     Image(systemName: themeIcon(for: theme))
-                                    Text(theme.capitalized)
+                                    Text(LocalizedStringKey("settings.theme.\(theme)"))
                                 }
                                 .tag(theme)
                             }
@@ -467,51 +467,51 @@ struct SettingsView: View {
                         .pickerStyle(.menu)
                         .tint(.purple)
                     }
-                    
+
                     // Visual indicator showing current theme
                     HStack {
-                        Text("Current Mode:")
+                        Text("settings.currentMode")
                         Spacer()
-                        Text(colorScheme == .dark ? "Dark" : "Light")
+                        Text(colorScheme == .dark ? String(localized: "settings.theme.dark") : String(localized: "settings.theme.light"))
                             .foregroundColor(.secondary)
                     }
                 } header: {
-                    Text("Theme")
+                    Text("settings.theme")
                 } footer: {
-                    Text("Choose your preferred appearance or let it follow your system settings.")
+                    Text("settings.theme.footer")
                         .font(.caption)
                 }
                     Section {
                         HStack {
-                            Picker("Story Length", selection: $settings.defaultStoryLength) {
-                                Text("5 minutes").tag(5)
-                                Text("7 minutes").tag(7)
-                                Text("10 minutes").tag(10)
+                            Picker(String(localized: "settings.storyLength"), selection: $settings.defaultStoryLength) {
+                                Text("settings.storyLength.5").tag(5)
+                                Text("settings.storyLength.7").tag(7)
+                                Text("settings.storyLength.10").tag(10)
                             }
                             .pickerStyle(.menu)
                         }
-                        
+
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Picker("Voice", selection: $settings.preferredVoice) {
+                                Picker(String(localized: "settings.voice"), selection: $settings.preferredVoice) {
                                     ForEach(AppSettings.availableVoices, id: \.id) { voice in
                                         Text(voice.name).tag(voice.id)
                                     }
                                 }
                                 .pickerStyle(.menu)
                             }
-                            
+
                             if let selectedVoice = AppSettings.availableVoices.first(where: { $0.id == settings.preferredVoice }) {
                                 Text(selectedVoice.description)
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
                         }
-                        
+
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Picker("Language", selection: $settings.preferredLanguage) {
-                                    ForEach(AppSettings.availableLanguages, id: \.id) { language in
+                                Picker(String(localized: "settings.language"), selection: $settings.preferredLanguage) {
+                                    ForEach(AppSettings.releasedLanguages, id: \.id) { language in
                                         HStack {
                                             Text(language.name)
                                             Text(language.nativeName)
@@ -522,39 +522,39 @@ struct SettingsView: View {
                                 }
                                 .pickerStyle(.menu)
                             }
-                            
-                            Text("Stories will be generated in the selected language")
+
+                            Text("settings.storyLanguage.footer")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
                     } header: {
-                        Text("Story Preferences")
+                        Text("settings.storyPreferences")
                     } footer: {
-                        Text("Voice selection uses OpenAI's enhanced text-to-speech with storytelling instructions. Coral and Fable are recommended for bedtime stories.")
+                        Text("settings.storyPreferences.footer")
                             .font(.caption)
                     }
-                    
+
                     Section {
-                        Toggle("Auto-Generate Illustrations", isOn: Binding(
+                        Toggle(String(localized: "settings.autoGenerateIllustrations"), isOn: Binding(
                             get: { UserDefaults.standard.bool(forKey: "autoGenerateIllustrations") },
                             set: { UserDefaults.standard.set($0, forKey: "autoGenerateIllustrations") }
                         ))
 
-                        Toggle("Continue on Illustration Failures", isOn: Binding(
+                        Toggle(String(localized: "settings.continueOnFailures"), isOn: Binding(
                             get: { UserDefaults.standard.bool(forKey: "allowIllustrationFailures") },
                             set: { UserDefaults.standard.set($0, forKey: "allowIllustrationFailures") }
                         ))
 
-                        Toggle("Show Error Details", isOn: Binding(
+                        Toggle(String(localized: "settings.showErrorDetails"), isOn: Binding(
                             get: { UserDefaults.standard.bool(forKey: "showIllustrationErrors") },
                             set: { UserDefaults.standard.set($0, forKey: "showIllustrationErrors") }
                         ))
 
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Text("Max Retry Attempts")
+                                Text("settings.maxRetryAttempts")
                                 Spacer()
-                                Picker("Retries", selection: Binding(
+                                Picker(String(localized: "settings.maxRetryAttempts"), selection: Binding(
                                     get: {
                                         let value = UserDefaults.standard.integer(forKey: "maxIllustrationRetries")
                                         return value > 0 ? value : 3
@@ -569,15 +569,15 @@ struct SettingsView: View {
                                 .pickerStyle(.menu)
                             }
 
-                            Text("Number of automatic retry attempts for failed illustrations")
+                            Text("settings.maxRetryAttempts.footer")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
 
                         HStack {
-                            Text("Max Illustrations Per Story")
+                            Text("settings.maxIllustrationsPerStory")
                             Spacer()
-                            Picker("Max", selection: Binding(
+                            Picker(String(localized: "settings.maxIllustrationsPerStory"), selection: Binding(
                                 get: {
                                     let value = UserDefaults.standard.integer(forKey: "maxIllustrationsPerStory")
                                     return value > 0 ? value : 6
@@ -592,9 +592,9 @@ struct SettingsView: View {
                             .pickerStyle(.menu)
                         }
                     } header: {
-                        Text("Illustrations")
+                        Text("settings.illustrations")
                     } footer: {
-                        Text("Illustrations enhance stories with AI-generated visuals. If generation fails, placeholders will be shown. You can retry failed illustrations later.")
+                        Text("settings.illustrations.footer")
                             .font(.caption)
                     }
 
@@ -661,56 +661,56 @@ struct SettingsView: View {
                     Button(action: { showingEraseConfirmation = true }) {
                         HStack {
                             Image(systemName: "exclamationmark.triangle.fill")
-                            Text("Erase All Data & Sign Out")
+                            Text("settings.eraseAllData")
                         }
                         .foregroundColor(.red)
                     }
                 } header: {
-                    Text("Advanced")
+                    Text("settings.advanced")
                 } footer: {
-                    Text("Erasing all data will permanently delete all heroes, stories, files, and sign you out. You will be redirected to the sign-up screen.")
+                    Text("settings.eraseAllData.footer")
                         .font(.caption)
                 }
-                
+
                 Section {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("About InfiniteStories")
+                        Text("settings.about.title")
                             .font(.headline)
-                        
-                        Text("Generate personalized bedtime stories for children using AI. Create heroes with unique traits and enjoy magical adventures every night.")
+
+                        Text("settings.about.description")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
-                        
+
                         HStack {
-                            Text("Version")
+                            Text("settings.version")
                             Spacer()
-                            Text("1.0.0")
+                            Text("1.0.1")
                                 .foregroundColor(.secondary)
                         }
                     }
                     .padding(.vertical, 8)
                 } header: {
-                    Text("App Info")
+                    Text("settings.appInfo")
                 }
             }
-            .navigationTitle("Settings")
+            .navigationTitle(String(localized: "settings.title"))
             .navigationBarTitleDisplayMode(.large)
             .glassNavigation()
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
+                    Button(String(localized: "common.done")) {
                         dismiss()
                     }
                     .fontWeight(.semibold)
                 }
             }
-            .confirmationDialog("Erase All Data?", isPresented: $showingEraseConfirmation, titleVisibility: .visible) {
-                Button("Erase Everything & Sign Out", role: .destructive) {
+            .confirmationDialog("settings.eraseAllData.confirm.title", isPresented: $showingEraseConfirmation, titleVisibility: .visible) {
+                Button("settings.eraseAllData.confirm.button", role: .destructive) {
                     eraseAllData()
                 }
-                Button("Cancel", role: .cancel) { }
+                Button("common.cancel", role: .cancel) { }
             } message: {
-                Text("This will permanently delete all heroes, stories, media files, clear your session, and redirect you to sign-up. This action cannot be undone.")
+                Text("settings.eraseAllData.confirm.message")
             }
         }
     }

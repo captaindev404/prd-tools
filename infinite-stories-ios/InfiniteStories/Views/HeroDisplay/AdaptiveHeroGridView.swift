@@ -236,27 +236,27 @@ struct ExpandedHeroCard: View {
                         StatPill(
                             icon: "book.closed.fill",
                             value: "\(heroStories.count)",
-                            label: "Stories"
+                            label: String(localized: "hero.stats.stories")
                         )
                         
                         StatPill(
                             icon: "clock.fill",
                             value: formatDuration(heroStories),
-                            label: "Total Time"
+                            label: String(localized: "hero.stats.totalTime")
                         )
-                        
+
                         StatPill(
                             icon: "star.fill",
                             value: "\(heroStories.filter { $0.isFavorite }.count)",
-                            label: "Favorites"
+                            label: String(localized: "hero.stats.favorites")
                         )
                     }
-                    
+
                     // Latest Story Preview (if exists)
                     if let latestStory = latestStory {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Text("Latest Story")
+                                Text(String(localized: "hero.stats.latestStory"))
                                     .font(.caption)
                                     .fontWeight(.semibold)
                                     .foregroundColor(.white.opacity(0.8))

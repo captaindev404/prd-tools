@@ -52,6 +52,12 @@ final class LocalizationManager: ObservableObject {
         }
     }
 
+    // MARK: - Released UI Languages (v1.0)
+
+    /// UI languages enabled for the current release.
+    /// Spanish (es), German (de), Italian (it) translations are preserved and can be enabled in future versions.
+    static let releasedUILanguages: [UILanguage] = [.system, .english, .french]
+
     /// Current language override setting
     @Published var currentLanguage: UILanguage {
         didSet {
@@ -65,7 +71,19 @@ final class LocalizationManager: ObservableObject {
 
     private init() {
         let savedValue = UserDefaults.standard.string(forKey: Self.languageOverrideKey) ?? UILanguage.system.rawValue
-        self.currentLanguage = UILanguage(rawValue: savedValue) ?? .system
+        let loadedLanguage = UILanguage(rawValue: savedValue) ?? .system
+
+        // Migrate users with non-released UI language preferences (e.g., Spanish, German, Italian)
+        // to System. This handles existing users who had selected languages that are
+        // now hidden in v1.0. Translations are preserved for future releases.
+        if !Self.releasedUILanguages.contains(loadedLanguage) {
+            self.currentLanguage = .system
+            UserDefaults.standard.set(UILanguage.system.rawValue, forKey: Self.languageOverrideKey)
+            UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+            UserDefaults.standard.synchronize()
+        } else {
+            self.currentLanguage = loadedLanguage
+        }
     }
 
     /// Apply language override at app launch

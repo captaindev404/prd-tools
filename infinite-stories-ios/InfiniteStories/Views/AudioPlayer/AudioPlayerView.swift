@@ -463,12 +463,12 @@ struct AudioPlayerView: View {
 
                                 // Speed Control
                                 Menu {
-                                    Button("0.5x") { viewModel.setPlaybackSpeed(0.5) }
-                                    Button("0.75x") { viewModel.setPlaybackSpeed(0.75) }
-                                    Button("1.0x") { viewModel.setPlaybackSpeed(1.0) }
-                                    Button("1.25x") { viewModel.setPlaybackSpeed(1.25) }
-                                    Button("1.5x") { viewModel.setPlaybackSpeed(1.5) }
-                                    Button("2.0x") { viewModel.setPlaybackSpeed(2.0) }
+                                    Button(String(localized: "audio.player.speed.0.5x")) { viewModel.setPlaybackSpeed(0.5) }
+                                    Button(String(localized: "audio.player.speed.0.75x")) { viewModel.setPlaybackSpeed(0.75) }
+                                    Button(String(localized: "audio.player.speed.1.0x")) { viewModel.setPlaybackSpeed(1.0) }
+                                    Button(String(localized: "audio.player.speed.1.25x")) { viewModel.setPlaybackSpeed(1.25) }
+                                    Button(String(localized: "audio.player.speed.1.5x")) { viewModel.setPlaybackSpeed(1.5) }
+                                    Button(String(localized: "audio.player.speed.2.0x")) { viewModel.setPlaybackSpeed(2.0) }
                                 } label: {
                                     HStack(spacing: 4) {
                                         Image(systemName: "speedometer")
@@ -836,12 +836,12 @@ struct AudioPlayerView: View {
                 // Secondary Controls
                 HStack(spacing: 12) {
                     Menu {
-                        Button("0.5x") { viewModel.setPlaybackSpeed(0.5) }
-                        Button("0.75x") { viewModel.setPlaybackSpeed(0.75) }
-                        Button("1.0x") { viewModel.setPlaybackSpeed(1.0) }
-                        Button("1.25x") { viewModel.setPlaybackSpeed(1.25) }
-                        Button("1.5x") { viewModel.setPlaybackSpeed(1.5) }
-                        Button("2.0x") { viewModel.setPlaybackSpeed(2.0) }
+                        Button(String(localized: "audio.player.speed.0.5x")) { viewModel.setPlaybackSpeed(0.5) }
+                        Button(String(localized: "audio.player.speed.0.75x")) { viewModel.setPlaybackSpeed(0.75) }
+                        Button(String(localized: "audio.player.speed.1.0x")) { viewModel.setPlaybackSpeed(1.0) }
+                        Button(String(localized: "audio.player.speed.1.25x")) { viewModel.setPlaybackSpeed(1.25) }
+                        Button(String(localized: "audio.player.speed.1.5x")) { viewModel.setPlaybackSpeed(1.5) }
+                        Button(String(localized: "audio.player.speed.2.0x")) { viewModel.setPlaybackSpeed(2.0) }
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "speedometer")
@@ -860,7 +860,7 @@ struct AudioPlayerView: View {
                     }) {
                         HStack(spacing: 4) {
                             Image(systemName: "stop.fill")
-                            Text("Stop")
+                            Text(String(localized: "audio.player.button.stop"))
                         }
                         .font(.caption)
                         .foregroundColor(.secondary)

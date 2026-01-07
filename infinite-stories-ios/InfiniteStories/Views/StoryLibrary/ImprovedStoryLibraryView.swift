@@ -671,12 +671,19 @@ struct MetadataItem: View {
 // MARK: - Supporting Types
 
 enum StoryFilter: String, CaseIterable {
-    case all = "All"
-    case new = "New"
-    case favorites = "Favorites"
-    case recent = "Recent"
-    
-    var title: String { rawValue }
+    case all = "all"
+    case new = "new"
+    case favorites = "favorites"
+    case recent = "recent"
+
+    var title: String {
+        switch self {
+        case .all: return String(localized: "library.filter.all")
+        case .new: return String(localized: "library.filter.new")
+        case .favorites: return String(localized: "library.filter.favorites")
+        case .recent: return String(localized: "library.filter.recent")
+        }
+    }
 }
 
 // MARK: - Load More View

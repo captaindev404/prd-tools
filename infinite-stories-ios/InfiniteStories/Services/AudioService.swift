@@ -108,7 +108,7 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol {
             try AVAudioSession.sharedInstance().setCategory(
                 .playback,
                 mode: .spokenAudio,
-                options: [.allowAirPlay, .allowBluetoothA2DP, .allowBluetooth]
+                options: [.allowAirPlay, .allowBluetoothA2DP]
             )
             try AVAudioSession.sharedInstance().setActive(true)
             UIApplication.shared.beginReceivingRemoteControlEvents()
