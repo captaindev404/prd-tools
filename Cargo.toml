@@ -32,6 +32,13 @@ notify = "6.1"
 ctrlc = "3.4"
 git2 = "0.18"
 
+# Vector/embedding support
+fastembed = "4"           # Local embeddings (BAAI/bge-small-en-v1.5)
+walkdir = "2.5"           # Directory traversal for indexing
+ignore = "0.4"            # .gitignore-aware file walking
+sha2 = "0.10"             # Content hashing for change detection
+byteorder = "1.5"         # Binary encoding for vectors
+
 [dev-dependencies]
 tempfile = "3.8"
 

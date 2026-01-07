@@ -7,6 +7,7 @@ pub mod notifications;
 pub mod resolver;
 pub mod suggestions;
 pub mod sync;
+pub mod vectors;
 pub mod visualization;
 pub mod watcher;
 
@@ -15,6 +16,10 @@ pub use db::{
     TaskStatus,
 };
 pub use suggestions::{AgentMatcher, AgentRecommendation};
+pub use vectors::{
+    ContentIndexer, ContentType, Embedder, EmbeddingRecord, IndexStats, SearchResult, VectorSearch,
+    VectorStore, EMBEDDING_DIM,
+};
 
 use anyhow::Result;
 

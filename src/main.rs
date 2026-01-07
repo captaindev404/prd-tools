@@ -4,6 +4,7 @@ mod db_extensions;
 mod migrations;
 mod resolver;
 mod sync;
+mod vectors;
 
 use anyhow::Result;
 use chrono::{DateTime, NaiveDate, Utc};
@@ -384,6 +385,71 @@ enum Commands {
         /// Run in daemon mode (internal flag)
         #[arg(long, hide = true)]
         daemon_mode: bool,
+    },
+
+    /// Semantic vector search and indexing
+    #[command(alias = "vec")]
+    Vector {
+        #[command(subcommand)]
+        action: VectorCommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum VectorCommands {
+    /// Index content for semantic search
+    Index {
+        /// What to index: tasks, code, docs, all
+        #[arg(default_value = "all")]
+        content: String,
+        /// Directory to index (for code/docs)
+        #[arg(short, long)]
+        path: Option<PathBuf>,
+        /// File patterns to include (e.g., "*.rs", "*.ts")
+        #[arg(short = 'i', long = "include")]
+        patterns: Vec<String>,
+        /// Force re-index everything
+        #[arg(long)]
+        force: bool,
+    },
+
+    /// Semantic search across indexed content
+    Search {
+        /// Search query
+        query: String,
+        /// Filter by type: tasks, code, docs
+        #[arg(short, long)]
+        r#type: Option<String>,
+        /// Number of results
+        #[arg(short, long, default_value = "10")]
+        limit: usize,
+        /// Minimum similarity threshold (0.0-1.0)
+        #[arg(long, default_value = "0.5")]
+        threshold: f32,
+    },
+
+    /// Find similar content to a task
+    Similar {
+        /// Task ID to find similar content for
+        task_id: String,
+        /// Include code matches
+        #[arg(long)]
+        code: bool,
+        /// Include doc matches
+        #[arg(long)]
+        docs: bool,
+        /// Number of results
+        #[arg(short, long, default_value = "5")]
+        limit: usize,
+    },
+
+    /// Show indexing statistics
+    Stats,
+
+    /// Clear all vector indexes
+    Clear {
+        /// Type to clear: tasks, code, docs, all
+        content: Option<String>,
     },
 }
 
@@ -2016,6 +2082,367 @@ fn main() -> Result<()> {
                 }
                 HooksSubcommand::Disable { hook_name } => {
                     hooks::disable_hook(&hook_name)?;
+                }
+            }
+        }
+
+        Commands::Vector { action } => {
+            use vectors::{ContentIndexer, ContentType, Embedder, VectorSearch, VectorStore};
+
+            // Ensure vector schema exists (apply migration 008 inline)
+            let conn = db.get_connection();
+            conn.execute_batch(
+                r#"
+                CREATE TABLE IF NOT EXISTS embeddings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    content_type TEXT NOT NULL,
+                    content_id TEXT NOT NULL,
+                    chunk_index INTEGER DEFAULT 0,
+                    content_preview TEXT,
+                    content_hash TEXT NOT NULL,
+                    embedding BLOB NOT NULL,
+                    metadata TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(content_type, content_id, chunk_index)
+                );
+                CREATE INDEX IF NOT EXISTS idx_embeddings_type ON embeddings(content_type);
+                CREATE INDEX IF NOT EXISTS idx_embeddings_content_id ON embeddings(content_id);
+                CREATE INDEX IF NOT EXISTS idx_embeddings_hash ON embeddings(content_hash);
+                CREATE TABLE IF NOT EXISTS vector_stats (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    content_type TEXT NOT NULL UNIQUE,
+                    total_items INTEGER DEFAULT 0,
+                    total_chunks INTEGER DEFAULT 0,
+                    last_indexed_at TEXT,
+                    index_duration_ms INTEGER
+                );
+                INSERT OR IGNORE INTO vector_stats (content_type, total_items, total_chunks) VALUES ('task', 0, 0);
+                INSERT OR IGNORE INTO vector_stats (content_type, total_items, total_chunks) VALUES ('code', 0, 0);
+                INSERT OR IGNORE INTO vector_stats (content_type, total_items, total_chunks) VALUES ('doc', 0, 0);
+                "#,
+            )?;
+
+            match action {
+                VectorCommands::Index {
+                    content,
+                    path,
+                    patterns,
+                    force,
+                } => {
+                    let mut embedder = Embedder::new();
+
+                    println!(
+                        "{} Loading embedding model (first run may download ~100MB)...",
+                        "⏳".yellow()
+                    );
+
+                    let conn = db.get_connection();
+                    let mut indexer = ContentIndexer::new(&mut embedder, conn);
+
+                    let content_lower = content.to_lowercase();
+                    let mut total_items = 0;
+                    let mut total_chunks = 0;
+                    let mut total_errors = 0;
+
+                    if content_lower == "all" || content_lower == "tasks" {
+                        println!("{} Indexing tasks...", "📋".cyan());
+                        let stats = indexer.index_tasks(force)?;
+                        println!(
+                            "  {} {} tasks indexed, {} skipped, {} chunks",
+                            "✓".green(),
+                            stats.items_indexed,
+                            stats.items_skipped,
+                            stats.chunks_created
+                        );
+                        total_items += stats.items_indexed;
+                        total_chunks += stats.chunks_created;
+                        total_errors += stats.errors;
+                    }
+
+                    if content_lower == "all" || content_lower == "code" {
+                        let code_path = path.clone().unwrap_or_else(|| PathBuf::from("."));
+                        println!(
+                            "{} Indexing code in {}...",
+                            "💻".cyan(),
+                            code_path.display()
+                        );
+                        let stats =
+                            indexer.index_directory(&code_path, ContentType::Code, &patterns, force)?;
+                        println!(
+                            "  {} {} files indexed, {} skipped, {} chunks",
+                            "✓".green(),
+                            stats.items_indexed,
+                            stats.items_skipped,
+                            stats.chunks_created
+                        );
+                        total_items += stats.items_indexed;
+                        total_chunks += stats.chunks_created;
+                        total_errors += stats.errors;
+                    }
+
+                    if content_lower == "all" || content_lower == "docs" {
+                        let docs_path = path.unwrap_or_else(|| PathBuf::from("."));
+                        println!(
+                            "{} Indexing docs in {}...",
+                            "📄".cyan(),
+                            docs_path.display()
+                        );
+                        let stats =
+                            indexer.index_directory(&docs_path, ContentType::Doc, &patterns, force)?;
+                        println!(
+                            "  {} {} files indexed, {} skipped, {} chunks",
+                            "✓".green(),
+                            stats.items_indexed,
+                            stats.items_skipped,
+                            stats.chunks_created
+                        );
+                        total_items += stats.items_indexed;
+                        total_chunks += stats.chunks_created;
+                        total_errors += stats.errors;
+                    }
+
+                    println!("\n{}", "Indexing complete!".green().bold());
+                    println!(
+                        "Total: {} items, {} chunks{}",
+                        total_items.to_string().cyan().bold(),
+                        total_chunks.to_string().cyan().bold(),
+                        if total_errors > 0 {
+                            format!(", {} errors", total_errors.to_string().red())
+                        } else {
+                            String::new()
+                        }
+                    );
+                }
+
+                VectorCommands::Search {
+                    query,
+                    r#type,
+                    limit,
+                    threshold,
+                } => {
+                    let mut embedder = Embedder::new();
+                    let conn = db.get_connection();
+
+                    let content_type = r#type.as_ref().and_then(|t| ContentType::from_str(t));
+
+                    println!(
+                        "{} Searching for: \"{}\"",
+                        "🔍".cyan(),
+                        query.bold()
+                    );
+
+                    let results = VectorSearch::search_text(
+                        conn,
+                        &mut embedder,
+                        &query,
+                        content_type,
+                        limit,
+                        threshold,
+                    )?;
+
+                    if results.is_empty() {
+                        println!("{}", "No results found.".yellow());
+                        return Ok(());
+                    }
+
+                    println!("\n{} results:\n", results.len().to_string().cyan().bold());
+
+                    for result in results {
+                        let type_icon = match result.record.content_type {
+                            ContentType::Task => "📋",
+                            ContentType::Code => "💻",
+                            ContentType::Doc => "📄",
+                        };
+
+                        let similarity_pct = (result.similarity * 100.0) as u32;
+                        let similarity_str = format!("{}%", similarity_pct);
+                        let similarity_colored = if similarity_pct >= 80 {
+                            similarity_str.green().bold()
+                        } else if similarity_pct >= 60 {
+                            similarity_str.yellow()
+                        } else {
+                            similarity_str.dimmed()
+                        };
+
+                        println!(
+                            "{}. {} {} [{}] {}",
+                            result.rank,
+                            type_icon,
+                            result.record.content_id.cyan(),
+                            similarity_colored,
+                            result.record.content_type
+                        );
+
+                        if let Some(preview) = &result.record.content_preview {
+                            let preview_trimmed = if preview.len() > 80 {
+                                format!("{}...", &preview[..77])
+                            } else {
+                                preview.clone()
+                            };
+                            println!("   {}", preview_trimmed.dimmed());
+                        }
+                        println!();
+                    }
+                }
+
+                VectorCommands::Similar {
+                    task_id,
+                    code,
+                    docs,
+                    limit,
+                } => {
+                    let conn = db.get_connection();
+
+                    // Resolve task ID
+                    let task_uuid = resolve_task_id(conn, &task_id)?;
+                    let task = db.get_task(&task_uuid)?;
+                    let task = task.ok_or_else(|| anyhow::anyhow!("Task not found"))?;
+
+                    let display_id = task
+                        .display_id
+                        .map(|id| format!("#{}", id))
+                        .unwrap_or_else(|| task_id.clone());
+
+                    println!(
+                        "{} Finding content similar to task {} ({})",
+                        "🔍".cyan(),
+                        display_id.cyan().bold(),
+                        task.title
+                    );
+
+                    // Determine which types to search
+                    let search_types = if code || docs {
+                        let mut types = vec![];
+                        if code {
+                            types.push(ContentType::Code);
+                        }
+                        if docs {
+                            types.push(ContentType::Doc);
+                        }
+                        // Always include similar tasks
+                        types.push(ContentType::Task);
+                        Some(types)
+                    } else {
+                        None // Search all
+                    };
+
+                    let results = VectorSearch::find_similar(
+                        conn,
+                        ContentType::Task,
+                        &display_id,
+                        search_types,
+                        limit,
+                        0.3, // Lower threshold for similar search
+                    )?;
+
+                    if results.is_empty() {
+                        println!("{}", "No similar content found. Try indexing first with: prd vector index".yellow());
+                        return Ok(());
+                    }
+
+                    println!("\n{} similar items:\n", results.len().to_string().cyan().bold());
+
+                    for result in results {
+                        let type_icon = match result.record.content_type {
+                            ContentType::Task => "📋",
+                            ContentType::Code => "💻",
+                            ContentType::Doc => "📄",
+                        };
+
+                        let similarity_pct = (result.similarity * 100.0) as u32;
+                        let similarity_str = format!("{}%", similarity_pct);
+                        let similarity_colored = if similarity_pct >= 70 {
+                            similarity_str.green().bold()
+                        } else if similarity_pct >= 50 {
+                            similarity_str.yellow()
+                        } else {
+                            similarity_str.dimmed()
+                        };
+
+                        println!(
+                            "{}. {} {} [{}]",
+                            result.rank,
+                            type_icon,
+                            result.record.content_id.cyan(),
+                            similarity_colored
+                        );
+
+                        if let Some(preview) = &result.record.content_preview {
+                            let preview_trimmed = if preview.len() > 80 {
+                                format!("{}...", &preview[..77])
+                            } else {
+                                preview.clone()
+                            };
+                            println!("   {}", preview_trimmed.dimmed());
+                        }
+                        println!();
+                    }
+                }
+
+                VectorCommands::Stats => {
+                    let conn = db.get_connection();
+                    let stats = VectorStore::get_stats(conn)?;
+
+                    println!("\n{}", "Vector Index Statistics".bold().underline());
+                    println!();
+
+                    for stat in stats {
+                        let type_icon = match stat.content_type {
+                            ContentType::Task => "📋",
+                            ContentType::Code => "💻",
+                            ContentType::Doc => "📄",
+                        };
+
+                        println!(
+                            "{} {}: {} items, {} chunks",
+                            type_icon,
+                            stat.content_type.to_string().cyan().bold(),
+                            stat.total_items,
+                            stat.total_chunks
+                        );
+
+                        if let Some(last_indexed) = stat.last_indexed_at {
+                            println!(
+                                "   Last indexed: {}",
+                                last_indexed.format("%Y-%m-%d %H:%M:%S").to_string().dimmed()
+                            );
+                        }
+                        if let Some(duration) = stat.index_duration_ms {
+                            println!("   Duration: {}ms", duration);
+                        }
+                        println!();
+                    }
+                }
+
+                VectorCommands::Clear { content } => {
+                    let conn = db.get_connection();
+
+                    let content_type = content.as_ref().and_then(|c| ContentType::from_str(c));
+
+                    match content_type {
+                        Some(ct) => {
+                            let deleted = VectorStore::delete_all_by_type(conn, ct)?;
+                            println!(
+                                "{} Cleared {} embeddings from {} index",
+                                "✓".green(),
+                                deleted,
+                                ct
+                            );
+                        }
+                        None => {
+                            // Clear all
+                            let mut total = 0;
+                            for ct in [ContentType::Task, ContentType::Code, ContentType::Doc] {
+                                total += VectorStore::delete_all_by_type(conn, ct)?;
+                            }
+                            println!(
+                                "{} Cleared {} embeddings from all indexes",
+                                "✓".green(),
+                                total
+                            );
+                        }
+                    }
                 }
             }
         }
